@@ -80,9 +80,10 @@ function auktionEndtime($text) {
 
 function ueberbotenStatus($text) {
 	//True meldet, dass überboten wurde.
-    $bidFound = ereg("bid: [0-9]+\.?[0-9]+",$text,$meineGebote);
+    $bidFound = preg_match_all("/bid: [0-9]+\.?[0-9]*/",$text,$meineGebote,PREG_PATTERN_ORDER);
+
     $bidMinimum = ereg("Bid price less than minimum bid price",$text);
-    if (($bidFound != false && substr($meineGebote[count($meineGebote)-1],5) - getHighestBid($text) <= 0) || $bidMinimum != false) {
+    if (($bidFound != 0 && substr($meineGebote[0][count($meineGebote[0])-1],5) - getHighestBid($text) <= 0) || $bidMinimum != false) {
 		return(true);
     } else {
 		return(false);
@@ -141,7 +142,7 @@ function killSniper($artnr,$db) {
 //	printf("Sniperprozess mit PID ".$snipe->pid."beendet.");
 	    exec("kill -15 ".getEsniperPid($snipe->pid));
     }
-    exec("rm ".TMP_FOLDER."/".$artnr.".*");
+    exec("rm \"".TMP_FOLDER."/".$artnr.".*\"");
 }
 
 function getPids() {
@@ -268,17 +269,19 @@ function collectGarbage($db) {
     }
 
 	//Logs löschen, von Snipes, welche nicht in der Datenbank sind.
-    $sql = "SELECT artnr FROM snipe";
-    $snipeArtnr = $db->get_col($sql);
     $dateien = fileList(TMP_FOLDER);
     if (!empty($dateien)) {
 	    foreach($dateien as $datei) {
-			if (!in_Array(substr($datei,0,10),$snipeArtnr)) {
-			    exec("rm ".TMP_FOLDER."/".$datei);
+			$sql = "SELECT artnr FROM snipe WHERE artnr = \"".substr($datei,0,10)."\"";
+    		$snipeArtnr = $db->get_var($sql);
+			if (empty($snipeArtnr)) {
+			    exec("rm \"".TMP_FOLDER."/".$datei."\"");
 			}
 	    }
     }
 
+	$sql = "SELECT artnr FROM snipe";
+	$snipeArtnr = $db->get_col($sql);
     if (!empty($snipeArtnr)) {
     	foreach($snipeArtnr as $artnr) {
 			statusPruefen($artnr,$db);
