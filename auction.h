@@ -31,9 +31,9 @@
 #include "esniper.h"
 
 extern int getInfo(auctionInfo *aip, int quantity, const char *user);
-extern int watch(auctionInfo *aip, option_t *opts);
-extern int preBid(auctionInfo *aip, option_t *opts);
-extern int bid(auctionInfo *aip, option_t *opts);
+extern int watch(auctionInfo *aip);
+extern int preBid(auctionInfo *aip);
+extern int bid(auctionInfo *aip);
 
 #if DEBUG
 /* secret option */

@@ -37,8 +37,8 @@
 #include "options.h"
 #include "util.h"
 
-static const char version[]="esniper version 2.6.1";
-static const char blurb[]="Please visit http://esniper.sf.net/ for updates and bug reports.";
+static const char version[] = "esniper version 2.7.0";
+static const char blurb[] = "Please visit http://esniper.sf.net/ for updates and bug reports.";
 
 #include <errno.h>
 #include <signal.h>
@@ -57,6 +57,19 @@ static const char blurb[]="Please visit http://esniper.sf.net/ for updates and b
 #       include <unistd.h>
 #endif
 
+/* minimum bid time, in seconds before end of auction */
+#define MIN_BIDTIME 5
+/* default bid time */
+#define DEFAULT_BIDTIME 10
+
+/*
+ * Temporarily changed default to ebay.ca, due to 08/23/2004 changes
+ * at ebay.com.
+ */
+#define DEFAULT_HISTORY_HOST "offer.ebay.ca"
+#define DEFAULT_PREBID_HOST "offer.ebay.com"
+#define DEFAULT_BID_HOST "offer.ebay.com"
+
 option_t options = {
 	NULL,             /* user */
 	NULL,             /* password */
@@ -72,12 +85,12 @@ option_t options = {
 	0,                /* password encrypted? */
 	{ NULL, 0 },      /* proxy host & port */
 	NULL,             /* log directory */
+	NULL,             /* historyHost */
+	NULL,             /* prebidHost */
+	NULL,             /* bidHost */
 };
 
-const char DEFAULT_CONF_FILE[] = ".esniper";
-const char HOSTNAME[] = "cgi.ebay.com";
-const char BID_HOSTNAME[] = "offer.ebay.com";
-
+static const char DEFAULT_CONF_FILE[] = ".esniper";
 static const char *progname = NULL;
 
 /* support functions */
@@ -553,6 +566,9 @@ static const char usageConfig1[] =
  "    password =\n"
  "    proxy = <http_proxy environment variable, format is http://host:port/>\n"
  "    username =\n"
+ "    historyHost = %s\n"
+ "    prebidHost = %s\n"
+ "    bidHost = %s\n"
  "  Numeric: (seconds may also be \"now\")\n"
  "    quantity = 1\n"
  "    seconds = %d\n"
@@ -576,7 +592,7 @@ usage(int helplevel)
 		fprintf(stderr, usageLong2, DEFAULT_BIDTIME);
 	}
 	if (helplevel & USAGE_CONFIG) {
-		fprintf(stderr, usageConfig1, DEFAULT_BIDTIME);
+		fprintf(stderr, usageConfig1, options.historyHost, options.prebidHost, options.bidHost, DEFAULT_BIDTIME);
 		fprintf(stderr, usageConfig2);
 	}
 	if (helplevel == USAGE_SUMMARY)
@@ -614,6 +630,9 @@ main(int argc, char *argv[])
    {"debug",    "d", (void*)&options.debug,        OPTION_BOOL,    &CheckDebug},
    {"batch",    "b", (void*)&options.batch,        OPTION_BOOL,     NULL},
    {"logdir",   "l", (void*)&options.logdir,       OPTION_STRING,   NULL},
+   {"historyHost",NULL,(void*)&options.historyHost,OPTION_STRING,   NULL},
+   {"prebidHost",NULL,(void*)&options.prebidHost,  OPTION_STRING,   NULL},
+   {"bidHost", NULL, (void*)&options.bidHost,      OPTION_STRING,   NULL},
    {NULL,       "?", (void*)&options.usage,        OPTION_BOOL,     NULL},
    {NULL,       "h", (void*)&options.usage,        OPTION_STRING,   &SetLongHelp},
    {NULL,       "H", (void*)&options.usage,        OPTION_STRING,   &SetConfigHelp},
@@ -629,6 +648,11 @@ main(int argc, char *argv[])
 
 	atexit(cleanup);
 	progname = basename(argv[0]);
+
+	/* some defaults... */
+	options.historyHost = myStrdup(DEFAULT_HISTORY_HOST);
+	options.prebidHost = myStrdup(DEFAULT_PREBID_HOST);
+	options.bidHost = myStrdup(DEFAULT_BID_HOST);
 
 	/* environment variables */
 	/* TODO - obey no_proxy */
@@ -895,12 +919,12 @@ main(int argc, char *argv[])
 
 		/* 0 means "now" */
 		if (options.bidtime == 0) {
-			if (preBid(auctions[i], &options)) {
+			if (preBid(auctions[i])) {
 				printAuctionError(auctions[i], stderr);
 				continue;
 			}
 		} else {
-			if (watch(auctions[i], &options)) {
+			if (watch(auctions[i])) {
 				printAuctionError(auctions[i], stderr);
 				continue;
 			}
@@ -927,7 +951,7 @@ main(int argc, char *argv[])
 			options.quantity));
 
 		for (retryCount = 0; retryCount < 3; retryCount++) {
-			bidRet = bid(auctions[i], &options);
+			bidRet = bid(auctions[i]);
 			if (!bidRet || auctions[i]->auctionError != ae_connect)
 				break;
 			printLog(stderr, "Auction %s: retrying...\n",

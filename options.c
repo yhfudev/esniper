@@ -172,14 +172,14 @@ parseConfigValue(const char *name, const char *value,
 	const char *tablename;
 	int ret = 0;
 
-	if (strcmp(name, "password"))
+	if (strcmp(name, "password")) {
 		log(("parsing name %s value %s\n", name, nullStr(value)));
+	}
+
 	/* lookup name in table */
 	for (tableptr=table; tableptr->value; tableptr++) {
-		if (filename)
-			tablename = tableptr->configname;
-		else
-			tablename = tableptr->optionname;
+		tablename = filename ?
+				tableptr->configname : tableptr->optionname;
 		if (tablename && !strcmp(name, tablename))
 			break;
 	}

@@ -41,7 +41,7 @@
 #	include <unistd.h>
 #endif
 
-static int match(FILE *fp, const char *str, option_t *opts);
+static int match(FILE *fp, const char *str);
 static const char *gettag(FILE *fp);
 static char *getnontag(FILE *fp);
 static long getseconds(char *timestr);
@@ -55,7 +55,7 @@ static int parseBid(FILE *fp, auctionInfo *aip);
  * returns 0 on success, -1 on failure
  */
 static int
-match(FILE *fp, const char *str, option_t *opts)
+match(FILE *fp, const char *str)
 {
 	const char *cursor;
 	int c;
@@ -64,18 +64,18 @@ match(FILE *fp, const char *str, option_t *opts)
 
 	cursor = str;
 	while ((c = getc(fp)) != EOF) {
-		if (opts->debug)
+		if (options.debug)
 			logChar(c);
 		if ((char)c == *cursor) {
 			if (*++cursor == '\0') {
-				if (opts->debug)
+				if (options.debug)
 					logChar(EOF);
 				return 0;
 			}
 		} else if (c != '\n' && c != '\r')
 			cursor = str;
 	}
-	if (opts->debug)
+	if (options.debug)
 		logChar(EOF);
 	return -1;
 }
@@ -731,7 +731,7 @@ getInfo(auctionInfo *aip, int quantity, const char *user)
 	log(("\n\n*** getInfo auction %s price %s user %s\n", aip->auction, aip->bidPriceStr, user));
 
 	if (!aip->host)
-		aip->host = myStrdup(HOSTNAME);
+		aip->host = myStrdup(options.historyHost);
 	if (!aip->query)
 		aip->query = myStrdup2(GETINFO, aip->auction);
 	if (!(fp = httpGet(aip, aip->host, aip->query, NULL, 1)))
@@ -755,12 +755,12 @@ static const char PRE_BID_DATA[] = "MfcISAPICommand=MakeBid&item=%s&maxbid=%s&qu
  * returns 0 on success, 1 on failure.
  */
 int
-preBid(auctionInfo *aip, option_t *opts)
+preBid(auctionInfo *aip)
 {
 	FILE *fp;
 	size_t dataLen;
-	int quantity = aip->quantity < opts->quantity ?
-				aip->quantity : opts->quantity;
+	int quantity = aip->quantity < options.quantity ?
+				aip->quantity : options.quantity;
 	char quantityStr[12];	/* must hold an int */
 	char *data;
 	int ret = 0;
@@ -770,12 +770,12 @@ preBid(auctionInfo *aip, option_t *opts)
 	data = (char *)myMalloc(dataLen);
 	sprintf(data, PRE_BID_DATA, aip->auction, aip->bidPriceStr, quantityStr);
 	log(("\n\n*** preBid(): data is %s\n", data));
-	fp = httpPost(aip, BID_HOSTNAME, PRE_BID_URL, "", data, NULL, 0);
+	fp = httpPost(aip, options.prebidHost, PRE_BID_URL, "", data, NULL, 0);
 	free(data);
 	if (!fp)
 		return 1;
 
-	if (match(fp, "<input type=\"hidden\" name=\"key\" value=\"", opts))
+	if (match(fp, "<input type=\"hidden\" name=\"key\" value=\""))
 		ret = auctionError(aip, ae_bidkey, NULL);
 	else {
 		char *cp, *tmpkey;
@@ -863,13 +863,13 @@ static const char BID_DATA[] = "MfcISAPICommand=AcceptBid&item=%s&key=%s&maxbid=
  * 1: error
  */
 int
-bid(auctionInfo *aip, option_t *opts)
+bid(auctionInfo *aip)
 {
 	FILE *fp;
 	size_t dataLen, passwordLen;
 	char *data, *logData, *tmpUsername, *tmpPassword, *password;
-	int quantity = aip->quantity < opts->quantity ?
-				aip->quantity : opts->quantity;
+	int quantity = aip->quantity < options.quantity ?
+				aip->quantity : options.quantity;
 	char quantityStr[12];	/* must hold an int */
 	int ret;
 
@@ -878,23 +878,23 @@ bid(auctionInfo *aip, option_t *opts)
 	/* create data */
 	password = getPassword();
 	passwordLen = strlen(password);
-	dataLen = sizeof(BID_DATA) + strlen(aip->auction) + strlen(aip->key) + strlen(aip->bidPriceStr) + strlen(quantityStr) + strlen(opts->username) + passwordLen - 12;
+	dataLen = sizeof(BID_DATA) + strlen(aip->auction) + strlen(aip->key) + strlen(aip->bidPriceStr) + strlen(quantityStr) + strlen(options.username) + passwordLen - 12;
 	data = (char *)myMalloc(dataLen);
-	sprintf(data, BID_DATA, aip->auction, aip->key, aip->bidPriceStr, quantityStr, opts->username, password);
+	sprintf(data, BID_DATA, aip->auction, aip->key, aip->bidPriceStr, quantityStr, options.username, password);
 	freePassword(password);
 
 	logData = (char *)myMalloc(dataLen);
-	tmpUsername = stars(strlen(opts->username));
+	tmpUsername = stars(strlen(options.username));
 	tmpPassword = stars(passwordLen);
 	sprintf(logData, BID_DATA, aip->auction, aip->key, aip->bidPriceStr, quantityStr, tmpUsername, tmpPassword);
 	free(tmpUsername);
 	free(tmpPassword);
 
-	if (!opts->bid) {
+	if (!options.bid) {
 		printLog(stdout, "Bidding disabled\n");
 		log(("\n\nbid(): query data:\n%s\n", logData));
 		ret = aip->bidResult = 0;
-	} else if (!(fp = httpPost(aip, BID_HOSTNAME, BID_URL, "", data, logData, 0)))
+	} else if (!(fp = httpPost(aip, options.bidHost, BID_URL, "", data, logData, 0)))
 		ret = 1;
 	else {
 		ret = parseBid(fp, aip);
@@ -913,17 +913,17 @@ bid(auctionInfo *aip, option_t *opts)
  *	1 Error
  */
 int
-watch(auctionInfo *aip, option_t *opts)
+watch(auctionInfo *aip)
 {
 	int errorCount = 0;
 	long remain = LONG_MIN;
 	unsigned int sleepTime = 0;
 
-	log(("*** WATCHING auction %s price-each %s quantity %d bidtime %ld\n", aip->auction, aip->bidPriceStr, opts->quantity, opts->bidtime));
+	log(("*** WATCHING auction %s price-each %s quantity %d bidtime %ld\n", aip->auction, aip->bidPriceStr, options.quantity, options.bidtime));
 
 	for (;;) {
 		time_t start = time(NULL);
-		int ret = getInfo(aip, opts->quantity, opts->username);
+		int ret = getInfo(aip, options.quantity, options.username);
 		time_t latency = time(NULL) - start;
 
 		if (ret) {
@@ -950,10 +950,10 @@ watch(auctionInfo *aip, option_t *opts)
 				int j;
 
 				for (j = 0; ret && j < 3 && aip->auctionError == ae_notitle; ++j)
-					ret = getInfo(aip, opts->quantity,
-						      opts->username);
+					ret = getInfo(aip, options.quantity,
+						      options.username);
 				if (!ret)
-					remain = aip->remain - opts->bidtime - (latency * 2);
+					remain = aip->remain - options.bidtime - (latency * 2);
 				else
 					return 1;
 			} else {
@@ -967,7 +967,7 @@ watch(auctionInfo *aip, option_t *opts)
 		} else if (!isValidBidPrice(aip))
 			return auctionError(aip, ae_bidprice, NULL);
 		else
-			remain = aip->remain - opts->bidtime - (latency * 2);
+			remain = aip->remain - options.bidtime - (latency * 2);
 
 		/* it's time!!! */
 		if (remain < 0)
@@ -983,7 +983,7 @@ watch(auctionInfo *aip, option_t *opts)
 
 			printf("\n");
 			for (i = 0; i < 5; ++i) {
-				if (!preBid(aip, opts))
+				if (!preBid(aip))
 					break;
 			}
 			if (i == 5) {

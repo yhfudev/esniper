@@ -30,15 +30,6 @@
 #include "options.h"
 #include "util.h"
 
-/* minimum bid time, in seconds before end of auction */
-#define MIN_BIDTIME 5
-/* default bid time */
-#define DEFAULT_BIDTIME 10
-
-extern const char DEFAULT_CONF_FILE[];
-extern const char HOSTNAME[];
-extern const char BID_HOSTNAME[];
-
 /* this structure holds all values from command line or config entries */
 typedef struct {
 	char *username;
@@ -55,6 +46,9 @@ typedef struct {
 	int encrypted;
 	proxy_t proxy;
 	char *logdir;
+	char *historyHost;
+	char *prebidHost;
+	char *bidHost;
 } option_t;
 
 extern option_t options;
