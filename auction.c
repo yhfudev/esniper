@@ -602,7 +602,7 @@ parseAuction(FILE *fp, auctionInfo *aip, int quantity, const char *user)
 } /* parseAuction() */
 
 static const char QUERY_FMT[] =
-	"GET http://%s/%s HTTP/1.0\r\n"
+	"GET %s%s/%s HTTP/1.0\r\n"
 	"User-Agent: Mozilla/4.7 [en] (X11; U; Linux 2.2.12 i686)\r\n"
 	"Host: %s\r\n"
 	"Accept: text/*\r\n"
@@ -610,7 +610,6 @@ static const char QUERY_FMT[] =
 	"Accept-Charset: iso-8859-1,*,utf-8\r\n"
 	"Pragma: no-cache\r\n"
 	"Cache-Control: no-cache\r\n"
-	"Proxy-Connection: Keep-Alive\r\n"
 	"\r\n";
 static const char QUERY_CMD[] = "aw-cgi/eBayISAPI.dll?ViewBids&item=%s";
 static const char UNAVAILABLE[] = "unavailable/";
@@ -641,7 +640,10 @@ getInfo(auctionInfo *aip, int quantity, const char *user)
 		sprintf(aip->query, QUERY_CMD, aip->auction);
 	}
 
-	printLog(fp, QUERY_FMT, aip->host, aip->query, aip->host);
+	if (options.proxy.host)
+		printLog(fp, QUERY_FMT, "http://", aip->host, aip->query, aip->host);
+	else
+		printLog(fp, QUERY_FMT, "", "", aip->query, aip->host);
 	fflush(fp);
 
 	/*
@@ -704,9 +706,8 @@ getInfo(auctionInfo *aip, int quantity, const char *user)
 }
 
 static const char PRE_BID_FMT[] =
-	"POST http://%s/aw-cgi/eBayISAPI.dll HTTP/1.0\r\n"
+	"POST %s%s/aw-cgi/eBayISAPI.dll HTTP/1.0\r\n"
 	"Referer: http://%s/%s\r\n"
-	/*"Connection: Keep-Alive\r\n"*/
 	"User-Agent: Mozilla/4.7 [en] (X11; U; Linux 2.2.12 i686)\r\n"
 	"Host: %s\r\n"
 	"Accept: text/*\r\n"
@@ -714,11 +715,10 @@ static const char PRE_BID_FMT[] =
 	"Accept-Charset: iso-8859-1,*,utf-8\r\n"
 	"Pragma: no-cache\r\n"
 	"Cache-Control: no-cache\r\n"
-	"Proxy-Connection: Keep-Alive\r\n"
 	"Content-type: application/x-www-form-urlencoded\r\n"
-	"Content-length: %d\r\n";
+	"Content-length: %d\r\n\r\n";
 static const char PRE_BID_CMD[] =
-	"MfcISAPICommand=MakeBid&item=%s&maxbid=%s\r\n\r\n";
+	"MfcISAPICommand=MakeBid&item=%s&maxbid=%s\r\n";
 
 /*
  * Get key for bid
@@ -731,7 +731,7 @@ preBid(auctionInfo *aip)
 	FILE *fp;
 	char *tmpkey;
 	char *cp;
-	size_t cmdlen = sizeof(PRE_BID_CMD) + strlen(aip->auction) + strlen(aip->bidPriceStr) -9;
+	size_t cmdlen = sizeof(PRE_BID_CMD) + strlen(aip->auction) + strlen(aip->bidPriceStr) - 7;
 	int ret = 0;
 
 	log(("\n\n*** preBidAuction auction %s price %s\n", aip->auction, aip->bidPriceStr));
@@ -741,7 +741,10 @@ preBid(auctionInfo *aip)
 
 
 	log(("\n\nquery string:\n"));
-	printLog(fp, PRE_BID_FMT, HOSTNAME, aip->host, aip->query, HOSTNAME, cmdlen);
+	if (options.proxy.host)
+		printLog(fp, PRE_BID_FMT, "http://", HOSTNAME, aip->host, aip->query, HOSTNAME, cmdlen);
+	else
+		printLog(fp, PRE_BID_FMT, "", "", aip->host, aip->query, HOSTNAME, cmdlen);
 	printLog(fp, PRE_BID_CMD, aip->auction, aip->bidPriceStr);
 	fflush(fp);
 
@@ -777,9 +780,8 @@ preBid(auctionInfo *aip)
 }
 
 static const char BID_FMT[] =
-	"POST http://%s/aw-cgi/eBayISAPI.dll HTTP/1.0\r\n"
+	"POST %s%s/aw-cgi/eBayISAPI.dll HTTP/1.0\r\n"
 	"Referer: http://%s/aw-cgi/eBayISAPI.dll\r\n"
-	/*"Connection: Keep-Alive\r\n"*/
 	"User-Agent: Mozilla/4.7 [en] (X11; U; Linux 2.2.12 i686)\r\n"
 	"Host: %s\r\n"
 	"Accept: text/*\r\n"
@@ -787,11 +789,10 @@ static const char BID_FMT[] =
 	"Accept-Charset: iso-8859-1,*,utf-8\r\n"
 	"Pragma: no-cache\r\n"
 	"Cache-Control: no-cache\r\n"
-	"Proxy-Connection: Keep-Alive\r\n"
 	"Content-type: application/x-www-form-urlencoded\r\n"
-	"Content-length: %d\r\n";
+	"Content-length: %d\r\n\r\n";
 static const char BID_CMD[] =
-	"MfcISAPICommand=AcceptBid&item=%s&key=%s&maxbid=%s&quant=%s&userid=%s&pass=%s\r\n\r\n";
+	"MfcISAPICommand=AcceptBid&item=%s&key=%s&maxbid=%s&quant=%s&userid=%s&pass=%s\r\n";
 
 static const char CONGRATS[] = "Congratulations...";
 
@@ -818,8 +819,11 @@ bidSocket(FILE *fp, auctionInfo *aip, int quantity, const char *user, const char
 	log(("\n\nquery string:\n"));
 	cmdlen = sizeof(BID_CMD) + strlen(aip->auction) + strlen(aip->key) +
 		strlen(aip->bidPriceStr) + strlen(quantityStr) + strlen(user) +
-		strlen(password) - 17;
-	printLog(fp, BID_FMT, HOSTNAME, aip->host, HOSTNAME, cmdlen);
+		strlen(password) - 15;
+	if (options.proxy.host)
+		printLog(fp, BID_FMT, "http://", HOSTNAME, aip->host, HOSTNAME, cmdlen);
+	else
+		printLog(fp, BID_FMT, "", "", aip->host, HOSTNAME, cmdlen);
 
 	/* don't log password */
 	fprintf(fp, BID_CMD, aip->auction, aip->key, aip->bidPriceStr, quantityStr, user, password);
