@@ -31,11 +31,17 @@
 #include <stdarg.h>
 #include <stdio.h>
 
+typedef struct {
+	char *host;
+	int port;
+} proxy_t;
+
 extern FILE *logfile;
 
 extern void *myMalloc(size_t);
 extern void *myRealloc(void *buf, size_t size);
 extern char *myStrdup(const char *);
+extern char *myStrndup(const char *, size_t len);
 extern char *myStrdup2(const char *, const char *);
 extern char *myStrdup3(const char *, const char *, const char *);
 extern char *myStrdup4(const char *, const char *, const char *, const char *);
@@ -52,6 +58,7 @@ extern char *timestamp(void);
 extern int skipline(FILE *fp);
 extern char *prompt(const char *p, int noecho);
 extern int boolValue(const char *value);
+extern int parseProxy(const char *value, proxy_t *proxy);
 
 extern void clearPassword(void);
 extern void encryptPassword(void);

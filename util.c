@@ -78,11 +78,27 @@ char *
 myStrdup(const char *s)
 {
 	char *ret;
+	size_t len;
 
 	if (!s)
 		return NULL;
-	ret = myMalloc(strlen(s) + 1);
-	strcpy(ret, s);
+	len = strlen(s);
+	ret = myMalloc(len + 1);
+	memcpy(ret, s, len);
+	ret[len] = '\0';
+	return ret;
+}
+
+char *
+myStrndup(const char *s, size_t len)
+{
+	char *ret;
+
+	if (!s)
+		return NULL;
+	ret = myMalloc(len + 1);
+	memcpy(ret, s, len);
+	ret[len] = '\0';
 	return ret;
 }
 
@@ -340,6 +356,74 @@ boolValue(const char *value)
    }
    free(buf);
    return boolvalues[i] ? i % 2 : -1;
+}
+
+/*
+ * Converts string to Proxy host/port.  Returns 0 if parsed OK, 1 on error.
+ *
+ * Proxy can be of the following forms:
+ *
+ *	"http://host.at.some.domain:80/"
+ *	"http://host.at.some.domain/"
+ *	"host.at.some.domain:8080"
+ *	"host.at.some.domain"
+ *	""
+ *
+ * If the port is not specified, it is 80.  If the string is empty, proxy is
+ * disabled.
+ */
+int
+parseProxy(const char *value, proxy_t *proxy)
+{
+	const char *cp = value, *host;
+	int port = 80;	/* default */
+	size_t len;
+
+	if (!strncasecmp(cp, "http://", 7))
+		cp += 7;
+	len = strcspn(cp, ":/");
+	if (!len) {
+		free(proxy->host);
+		proxy->host = NULL;
+		return 0;
+	}
+	host = cp;
+	cp += len;
+	switch (*cp) {
+	case ':':
+		if (isdigit((int)(*++cp))) {
+			char *end = NULL;
+
+			errno = 0;
+			port = (int)strtol(cp, &end, 10);
+			if (errno || !end)
+				return 1;
+			cp = end;
+		}
+		switch (*cp) {
+		case '/':
+			if (*(cp + 1) != '\0')
+				return 1;
+			break;
+		case '\0':
+			break;
+		default:
+			return 1;
+		}
+		break;
+	case '/':
+		if (*(cp+1) != '\0')
+			return 1;
+		break;
+	case '\0':
+		break;
+	default:
+		return 1;
+	}
+	free(proxy->host);
+	proxy->host = myStrndup(host, len);
+	proxy->port = port;
+	return 0;
 }
 
 /*

@@ -61,7 +61,8 @@ option_t options = {
 	0,                /* debug */
 	0,                /* usage */
 	0,                /* batch */
-	0                 /* password encrypted? */
+	0,                /* password encrypted? */
+	{ NULL, 0 }       /* proxy host & port */
 };
 
 const char DEFAULT_CONF_FILE[] = ".esniper";
@@ -90,6 +91,8 @@ static int ReadUser(const void* valueptr, const optionTable_t* tableptr,
 static int ReadPass(const void* valueptr, const optionTable_t* tableptr,
                     const char* filename, const char *line);
 static int CheckFile(const void* valueptr, const optionTable_t* tableptr,
+                     const char* filename, const char *line);
+static int CheckProxy(const void* valueptr, const optionTable_t* tableptr,
                      const char* filename, const char *line);
 static int SetHelp(const void* valueptr, const optionTable_t* tableptr,
                    const char* filename, const char *line);
@@ -197,16 +200,8 @@ cleanup()
 static int CheckDebug(const void* valueptr, const optionTable_t* tableptr,
                       const char* filename, const char *line)
 {
-	int val = boolValue(valueptr);
+	int val = *((const int*)valueptr);
 
-	if (val == -1) {
-		if (filename)
-			printLog(stderr, "Invalid boolean value in file %s, line \"%s\"\n", filename, line);
-		else
-			printLog(stderr, "Invalid boolean value \"%s\" at command line option -%s\n", valueptr, line);
-
-		return 1;
-	}
 	val ? logOpen(progname, NULL) : logClose();
 	*(int*)(tableptr->value) = val;
 	log(("Debug mode is %s\n", val ? "on" : "off"));
@@ -370,6 +365,28 @@ static int CheckFile(const void* valueptr, const optionTable_t* tableptr,
 }
 
 /*
+ * CheckProxy(): accept accessible files only
+ *
+ * returns: 0 = OK, else error
+ */
+static int CheckProxy(const void* valueptr, const optionTable_t* tableptr,
+                      const char* filename, const char *line)
+{
+   if (parseProxy((const char *)valueptr, (proxy_t *)(tableptr->value))) {
+      if(filename)
+         printLog(stderr,
+                "Proxy specified in at \"%s\" in file %s is not valid: %s\n",
+                  line, filename, strerror(errno));
+      else
+         printLog(stderr,
+                  "Proxy \"%s\" specified at option -%s is not valid: %s\n",
+                  (const char*)valueptr, line, strerror(errno));
+      return 1;
+   }
+   return 0;
+}
+
+/*
  * SetHelp(): set usage to more than 1 to activate long help
  *
  * returns: 0 = OK
@@ -383,8 +400,8 @@ static int SetHelp(const void* valueptr, const optionTable_t* tableptr,
 }
 
 static const char usageSummary[] =
-  "usage: %s [-bdnprUv] [-u user] [-s secs|now] [-q quantity]\n"
-  "       [-f auction_file] [-c conf_file] [-q quantity] [auction price ...]\n"
+  "usage: %s [-bdnPrUv] [-u user] [-s secs|now] [-q quantity]\n"
+  "       [-p proxy] [-f auction_file] [-c conf_file] [auction price ...]\n"
   "\n";
 
 static const char usageLong[] =
@@ -392,7 +409,8 @@ static const char usageLong[] =
  "-b: batch mode, don't prompt for password or username if not specified\n"
  "-d: write debug output to file\n"
  "-n: do not place bid\n"
- "-p: prompt for password\n"
+ "-p: http proxy\n"
+ "-P: prompt for password\n"
  "-r: do not reduce quantity on startup if already won item(s)\n"
  "-U: prompt for username\n"
  "-v: print version and exit\n"
@@ -426,6 +444,7 @@ main(int argc, char *argv[])
 	int c, i;
 	int argcmin = 2;
 	int numAuctions = 0, numAuctionsOrig = 0;
+	char *http_proxy;
 
    /* this table describes options and config entries */
    static optionTable_t optiontab[] = {
@@ -433,7 +452,8 @@ main(int argc, char *argv[])
    {"password",NULL, (void*)&options.password,     OPTION_STRING,   NULL},
    {"seconds",  "s", (void*)&options.bidtime,      OPTION_SPECIAL,  &CheckSecs},
    {"quantity", "q", (void*)&options.quantity,     OPTION_INT,  &CheckQuantity},
-   {NULL,       "p", (void*)&options.password,     OPTION_SPECIAL,  &ReadPass},
+   {"proxy",    "p", (void*)&options.proxy,        OPTION_STRING,  &CheckProxy},
+   {NULL,       "P", (void*)&options.password,     OPTION_SPECIAL,  &ReadPass},
    {NULL,       "U", (void*)&options.user,         OPTION_SPECIAL,  &ReadUser},
    {NULL,       "c", (void*)&options.conffilename, OPTION_STRING,   &CheckFile},
    {NULL,       "f", (void*)&options.auctfilename, OPTION_STRING,   &CheckFile},
@@ -441,7 +461,7 @@ main(int argc, char *argv[])
    {NULL,       "r", (void*)&options.reduce,       OPTION_BOOL_NEG, NULL},
    {"bid",     NULL, (void*)&options.bid,          OPTION_BOOL,     NULL},
    {NULL,       "n", (void*)&options.bid,          OPTION_BOOL_NEG, NULL},
-   {"debug",    "d", (void*)&options.debug,        OPTION_SPECIAL, &CheckDebug},
+   {"debug",    "d", (void*)&options.debug,        OPTION_BOOL,    &CheckDebug},
    {"batch",    "b", (void*)&options.batch,        OPTION_BOOL,     NULL},
    {NULL,       "?", (void*)&options.usage,        OPTION_BOOL,     NULL},
    {NULL,       "h", (void*)&options.usage,        OPTION_SPECIAL,  &SetHelp},
@@ -449,10 +469,17 @@ main(int argc, char *argv[])
    };
 
 	/* all known options */
-	static const char optionstring[]="bc:df:hnpq:rs:u:UvX";
+	static const char optionstring[]="bc:df:hnp:Pq:rs:u:UvX";
 
 	atexit(cleanup);
 	progname = basename(argv[0]);
+
+	/* environment variables */
+	/* TODO - obey no_proxy */
+	if ((http_proxy = getenv("http_proxy"))) {
+		if (parseProxy(http_proxy, &options.proxy))
+			printLog(stderr, "http_proxy environment variable invalid\n");
+	}
 
 	/* first, check for debug, config file and auction file
 	 * options but accept all other options to avoid error messages
@@ -531,6 +558,7 @@ main(int argc, char *argv[])
 	/* check options which may overwrite settings from config file */
 	while ((c = getopt(argc, argv, optionstring)) != EOF) {
 		switch (c) {
+		case 'p': /* proxy */
 		case 'q': /* quantity */
 		case 's': /* seconds */
 		case 'u': /* user */
@@ -543,7 +571,7 @@ main(int argc, char *argv[])
 		case 'd': /* debug */
 		case 'b': /* batch */
 		case 'n': /* don't bid */
-		case 'p': /* read password */
+		case 'P': /* read password */
 		case 'r': /* reduce */
 		case 'U': /* read username */
 			parseGetoptValue(c, NULL, optiontab);
@@ -596,7 +624,7 @@ main(int argc, char *argv[])
 				printLog(stderr, "Error: no password specified.\n");
 				options.usage = 1;
 			} else
-				parseGetoptValue('p', NULL, optiontab);
+				parseGetoptValue('P', NULL, optiontab);
 		}
 	}
 

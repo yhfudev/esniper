@@ -230,7 +230,16 @@ parseBoolValue(const char *name, const char *value,
       return 1;
    }
    if(neg) intval = !intval;
-   *(int*)(tableptr->value) = intval;
+   if(tableptr->checkfunc) {
+      /* check value with specific check function */
+      if((*tableptr->checkfunc)(&intval, tableptr, filename, line) != 0) {
+         return 1;
+      }
+   }
+   else
+   {
+      *(int*)(tableptr->value) = intval;
+   }
    log(("bool value for %s is %d\n", name, *(int*)(tableptr->value)));
    return 0;
 }

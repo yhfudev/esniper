@@ -52,6 +52,7 @@ typedef struct {
 	int usage;
 	int batch;
 	int encrypted;
+	proxy_t proxy;
 } option_t;
 
 extern option_t options;

@@ -47,7 +47,7 @@
 #include <time.h>
 
 static int logNonTag(const char *msg, FILE *fp, int ret);
-static FILE *verboseConnect(const char *host, unsigned int retryTime, int retryCount);
+static FILE *verboseConnect(proxy_t *proxy, const char *host, unsigned int retryTime, int retryCount);
 static int match(FILE *fp, const char *str);
 static char *gettag(FILE *fp);
 static char *getnontag(FILE *fp);
@@ -76,38 +76,49 @@ logNonTag(const char *msg, FILE *fp, int ret)
  * otherwise
  */
 static FILE *
-verboseConnect(const char *host, unsigned int retryTime, int retryCount)
+verboseConnect(proxy_t *proxy, const char *host, unsigned int retryTime, int retryCount)
 {
 	int saveErrno, sockfd = -1, rc = -1, count;
 	struct sockaddr_in servAddr;
 	struct hostent *entry = NULL;
 	static struct sigaction alarmAction;
 	static int firstTime = 1;
+	const char *connectHost;
+	int connectPort;
+
+	/* use proxy? */
+	if (proxy->host) {
+		connectHost = proxy->host;
+		connectPort = proxy->port;
+	} else {
+		connectHost = host;
+		connectPort = 80;
+	}
 
 	if (firstTime)
 		sigaction(SIGALRM, NULL, &alarmAction);
 	for (count = 0; count < 10; count++) {
-		if (!(entry = gethostbyname(host))) {
+		if (!(entry = gethostbyname(connectHost))) {
 			log(("gethostbyname errno %d\n", h_errno));
 			sleep(1);
 		} else
 			break;
 	}
 	if (!entry) {
-		printLog(stderr, "Cannot convert \"%s\" to IP address\n", host);
+		printLog(stderr, "Cannot convert \"%s\" to IP address\n", connectHost);
 		return NULL;
 	}
 	if (entry->h_addrtype != AF_INET) {
-		printLog(stderr, "%s is not an internet host?\n", host);
+		printLog(stderr, "%s is not an internet host?\n", connectHost);
 		return NULL;
 	}
 
 	memset(&servAddr, 0, sizeof(servAddr));
 	servAddr.sin_family = AF_INET;
 	memcpy(&servAddr.sin_addr.s_addr, entry->h_addr, (size_t)4);
-	servAddr.sin_port = htons((unsigned short)80);
+	servAddr.sin_port = htons((unsigned short)connectPort);
 
-	log(("connect"));
+	log(("connecting to %s:%d", connectHost, connectPort));
 	while (retryCount-- > 0) {
 		if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
 			printLog(stderr, "Socket error %d: %s\n", errno,
@@ -591,12 +602,15 @@ parseAuction(FILE *fp, auctionInfo *aip, int quantity, const char *user)
 } /* parseAuction() */
 
 static const char QUERY_FMT[] =
-	"GET /%s HTTP/1.0\r\n"
+	"GET http://%s/%s HTTP/1.0\r\n"
 	"User-Agent: Mozilla/4.7 [en] (X11; U; Linux 2.2.12 i686)\r\n"
-	"Host: %s:80\r\n"
+	"Host: %s\r\n"
 	"Accept: text/*\r\n"
 	"Accept-Language: en\r\n"
 	"Accept-Charset: iso-8859-1,*,utf-8\r\n"
+	"Pragma: no-cache\r\n"
+	"Cache-Control: no-cache\r\n"
+	"Proxy-Connection: Keep-Alive\r\n"
 	"\r\n";
 static const char QUERY_CMD[] = "aw-cgi/eBayISAPI.dll?ViewBids&item=%s";
 static const char UNAVAILABLE[] = "unavailable/";
@@ -619,7 +633,7 @@ getInfo(auctionInfo *aip, int quantity, const char *user)
 
 	if (!aip->host)
 		aip->host = myStrdup(HOSTNAME);
-	if (!(fp = verboseConnect(aip->host, 10, 5)))
+	if (!(fp = verboseConnect(&options.proxy, aip->host, 10, 5)))
 		return auctionError(aip, ae_connect, NULL);
 
 	if (!aip->query) {
@@ -627,7 +641,7 @@ getInfo(auctionInfo *aip, int quantity, const char *user)
 		sprintf(aip->query, QUERY_CMD, aip->auction);
 	}
 
-	printLog(fp, QUERY_FMT, aip->query, aip->host);
+	printLog(fp, QUERY_FMT, aip->host, aip->query, aip->host);
 	fflush(fp);
 
 	/*
@@ -690,7 +704,7 @@ getInfo(auctionInfo *aip, int quantity, const char *user)
 }
 
 static const char PRE_BID_FMT[] =
-	"POST /aw-cgi/eBayISAPI.dll HTTP/1.0\r\n"
+	"POST http://%s/aw-cgi/eBayISAPI.dll HTTP/1.0\r\n"
 	"Referer: http://%s/%s\r\n"
 	/*"Connection: Keep-Alive\r\n"*/
 	"User-Agent: Mozilla/4.7 [en] (X11; U; Linux 2.2.12 i686)\r\n"
@@ -698,6 +712,9 @@ static const char PRE_BID_FMT[] =
 	"Accept: text/*\r\n"
 	"Accept-Language: en\r\n"
 	"Accept-Charset: iso-8859-1,*,utf-8\r\n"
+	"Pragma: no-cache\r\n"
+	"Cache-Control: no-cache\r\n"
+	"Proxy-Connection: Keep-Alive\r\n"
 	"Content-type: application/x-www-form-urlencoded\r\n"
 	"Content-length: %d\r\n";
 static const char PRE_BID_CMD[] =
@@ -719,12 +736,12 @@ preBid(auctionInfo *aip)
 
 	log(("\n\n*** preBidAuction auction %s price %s\n", aip->auction, aip->bidPriceStr));
 
-	if (!(fp = verboseConnect(HOSTNAME, 6, 5)))
+	if (!(fp = verboseConnect(&options.proxy, HOSTNAME, 6, 5)))
 		return auctionError(aip, ae_connect, NULL);
 
 
 	log(("\n\nquery string:\n"));
-	printLog(fp, PRE_BID_FMT, aip->host, aip->query, HOSTNAME, cmdlen);
+	printLog(fp, PRE_BID_FMT, HOSTNAME, aip->host, aip->query, HOSTNAME, cmdlen);
 	printLog(fp, PRE_BID_CMD, aip->auction, aip->bidPriceStr);
 	fflush(fp);
 
@@ -760,7 +777,7 @@ preBid(auctionInfo *aip)
 }
 
 static const char BID_FMT[] =
-	"POST /aw-cgi/eBayISAPI.dll HTTP/1.0\r\n"
+	"POST http://%s/aw-cgi/eBayISAPI.dll HTTP/1.0\r\n"
 	"Referer: http://%s/aw-cgi/eBayISAPI.dll\r\n"
 	/*"Connection: Keep-Alive\r\n"*/
 	"User-Agent: Mozilla/4.7 [en] (X11; U; Linux 2.2.12 i686)\r\n"
@@ -768,6 +785,9 @@ static const char BID_FMT[] =
 	"Accept: text/*\r\n"
 	"Accept-Language: en\r\n"
 	"Accept-Charset: iso-8859-1,*,utf-8\r\n"
+	"Pragma: no-cache\r\n"
+	"Cache-Control: no-cache\r\n"
+	"Proxy-Connection: Keep-Alive\r\n"
 	"Content-type: application/x-www-form-urlencoded\r\n"
 	"Content-length: %d\r\n";
 static const char BID_CMD[] =
@@ -799,7 +819,7 @@ bidSocket(FILE *fp, auctionInfo *aip, int quantity, const char *user, const char
 	cmdlen = sizeof(BID_CMD) + strlen(aip->auction) + strlen(aip->key) +
 		strlen(aip->bidPriceStr) + strlen(quantityStr) + strlen(user) +
 		strlen(password) - 17;
-	printLog(fp, BID_FMT, aip->host, HOSTNAME, cmdlen);
+	printLog(fp, BID_FMT, HOSTNAME, aip->host, HOSTNAME, cmdlen);
 
 	/* don't log password */
 	fprintf(fp, BID_CMD, aip->auction, aip->key, aip->bidPriceStr, quantityStr, user, password);
@@ -850,7 +870,7 @@ bid(option_t options, auctionInfo *aip)
 		printLog(stdout, "Bidding disabled\n");
 		return aip->bidResult = 0;
 	}
-	if (!(fp = verboseConnect(HOSTNAME, 6, 5)))
+	if (!(fp = verboseConnect(&options.proxy, HOSTNAME, 6, 5)))
 		return aip->bidResult = auctionError(aip, ae_connect, NULL);
 	ret = bidSocket(fp, aip, options.quantity, options.user, options.password);
 	runout(fp);
