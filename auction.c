@@ -711,7 +711,7 @@ getInfo(auctionInfo *aip, int quantity, const char *user)
 }
 
 static const char PRE_BID_FMT[] =
-	"POST %s%s/aw-cgi/eBayISAPI.dll HTTP/1.0\r\n"
+	"POST %s%s/ws/eBayISAPI.dll HTTP/1.0\r\n"
 	"Referer: http://%s/%s\r\n"
 	"User-Agent: Mozilla/4.7 [en] (X11; U; Linux 2.2.12 i686)\r\n"
 	"Host: %s\r\n"
@@ -741,15 +741,15 @@ preBid(auctionInfo *aip)
 
 	log(("\n\n*** preBidAuction auction %s price %s\n", aip->auction, aip->bidPriceStr));
 
-	if (!(fp = verboseConnect(&options.proxy, HOSTNAME, 6, 5)))
+	if (!(fp = verboseConnect(&options.proxy, BID_HOSTNAME, 6, 5)))
 		return auctionError(aip, ae_connect, NULL);
 
 
 	log(("\n\nquery string:\n"));
 	if (options.proxy.host)
-		printLog(fp, PRE_BID_FMT, "http://", HOSTNAME, aip->host, aip->query, HOSTNAME, cmdlen);
+		printLog(fp, PRE_BID_FMT, "http://", BID_HOSTNAME, aip->host, aip->query, BID_HOSTNAME, cmdlen);
 	else
-		printLog(fp, PRE_BID_FMT, "", "", aip->host, aip->query, HOSTNAME, cmdlen);
+		printLog(fp, PRE_BID_FMT, "", "", aip->host, aip->query, BID_HOSTNAME, cmdlen);
 	printLog(fp, PRE_BID_CMD, aip->auction, aip->bidPriceStr);
 	fflush(fp);
 
@@ -785,8 +785,8 @@ preBid(auctionInfo *aip)
 }
 
 static const char BID_FMT[] =
-	"POST %s%s/aw-cgi/eBayISAPI.dll HTTP/1.0\r\n"
-	"Referer: http://%s/aw-cgi/eBayISAPI.dll\r\n"
+	"POST %s%s/ws/eBayISAPI.dll HTTP/1.0\r\n"
+	"Referer: http://%s/ws/eBayISAPI.dll\r\n"
 	"User-Agent: Mozilla/4.7 [en] (X11; U; Linux 2.2.12 i686)\r\n"
 	"Host: %s\r\n"
 	"Accept: text/*\r\n"
@@ -826,9 +826,9 @@ bidSocket(FILE *fp, auctionInfo *aip, int quantity, const char *user, const char
 		strlen(aip->bidPriceStr) + strlen(quantityStr) + strlen(user) +
 		strlen(password) - 15;
 	if (options.proxy.host)
-		printLog(fp, BID_FMT, "http://", HOSTNAME, aip->host, HOSTNAME, cmdlen);
+		printLog(fp, BID_FMT, "http://", BID_HOSTNAME, BID_HOSTNAME, BID_HOSTNAME, cmdlen);
 	else
-		printLog(fp, BID_FMT, "", "", aip->host, HOSTNAME, cmdlen);
+		printLog(fp, BID_FMT, "", "", BID_HOSTNAME, BID_HOSTNAME, cmdlen);
 
 	/* don't log password */
 	fprintf(fp, BID_CMD, aip->auction, aip->key, aip->bidPriceStr, quantityStr, user, password);
@@ -879,7 +879,7 @@ bid(option_t options, auctionInfo *aip)
 		printLog(stdout, "Bidding disabled\n");
 		return aip->bidResult = 0;
 	}
-	if (!(fp = verboseConnect(&options.proxy, HOSTNAME, 6, 5)))
+	if (!(fp = verboseConnect(&options.proxy, BID_HOSTNAME, 6, 5)))
 		return aip->bidResult = auctionError(aip, ae_connect, NULL);
 	ret = bidSocket(fp, aip, options.quantity, options.user, options.password);
 	runout(fp);

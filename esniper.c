@@ -37,7 +37,7 @@
 #include "options.h"
 #include "util.h"
 
-static const char version[]="esniper version 2.2.1";
+static const char version[]="esniper version 2.2.2";
 static const char blurb[]="Please visit http://esniper.sourceforge.net/ for updates and bug reports";
 
 #if !defined(WIN32)
@@ -68,6 +68,7 @@ option_t options = {
 
 const char DEFAULT_CONF_FILE[] = ".esniper";
 const char HOSTNAME[] = "cgi.ebay.com";
+const char BID_HOSTNAME[] = "offer.ebay.com";
 
 static const char *progname = NULL;
 
