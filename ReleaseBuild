@@ -58,6 +58,9 @@ Build esniper on Sun, and HP and Cygwin, strip and copy to release directory:
 		make clean all
 		strip esniper
 		rcp esniper sparky:esniper/$CURRENT/esniper-linux-x86
+		CFLAGS="-static -O" make -e clean all
+		strip esniper
+		rcp esniper sparky:esniper/$CURRENT/esniper-linux-x86-static
 
 	Cygwin:
 		cd esniper
@@ -69,6 +72,8 @@ Build esniper on Sun, and HP and Cygwin, strip and copy to release directory:
 
 	Windows:
 		cd esniper
+		# the following is in Visual Studio's VC98\Bin directory.
+		vcvars32
 		rcp sparky:esniper/*.[ch] sparky:esniper/esniper.mak .
 		nmake /f esniper.mak
 		rcp -b Release/esniper.exe sparky:esniper/$CURRENT/esniper.exe
@@ -87,28 +92,36 @@ Build other versions on sourceforge:
 
 	scp $CURRFILE.tgz esniper@shell.sf.net:
 
-	ssh -l esniper cf.sourceforge.net
+	ssh -l esniper cf-shell.sourceforge.net
 		<enter password>
 
-	On the first system:
+	(note: list of hosts is in /etc/compilefarm-hosts)
+
+	FreeBSD:
+		ssh x86-freebsd1
+		(note: CURRFILE isn't defined, you must expand it yourself)
+		(note: Cannot rely on CVS being up-to-date on internal systems)
 		scp shell.sourceforge.net:$CURRFILE.tgz .
 		gunzip <$CURRFILE.tgz | tar xvf -
 		rm -rf esniper
 		ln -s $CURRFILE esniper
-
-	(note: CURRFILE isn't defined, you must expand it yourself)
-	(note: Cannot rely on CVS being up-to-date on internal sf systems)
-
-	For each build system:
 		makeit
+			<enter password>
+		logout
+
+	OS-X:
+		ssh ppc-osx2
+		makeit
+			<enter password>
+		logout
 
 Then login to shell.sourceforge.net:
 
 	ssh -l esniper shell.sourceforge.net
 		<enter password>
+	rm -f *.tgz
 	mkdir $CURRENT
 	mv esniper-* $CURRENT
-		(note: not quite correct - don't move dir/tgz)
 	cd $CURRENT
 	ftp upload
 		(log in as anonymous)
