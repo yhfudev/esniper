@@ -368,7 +368,7 @@ parseAuctionNew(FILE *fp, auctionInfo *aip, int quantity, const char *user)
 		return auctionError(aip, ae_noprice, NULL);
 	printLog(stdout, "Currently: %s  (your maximum bid: %s)\n", line,
 		 aip->bidPriceStr);
-	aip->price = atof(line + strcspn(line, "0123456789"));
+	aip->price = atof(priceFixup(line));
 	if (aip->price < 0.01)
 		return auctionError(aip, ae_convprice, line);
 
@@ -582,7 +582,7 @@ parseAuctionOld(FILE *fp, auctionInfo *aip, int quantity, const char *user)
 		return auctionError(aip, ae_noprice, NULL);
 	printLog(stdout, "Currently: %s  (your maximum bid: %s)\n", line,
 		 aip->bidPriceStr);
-	aip->price = atof(line + strcspn(line, "0123456789"));
+	aip->price = atof(priceFixup(line));
 	if (aip->price < 0.01)
 		return auctionError(aip, ae_convprice, line);
 

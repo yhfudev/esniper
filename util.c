@@ -523,6 +523,42 @@ parseProxy(const char *value, proxy_t *proxy)
 	return 0;
 }
 
+/*
+ * Fixup a price to something that atof() and eBay will accept.
+ * Final string must be in the form 1234.56.  Strip off all non-numeric
+ * characters, convert ',' (non-english decimal) to '.'.
+ */
+char *
+priceFixup(char *price)
+{
+	int len = strlen(price), i, j, start, end, count = 0, last = 0;
+
+	for (start = 0; start < len; ++start) {
+		if (isdigit((int)price[start]))
+			break;
+	}
+	for (i = start; i < len; ++i) {
+		if (isdigit((int)price[i]))
+			;
+		else if (price[i] == ',' || price[i] == '.') {
+			++count;
+			last = i;
+		} else
+			break;
+	}
+	end = i;
+
+	for (j = 0, i = start; i < end; ++i) {
+		if (price[i] == ',' || price[i] == '.') {
+			if (--count == 0)
+				price[j++] = '.';
+		} else
+			price[j++] = price[i];
+	}
+	price[j] = '\0';
+	return price;
+}
+
 static void
 toLowerString(char *s)
 {

@@ -61,6 +61,7 @@ extern int skipline(FILE *fp);
 extern char *prompt(const char *p, int noecho);
 extern int boolValue(const char *value);
 extern int parseProxy(const char *value, proxy_t *proxy);
+extern char *priceFixup(char *);
 
 extern char *stars(size_t len);
 extern void setUsername(char *username);

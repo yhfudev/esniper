@@ -73,7 +73,7 @@ typedef struct {
 	int quantity;	/* number of items available */
 	int bids;	/* number of bids made */
 	double price;	/* current price */
-	int bidResult;  /* result code from bid (-1=no bid yet, 0=success) */
+	int bidResult;  /* result code from bid (-1=no bid yet, 0=success, 1 = error) */
 	int won;	/* number won (-1 = no clue, 0 or greater = actual # */
 	enum auctionErrorCode auctionError;/* error encountered while parsing */
 	char *auctionErrorDetail;/* details of error */

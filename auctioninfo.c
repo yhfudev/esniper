@@ -83,9 +83,8 @@ newAuctionInfo(char *auction, char *bidPriceStr)
 	auctionInfo *aip = (auctionInfo *)myMalloc(sizeof(auctionInfo));
 
 	aip->auction = myStrdup(auction);
-	aip->bidPriceStr = myStrdup(bidPriceStr);
-	aip->bidPrice = atof(bidPriceStr);
-printf("bidprice = %g\n", aip->bidPrice);
+	aip->bidPriceStr = priceFixup(myStrdup(bidPriceStr));
+	aip->bidPrice = atof(aip->bidPriceStr);
 	aip->remain = 0;
 	aip->host = NULL;
 	aip->query = NULL;
@@ -182,8 +181,6 @@ auctionError(auctionInfo *aip, enum auctionErrorCode pe, const char *details)
 int
 isValidBidPrice(const auctionInfo *aip)
 {
-return 1;
-/*
 	double increment = 0.0;
 
 	if (aip->bids) {
@@ -195,7 +192,5 @@ return 1;
 		}
 		increment = increments[i+1];
 	}
-printf("in isValidBidPrice, bidPrice = %g, price = %g, increment = %g\n", aip->bidPrice, aip->price, increment);
 	return aip->bidPrice >= (aip->price + increment);
-*/
 }
