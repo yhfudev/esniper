@@ -648,10 +648,11 @@ bid(option_t options, auctionInfo *aip)
 		ret = aip->bidResult = 0;
 	} else if (!(fp = httpPost(aip, BID_HOSTNAME, BID_URL, "", data, logData, 0)))
 		ret = 1;
-	else
+	else {
 		ret = parseBid(fp, aip);
-	runout(fp);
-	fclose(fp);
+		runout(fp);
+		fclose(fp);
+	}
 	free(data);
 	free(logData);
 	return ret;
