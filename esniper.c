@@ -53,7 +53,6 @@ static const char blurb[]="Please visit http://esniper.sourceforge.net/ for upda
 #include <time.h>
 
 static void *myMalloc(size_t);
-static void *myMalloc(size_t);
 static char *myStrdup(const char *);
 static void printLog(FILE *, const char *, ...);
 
@@ -218,14 +217,17 @@ printLog(FILE *fp, const char *fmt, ...)
  * log a single character
  */
 static void
-logChar(char ch)
+logChar(int c)
 {
 	if (!logfile) {
 		fprintf(stderr, "Log file not open!\n");
 		exit(1);
 	}
 
-	putc(ch, logfile);
+	if (c == EOF)
+		fflush(logfile);
+	else
+		putc(c, logfile);
 }
 
 /*
@@ -329,11 +331,16 @@ match(FILE *fp, const char *str)
 		if (debug)
 			logChar(c);
 		if ((char)c == *cursor) {
-			if (*++cursor == '\0')
+			if (*++cursor == '\0') {
+				if (debug)
+					logChar(EOF);
 				return 0;
+			}
 		} else if (c != '\n' && c != '\r')
 			cursor = str;
 	}
+	if (debug)
+		logChar(EOF);
 	return -1;
 }
 
@@ -552,14 +559,21 @@ getuntilchar(FILE *fp, char until)
 	while ((c = getc(fp)) != EOF) {
 		if (debug)
 			logChar(c);
-		if (count >= 1024)
+		if (count >= 1024) {
+			if (debug)
+				logChar(EOF);
 			return NULL;
+		}
 		if ((char)c == until) {
 			buf[count] = '\0';
+			if (debug)
+				logChar(EOF);
 			return buf;
 		}
 		buf[count++] = (char)c;
 	}
+	if (debug)
+		logChar(EOF);
 	return NULL;
 }
 
@@ -572,6 +586,7 @@ runout(FILE *fp)
 		dlog("\n\nrunout()\n\n");
 		for (count = 0, c = getc(fp); c != EOF; ++count, c = getc(fp))
 			logChar(c);
+		logChar(EOF);
 		dlog("%d bytes", count);
 	} else {
 		for (c = getc(fp); c != EOF; c = getc(fp))
@@ -789,7 +804,15 @@ parseItem(FILE *fp, char *item, char *quantity, char *amount, char *user, itemIn
 	return 0;
 } /* parseItem() */
 
-static const char QUERY_FMT[] = "aw-cgi/eBayISAPI.dll?ViewBids&item=%s";
+static const char QUERY_FMT[] =
+	"GET /%s HTTP/1.0\r\n"
+	"User-Agent: Mozilla/4.7 [en] (X11; U; Linux 2.2.12 i686)\r\n"
+	"Host: %s:80\r\n"
+	"Accept: text/*\r\n"
+	"Accept-Language: en\r\n"
+	"Accept-Charset: iso-8859-1,*,utf-8\r\n"
+	"\r\n";
+static const char QUERY_CMD[] = "aw-cgi/eBayISAPI.dll?ViewBids&item=%s";
 
 /*
  * getItemInfo(): Get info on item from bid history page.
@@ -816,12 +839,11 @@ getItemInfo(char *item, char *quantity, char *amount, char *user, itemInfo *iip)
 	}
 
 	if (!iip->query) {
-		iip->query = (char *)myMalloc(sizeof(QUERY_FMT)+strlen(item));
-		sprintf(iip->query, QUERY_FMT, item);
+		iip->query = (char *)myMalloc(sizeof(QUERY_CMD)+strlen(item));
+		sprintf(iip->query, QUERY_CMD, item);
 	}
 
-	log(("\n\nquery string:\n\nGET %s\n", iip->query));
-	fprintf(fp, "GET /%s\n", iip->query);
+	printLog(fp, QUERY_FMT, iip->query, iip->host);
 	fflush(fp);
 
 	/*
@@ -833,7 +855,8 @@ getItemInfo(char *item, char *quantity, char *amount, char *user, itemInfo *iip)
 	line = getuntilchar(fp, '\n');
 	s1 = strtok(line, " \t");
 	s2 = strtok(NULL, " \t");
-	if (s1 && s2 && !strncmp("HTTP/", s1, 5) && !strcmp("302", s2)) {
+	if (s1 && s2 && !strncmp("HTTP/", s1, 5) &&
+	    (!strcmp("301", s2) || !strcmp("302", s2))) {
 		char *newHost;
 		char *newQuery;
 		size_t newQueryLen;
@@ -873,17 +896,18 @@ getItemInfo(char *item, char *quantity, char *amount, char *user, itemInfo *iip)
 }
 
 static const char PRE_BID_FMT[] =
-	"POST /aw-cgi/eBayISAPI.dll HTTP/1.0\n" \
-	"Referer: http://%s/%s\n" \
-	"Connection: Keep-Alive\n" \
-	"User-Agent: Mozilla/4.7 [en] (X11; U; Linux 2.2.12 i686)\n" \
-	"Host: %s\n" \
-	"Accept-Language: en\n" \
-	"Accept-Charset: iso-8859-1,*,utf-8\n" \
-	"Content-type: application/x-www-form-urlencoded\n" \
-	"Content-length: %d\n";
+	"POST /aw-cgi/eBayISAPI.dll HTTP/1.0\r\n"
+	"Referer: http://%s/%s\r\n"
+	/*"Connection: Keep-Alive\r\n"*/
+	"User-Agent: Mozilla/4.7 [en] (X11; U; Linux 2.2.12 i686)\r\n"
+	"Host: %s\r\n"
+	"Accept: text/*\r\n"
+	"Accept-Language: en\r\n"
+	"Accept-Charset: iso-8859-1,*,utf-8\r\n"
+	"Content-type: application/x-www-form-urlencoded\r\n"
+	"Content-length: %d\r\n";
 static const char PRE_BID_CMD[] =
-	"MfcISAPICommand=MakeBid&item=%s&maxbid=%s\n\n";
+	"MfcISAPICommand=MakeBid&item=%s&maxbid=%s\r\n\r\n";
 
 /*
  * Get key for bid
@@ -896,7 +920,7 @@ preBidItem(char *item, char *amount, itemInfo *iip)
 	FILE *fp;
 	char *tmpkey;
 	char *cp;
-	size_t cmdlen = sizeof(PRE_BID_CMD) + strlen(item) + strlen(amount) -7;
+	size_t cmdlen = sizeof(PRE_BID_CMD) + strlen(item) + strlen(amount) -9;
 	int ret = 0;
 
 	log(("\n\n*** preBidItem item %s amount %s\n", item, amount));
@@ -944,17 +968,18 @@ preBidItem(char *item, char *amount, itemInfo *iip)
 }
 
 static const char BID_FMT[] =
-	"POST /aw-cgi/eBayISAPI.dll HTTP/1.0\n"	\
-	"Referer: http://%s/aw-cgi/eBayISAPI.dll\n" \
-	"Connection: Keep-Alive\n" \
-	"User-Agent: Mozilla/4.7 [en] (X11; U; Linux 2.2.12 i686)\n" \
-	"Host: %s\n" \
-	"Accept-Language: en\n" \
-	"Accept-Charset: iso-8859-1,*,utf-8\n" \
-	"Content-type: application/x-www-form-urlencoded\n"
-	"Content-length: %d\n";
+	"POST /aw-cgi/eBayISAPI.dll HTTP/1.0\r\n"
+	"Referer: http://%s/aw-cgi/eBayISAPI.dll\r\n"
+	/*"Connection: Keep-Alive\r\n"*/
+	"User-Agent: Mozilla/4.7 [en] (X11; U; Linux 2.2.12 i686)\r\n"
+	"Host: %s\r\n"
+	"Accept: text/*\r\n"
+	"Accept-Language: en\r\n"
+	"Accept-Charset: iso-8859-1,*,utf-8\r\n"
+	"Content-type: application/x-www-form-urlencoded\r\n"
+	"Content-length: %d\r\n";
 static const char BID_CMD[] =
-	"MfcISAPICommand=AcceptBid&item=%s&key=%s&maxbid=%s&quant=%s&userid=%s&pass=%s\n\n";
+	"MfcISAPICommand=AcceptBid&item=%s&key=%s&maxbid=%s&quant=%s&userid=%s&pass=%s\r\n\r\n";
 
 /*
  * Place bid.
@@ -986,7 +1011,7 @@ bidItem(int bid, const char *item, const char *amount, const char *quantity, con
 	log(("\n\nquery string:\n"));
 	cmdlen = sizeof(BID_CMD) + strlen(item) + strlen(iip->key) +
 		strlen(amount) + strlen(quantity) + strlen(user) +
-		strlen(password) - 15;
+		strlen(password) - 17;
 	printLog(fp, BID_FMT, iip->host, HOSTNAME, cmdlen);
 	printLog(fp, BID_CMD, item, iip->key, amount, quantity, user,password);
 	fflush(fp);
