@@ -736,9 +736,13 @@ getInfo(auctionInfo *aip, int quantity, const char *user)
 	return ret;
 }
 
+/*
+ * Note: quant=1 is just to dupe eBay into allowing the pre-bid to get
+ *	 through.  Actual quantity will be sent with bid.
+ */
 static const char PRE_BID_URL[] = "ws/eBayISAPI.dll";
 static const char PRE_BID_DATA_1[] = "MfcISAPICommand=MakeBid&item=";
-static const char PRE_BID_DATA_3[] = "&maxbid=";
+static const char PRE_BID_DATA_3[] = "&quant=1&maxbid=";
 
 /*
  * Get key for bid
