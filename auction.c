@@ -43,6 +43,8 @@
 
 #define newRemain(aip) (aip->endTime - time(NULL) - aip->latency - options.bidtime)
 
+static time_t loginTime = 0;	/* Time of last login */
+
 typedef struct {
 	char *pageName;
 	char *pageId;
@@ -50,12 +52,15 @@ typedef struct {
 } pageInfo_t;
 
 static int match(memBuf_t *mp, const char *str);
-static const char *gettag(memBuf_t *mp);
-static char *getnontag(memBuf_t *mp);
+static const char *getTag(memBuf_t *mp);
+static char *getNonTag(memBuf_t *mp);
+static char *getNonTagFromString(const char *s);
+static int getIntFromString(const char *s);
 static long getseconds(char *timestr);
 static const char *getTableEnd(memBuf_t *mp);
 static char *getTableCell(memBuf_t *mp);
 static char **getTableRow(memBuf_t *mp);
+static int numColumns(char **row);
 static void freeTableRow(char **row);
 static const char *getTableStart(memBuf_t *mp);
 static int getInfoTiming(auctionInfo *aip, const char *user, time_t *timeToFirstByte);
@@ -67,8 +72,9 @@ static void freePageInfo(pageInfo_t *pp);
 
 static int getQuantity(int want, int available);
 static int parseAuction(memBuf_t *mp, auctionInfo *aip, const char *user, time_t *timeToFirstByte);
-static int parseAuctionInternal(memBuf_t *mp, auctionInfo *aip, const char *user, char **currently, char **winner);
 static int parseBid(memBuf_t *mp, auctionInfo *aip);
+
+static void printMyItemsRow(char **row, int line);
 
 /*
  * attempt to match some input, ignoring \r and \n
@@ -113,7 +119,7 @@ getPageName(memBuf_t *mp)
 	const char *line;
 
 	log(("getPageName():\n"));
-	while ((line = gettag(mp))) {
+	while ((line = getTag(mp))) {
 		char *tmp;
 
 		if (strncmp(line, "!--", 3))
@@ -142,7 +148,7 @@ getPageInfo(memBuf_t *mp)
 	int needMore = 3;
 
 	log(("getPageInfo():\n"));
-	while (needMore && (line = gettag(mp))) {
+	while (needMore && (line = getTag(mp))) {
 		char *tmp;
 
 		if (strncmp(line, "!--", 3))
@@ -226,7 +232,7 @@ freePageInfo(pageInfo_t *pp)
  * and leaving only a single space for all internal whitespace.
  */
 static const char *
-gettag(memBuf_t *mp)
+getTag(memBuf_t *mp)
 {
 	static char *buf = NULL;
 	static size_t bufsize = 0;
@@ -234,23 +240,23 @@ gettag(memBuf_t *mp)
 	int inStr = 0, comment = 0, c;
 
 	if (memEof(mp)) {
-		log(("gettag(): returning NULL\n"));
+		log(("getTag(): returning NULL\n"));
 		return NULL;
 	}
 	while ((c = memGetc(mp)) != EOF && c != '<')
 		;
 	if (c == EOF) {
-		log(("gettag(): returning NULL\n"));
+		log(("getTag(): returning NULL\n"));
 		return NULL;
 	}
 
 	/* first char - check for comment */
 	c = memGetc(mp);
 	if (c == '>') {
-		log(("gettag(): returning empty tag\n"));
+		log(("getTag(): returning empty tag\n"));
 		return "";
 	} else if (c == EOF) {
-		log(("gettag(): returning NULL\n"));
+		log(("getTag(): returning NULL\n"));
 		return NULL;
 	}
 	addchar(buf, bufsize, count, c);
@@ -259,7 +265,7 @@ gettag(memBuf_t *mp)
 
 		if (c2 == '>' || c2 == EOF) {
 			term(buf, bufsize, count);
-			log(("gettag(): returning %s\n", buf));
+			log(("getTag(): returning %s\n", buf));
 			return buf;
 		}
 		addchar(buf, bufsize, count, c2);
@@ -268,7 +274,7 @@ gettag(memBuf_t *mp)
 
 			if (c3 == '>' || c3 == EOF) {
 				term(buf, bufsize, count);
-				log(("gettag(): returning %s\n", buf));
+				log(("getTag(): returning %s\n", buf));
 				return buf;
 			}
 			addchar(buf, bufsize, count, c3);
@@ -280,7 +286,7 @@ gettag(memBuf_t *mp)
 		while ((c = memGetc(mp)) != EOF) {
 			if (c=='>' && buf[count-1]=='-' && buf[count-2]=='-') {
 				term(buf, bufsize, count);
-				log(("gettag(): returning %s\n", buf));
+				log(("getTag(): returning %s\n", buf));
 				return buf;
 			}
 			if (isspace(c) && buf[count-1] == ' ')
@@ -295,7 +301,7 @@ gettag(memBuf_t *mp)
 				c = memGetc(mp);
 				if (c == EOF) {
 					term(buf, bufsize, count);
-					log(("gettag(): returning %s\n", buf));
+					log(("getTag(): returning %s\n", buf));
 					return buf;
 				}
 				addchar(buf, bufsize, count, c);
@@ -305,7 +311,7 @@ gettag(memBuf_t *mp)
 					addchar(buf, bufsize, count, c);
 				else {
 					term(buf, bufsize, count);
-					log(("gettag(): returning %s\n", buf));
+					log(("getTag(): returning %s\n", buf));
 					return buf;
 				}
 				break;
@@ -328,7 +334,7 @@ gettag(memBuf_t *mp)
 		}
 	}
 	term(buf, bufsize, count);
-	log(("gettag(): returning %s\n", count ? buf : "NULL"));
+	log(("getTag(): returning %s\n", count ? buf : "NULL"));
 	return count ? buf : NULL;
 }
 
@@ -337,7 +343,7 @@ gettag(memBuf_t *mp)
  * and leaving only a single space for all internal whitespace.
  */
 static char *
-getnontag(memBuf_t *mp)
+getNonTag(memBuf_t *mp)
 {
 	static char *buf = NULL;
 	static size_t bufsize = 0;
@@ -345,7 +351,7 @@ getnontag(memBuf_t *mp)
 	int c;
 
 	if (memEof(mp)) {
-		log(("getnontag(): returning NULL\n"));
+		log(("getNonTag(): returning NULL\n"));
 		return NULL;
 	}
 	while ((c = memGetc(mp)) != EOF) {
@@ -356,16 +362,17 @@ getnontag(memBuf_t *mp)
 				if (buf[count-1] == ' ')
 					--count;
 				term(buf, bufsize, count);
-				log(("getnontag(): returning %s\n", buf));
+				log(("getNonTag(): returning %s\n", buf));
 				return buf;
 			} else
-				(void)gettag(mp);
+				(void)getTag(mp);
 			break;
 		case ' ':
 		case '\n':
 		case '\r':
 		case '\t':
 		case '\v':
+		case 0xA0: /* iso-8859-1 nbsp */
 			if (count > 0 && buf[count-1] != ' ')
 				addchar(buf, bufsize, count, ' ');
 			break;
@@ -405,9 +412,30 @@ getnontag(memBuf_t *mp)
 		}
 	}
 	term(buf, bufsize, count);
-	log(("getnontag(): returning %s\n", count ? buf : "NULL"));
+	log(("getNonTag(): returning %s\n", count ? buf : "NULL"));
 	return count ? buf : NULL;
-} /* getnontag() */
+} /* getNonTag() */
+
+static char *
+getNonTagFromString(const char *s)
+{
+	memBuf_t *mp = strToMemBuf(s);
+	char *ret = myStrdup(getNonTag(mp));
+
+	clearMembuf(mp);
+	return ret;
+}
+
+static int
+getIntFromString(const char *s)
+{
+	memBuf_t *mp = strToMemBuf(s);
+	char *num = getNonTag(mp);
+	int ret = atoi(num);
+
+	clearMembuf(mp);
+	return ret;
+}
 
 /*
  * Calculate quantity to bid on.  If it is a dutch auction, never
@@ -467,7 +495,7 @@ getTableEnd(memBuf_t *mp)
 	int nesting = 1;
 	const char *cp;
 
-	while ((cp = gettag(mp))) {
+	while ((cp = getTag(mp))) {
 		if (!strcmp(cp, "/table")) {
 			if (--nesting == 0)
 				return cp;
@@ -492,7 +520,7 @@ getTableCell(memBuf_t *mp)
 	static size_t bufsize = 0;
 	size_t count = 0;
 
-	while ((cp = gettag(mp))) {
+	while ((cp = getTag(mp))) {
 		if (nesting == 1 && !strncmp(cp, "td", 2) &&
 		    (isspace((int)*(cp+2)) || *(cp+2) == '\0')) {
 			/* found <td>, now must find </td> */
@@ -546,12 +574,30 @@ getTableRow(memBuf_t *mp)
 }
 
 /*
+ * Return number of columns in row, or -1 if null.
+ */
+static int
+numColumns(char **row)
+{
+	int ncols = 0;
+
+	if (!row)
+		return -1;
+	while (row[ncols++])
+		;
+	return --ncols;
+}
+
+/*
  * Free a TableRow allocated by getTableRow
  */
 static void
 freeTableRow(char **row) {
-	while (*row)
-		free(*row++);
+	char **cpp;
+
+	for (cpp = row; *cpp; ++cpp)
+		free(*cpp);
+	free(row);
 }
 
 /*
@@ -562,13 +608,15 @@ getTableStart(memBuf_t *mp)
 {
 	const char *cp;
 
-	while ((cp = gettag(mp))) {
+	while ((cp = getTag(mp))) {
 		if (!strncmp(cp, "table", 5) &&
 		    (isspace((int)*(cp+5)) || *(cp+5) == '\0'))
 			return cp;
 	}
 	return NULL;
 }
+
+static const char PRIVATE[] = "private auction - bidders' identities protected";
 
 /*
  * parseAuction(): parses bid history page (pageName: PageViewBids)
@@ -580,8 +628,13 @@ getTableStart(memBuf_t *mp)
 static int
 parseAuction(memBuf_t *mp, auctionInfo *aip, const char *user, time_t *timeToFirstByte)
 {
-	char *line, *currently = NULL, *winner = NULL;
-	int ret;
+	char *line;
+	char *title;
+	char **row;
+	int foundHeader = 0;	/* found header for bid table */
+	int reserve = 0;	/* 1 = reserve not met */
+	int ret = 0;		/* 0 = OK, 1 = failed */
+	long remain;		/* time until auction ends */
 
 	resetAuctionError(aip);
 
@@ -592,7 +645,7 @@ parseAuction(memBuf_t *mp, auctionInfo *aip, const char *user, time_t *timeToFir
 	/*
 	 * Auction title
 	 */
-	while ((line = getnontag(mp))) {
+	while ((line = getNonTag(mp))) {
 		if (!strcmp(line, "Bid History"))
 			break;
 		if (!strcmp(line, "Unknown Item"))
@@ -601,35 +654,19 @@ parseAuction(memBuf_t *mp, auctionInfo *aip, const char *user, time_t *timeToFir
 	if (!line)
 		return auctionError(aip, ae_notitle, NULL);
 
-	ret = parseAuctionInternal(mp, aip, user, &currently, &winner);
-	free(currently);
-	free(winner);
-	return ret;
-} /* parseAuction() */
-
-static const char PRIVATE[] = "private auction - bidders' identities protected";
-
-static int
-parseAuctionInternal(memBuf_t *mp, auctionInfo *aip, const char *user, char **currently, char **winner)
-{
-	char *line;
-	char *title;
-	int reserve = 0;	/* 1 = reserve not met */
-	long remain;		/* time until auction ends */
-
 	/*
 	 * Auction item
 	 */
-	while ((line = getnontag(mp))) {
+	while ((line = getNonTag(mp))) {
 		if (!strcmp(line, "Item title:")) {
-			line = getnontag(mp);
+			line = getNonTag(mp);
 			break;
 		}
 	}
 	if (!line)
 		return auctionError(aip, ae_notitle, NULL);
 	title = myStrdup(line);
-	while ((line = getnontag(mp))) {
+	while ((line = getNonTag(mp))) {
 		char *tmp;
 
 		if (line[strlen(line) - 1] == ':')
@@ -644,23 +681,23 @@ parseAuctionInternal(memBuf_t *mp, auctionInfo *aip, const char *user, char **cu
 	/*
 	 * Quantity/Current price/Time remaining
 	 */
-	for (; line; line = getnontag(mp)) {
+	aip->quantity = 1;	/* If quantity not found, assume 1 */
+	for (; line; line = getNonTag(mp)) {
 		if (!strcmp("Quantity:", line)) {
-			line = getnontag(mp);
+			line = getNonTag(mp);
 			if (!line || (aip->quantity = atoi(line)) < 1)
 				return auctionError(aip, ae_noquantity, NULL);
 			log(("quantity: %d", aip->quantity));
 		} else if (!strcmp("Currently:", line)) {
-			line = getnontag(mp);
+			line = getNonTag(mp);
 			if (!line)
 				return auctionError(aip, ae_noprice, NULL);
-			*currently = myStrdup(line);
-			log(("Currently: %s  (your maximum bid: %s)\n", line, aip->bidPriceStr));
+			log(("Currently: %s\n", line));
 			aip->price = atof(priceFixup(line, aip));
 			if (aip->price < 0.01)
 				return auctionError(aip, ae_convprice, line);
 		} else if (!strcmp("Time left:", line)) {
-			line = getnontag(mp);
+			line = getNonTag(mp);
 			break;
 		}
 	}
@@ -673,7 +710,7 @@ parseAuctionInternal(memBuf_t *mp, auctionInfo *aip, const char *user, char **cu
 	/* no \n needed -- ctime returns a string with \n at the end */
 	printLog(stdout, "End time: %s", ctime(&(aip->endTime)));
 
-	if (!(line = getnontag(mp)))
+	if (!(line = getNonTag(mp)))
 		return auctionError(aip, ae_nohighbid, NULL);
 	if (!strcmp("Reserve not met", line))
 		reserve = 1;
@@ -685,171 +722,215 @@ parseAuctionInternal(memBuf_t *mp, auctionInfo *aip, const char *user, char **cu
 	 *
 	 *	Single item auction:
 	 *	    Header line:
+	 *		""
 	 *		"User ID"
 	 *		"Bid Amount"
 	 *		"Date of bid"
+	 *		""
 	 *	    For each bid:
+	 *			""
 	 *			<user>
-	 *			"("
-	 *			<feedback #>
-	 *			")"
 	 *			<amount>
 	 *			<date>
+	 *			""
+	 *	    (plus multiple rows of 1 column between entries)
+	 *
+	 *	    If there are no bids:
+	 *			""
+	 *			"No bids have been placed."
 	 *
 	 *	    If the auction is private, the user names are:
 	 *		"private auction - bidders' identities protected"
 	 *
 	 *	Dutch auction:
 	 *	    Header line:
+	 *		""
 	 *		"User ID"
 	 *		"Bid Amount"
 	 *		"Quantity wanted"
 	 *		"Quantity winning"
 	 *		"Date of Bid"
+	 *		""
+	 *
 	 *	    For each bid:
+	 *			""
 	 *			<user>
-	 *			"("
-	 *			<feedback #>
-	 *			")"
 	 *			<amount>
 	 *			<quantity wanted>
 	 *			<quantity winning>
 	 *			<date>
+	 *			""
+	 *	    (plus multiple rows of 1 column between entries)
+	 *
+	 *	    If there are no bids:
+	 *			""
+	 *			"No bids have been placed."
 	 *
 	 *	    Dutch auctions cannot be private.
 	 *
 	 *	If there are no bids, the text "No bids have been placed."
 	 *	will be the first entry in the table.
 	 */
-	/* header line */
-	while ((line = getnontag(mp))) {
-		if (!strcmp("User ID", line)) {
-			(void)getnontag(mp);	/* Bid Amount */
-			if (aip->quantity > 1) {
-				(void)getnontag(mp);	/* Quantity wanted */
-				(void)getnontag(mp);	/* Quantity winning */
-			}
-			(void)getnontag(mp);	/* Date of Bid */
-			break;
+	/* find header line */
+	while (!foundHeader && getTableStart(mp)) {
+		while (!foundHeader && (row = getTableRow(mp))) {
+			int ncolumns = numColumns(row);
+			char *rawHeader = (ncolumns >= 5) ? row[1] : NULL;
+			char *header = getNonTagFromString(rawHeader);
+
+			foundHeader = header && !strcmp(header, "User ID");
+			freeTableRow(row);
+			free(header);
 		}
 	}
-	if (!(line = getnontag(mp)))
+	if (!foundHeader) {
+		bugReport("parseAuction", __FILE__, __LINE__, mp, "Cannot find bid table header");
 		return auctionError(aip, ae_nohighbid, NULL);
-	if (!strcmp("No bids have been placed.", line)) {
-		aip->bids = 0;
-		/* can't determine starting bid on history page */
-		aip->price = 0;
-		printf("# of bids: 0\n"
-		       "Currently: --  (your maximum bid: %s)\n"
-		       "High bidder: -- (not %s)\n",
-		       aip->bidPriceStr, user);
-	} else if (aip->quantity == 1) {	/* single auction with bids */
-		int private = 0;
+	}
+	/* skip over initial single-column rows */
+	while ((row = getTableRow(mp))) {
+		if (numColumns(row) == 1) {
+			freeTableRow(row);
+			continue;
+		}
+		break;
+	}
+	/* roll through table */
+	switch (numColumns(row)) {
+	case 2:	/* auction with no bids */
+	    {
+		char *s = getNonTagFromString(row[1]);
 
-		if (!strcmp(line, PRIVATE))
-			private = 1;
-		else
-			*winner = myStrdup(line);
-		aip->bids = 1;
-		if (!private) {
-			(void)getnontag(mp);	/* "(" */
-			(void)getnontag(mp);	/* <feedback> */
-			(void)getnontag(mp);	/* ")" */
+		if (!strcmp("No bids have been placed.", s)) {
+			aip->quantityBid = 0;
+			aip->bids = 0;
+			/* can't determine starting bid on history page */
+			aip->price = 0;
+			printf("# of bids: 0\n"
+			       "Currently: --  (your maximum bid: %s)\n"
+			       "High bidder: -- (not %s)\n",
+			       aip->bidPriceStr, user);
+		} else {
+			bugReport("parseAuction", __FILE__, __LINE__, mp, "Unrecognized bid table line");
+			ret = auctionError(aip, ae_nohighbid, NULL);
 		}
-		*currently = myStrdup(getnontag(mp));	/* bid amount */
-		aip->price = atof(priceFixup(line, aip));
-		if (aip->price < 0.01)
-			return auctionError(aip, ae_convprice, line);
-		if (private) {
-			*winner = (aip->price <= aip->bidPrice &&
-				   (aip->bidResult == 0 ||
-				    (aip->bidResult == -1 &&
-				     aip->endTime - time(NULL) < options.bidtime))) ?
-					myStrdup(user) : myStrdup("[private]");
+		freeTableRow(row);
+		free(s);
+		break;
+	    }
+	case 5: /* single auction with bids */
+	    {
+		/* blank, user, price, date, blank */
+		char *winner = getNonTagFromString(row[1]);
+		char *currently = getNonTagFromString(row[2]);
+
+		aip->quantityBid = 1;
+
+		/* current price */
+		aip->price = atof(priceFixup(currently, aip));
+		if (aip->price < 0.01) {
+			free(winner);
+			free(currently);
+			return auctionError(aip, ae_convprice, currently);
 		}
-		(void)getnontag(mp); /* date */
-		/* count number of bids */
-		for (;;) {
-			if (private) {
-				line = getnontag(mp); /* UserID */
-				if (!line || strcmp(line, PRIVATE))
-					break;
-			} else {
-				(void)getnontag(mp); /* UserID */
-				line = getnontag(mp); /* "(" */
-				if (!line || strcmp("(", line))
-					break;
-				(void)getnontag(mp); /* <feedback> */
-				(void)getnontag(mp); /* ")" */
-			}
-			++aip->bids;
-			(void)getnontag(mp); /* bid amount */
-			(void)getnontag(mp); /* date */
+		printLog(stdout, "Currently: %s  (your maximum bid: %s)\n",
+			 currently, aip->bidPriceStr);
+		free(currently);
+
+		/* winning user */
+		if (!strcmp(winner, PRIVATE)) {
+			free(winner);
+			winner = myStrdup((aip->price <= aip->bidPrice &&
+					    (aip->bidResult == 0 ||
+					     (aip->bidResult == -1 && aip->endTime - time(NULL) < options.bidtime))) ?  user : "[private]");
 		}
-		printf("Currently: %s  (your maximum bid: %s)\n"
-		       "# of bids: %d\n",
-		       *currently, aip->bidPriceStr, aip->bids);
-		if (strcasecmp(*winner, user)) {
-			printLog(stdout, "High bidder: %s (NOT %s)\n", *winner, user);
+		freeTableRow(row);
+
+		/* count bids */
+		for (aip->bids = 1; (row = getTableRow(mp)); ) {
+			if (numColumns(row) == 5)
+				++aip->bids;
+			freeTableRow(row);
+		}
+		printLog(stdout, "# of bids: %d\n", aip->bids);
+
+		/* print high bidder */
+		if (strcasecmp(winner, user)) {
+			printLog(stdout, "High bidder: %s (NOT %s)\n",
+				 winner, user);
 			aip->winning = 0;
 			if (!remain)
 				aip->won = 0;
-		} else if (!reserve) {
-			printLog(stdout, "High bidder: %s (reserve not met)\n", *winner);
+		} else if (reserve) {
+			printLog(stdout, "High bidder: %s (reserve not met)\n",
+				 winner);
 			aip->winning = 0;
 			if (!remain)
 				aip->won = 0;
 		} else {
-			printLog(stdout, "High bidder: %s!!!\n", *winner);
+			printLog(stdout, "High bidder: %s!!!\n", winner);
 			aip->winning = 1;
 			if (!remain)
 				aip->won = 1;
 		}
-	} else {	/* dutch with bids */
-		int gotMatch = 0, wanted = 0, winning = 0;
-
-		printf("Currently: %s  (your maximum bid: %s)\n", *currently, aip->bidPriceStr);
+		free(winner);
+		break;
+	    }
+	case 7: /* dutch with bids */
+	    {
+		int wanted = 0;
+		char *currently = NULL;
 
 		aip->bids = 0;
+		aip->quantityBid = 0;
+		aip->won = 0;
+		aip->winning = 0;
 		/* find your bid, count number of bids */
-		do {
-			if (!gotMatch) {
-				free(*winner);
-				*winner = myStrdup(line);
+		/* blank, user, price, wanted, winning, date, blank */
+		for (; row; row = getTableRow(mp)) {
+			if (numColumns(row) == 7) {
+				int bidderWinning = getIntFromString(row[4]);
+
+				++aip->bids;
+				if (bidderWinning > 0) {
+					char *bidder;
+
+					aip->quantityBid += bidderWinning;
+					free(currently);
+					bidder = getNonTagFromString(row[1]);
+					currently = getNonTagFromString(row[2]);
+					if (!strcasecmp(bidder, user)) {
+						wanted = getIntFromString(row[3]);
+						aip->winning = bidderWinning;
+					}
+					free(bidder);
+				}
 			}
-			line = getnontag(mp); /* "(" */
-			if (strcmp("(", line))
-				break;
-			++aip->bids;
-			(void)getnontag(mp); /* <feedback> */
-			(void)getnontag(mp); /* ")" */
-			(void)getnontag(mp); /* <price> */
-			if (!strcasecmp(*winner, user)) {
-				gotMatch = 1;
-				wanted = atoi(getnontag(mp)); /* <quantity wanted> */
-				winning = atoi(getnontag(mp)); /* <quantity winning> */
-			} else {
-				(void)getnontag(mp); /* <quantity wanted> */
-				(void)getnontag(mp); /* <quantity winning> */
-			}
-			(void)getnontag(mp); /* <date> */
-			line = getnontag(mp); /* <date> */
-		} while (line);
-		printf("# of bids: %d\n", aip->bids);
-		aip->winning = winning;
+			freeTableRow(row);
+		}
 		if (!remain)
-			aip->won = winning;
-		if (winning > 0) {
-			if (winning == wanted)
+			aip->won = aip->winning;
+		printf("# of bids: %d\n", aip->bids);
+		printf("Currently: %s  (your maximum bid: %s)\n",
+		       currently, aip->bidPriceStr);
+		free(currently);
+		if (aip->winning > 0) {
+			if (aip->winning == wanted)
 				printLog(stdout, "High bidder: %s!!!\n", user);
 			else
-				printLog(stdout, "High bidder: %s!!! (%d out of %d items)\n", user, winning, wanted);
+				printLog(stdout, "High bidder: %s!!! (%d out of %d items)\n", user, aip->winning, wanted);
 		} else
 			printLog(stdout, "High bidder: various dutch bidders (NOT %s)\n", user);
+		break;
+	    }
+	default:
+		bugReport("parseAuction", __FILE__, __LINE__, mp, "%d columns in bid table", numColumns(row));
+		ret = auctionError(aip, ae_nohighbid, NULL);
+		freeTableRow(row);
 	}
 
-	return 0;
-} /* parseAuctionInternal() */
+	return ret;
+} /* parseAuction() */
 
 static const char GETINFO[] = "http://offer.ebay.com/aw-cgi/eBayISAPI.dll?ViewBids&item=";
 
@@ -997,7 +1078,7 @@ ebayLogin(auctionInfo *aip)
 	if ((pp = getPageInfo(mp))) {
 		log(("ebayLogin(): pagename = \"%s\", pageid = \"%s\", srcid = \"%s\"", nullStr(pp->pageName), nullStr(pp->pageId), nullStr(pp->srcId)));
 		if (pp->srcId && !strcmp(pp->srcId, "SignInAlertSupressor"))
-			aip->loginTime = time(NULL);
+			loginTime = time(NULL);
 		else if (pp->pageName && !strcmp(pp->pageName, "PageSignIn"))
 			ret = auctionError(aip, ae_login, NULL);
 		else {
@@ -1189,7 +1270,7 @@ watch(auctionInfo *aip)
 		 * if we're less than five minutes away and login was
 		 * more than five minutes ago, re-login
 		 */
-		if ((remain <= 300) && ((time(NULL) - aip->loginTime) > 300)) {
+		if (remain <= 300 && (time(NULL) - loginTime) > 300) {
 			cleanupCurlStuff();
 			if (initCurlStuff())
 				return auctionError(aip, ae_unknown, NULL);
@@ -1264,17 +1345,54 @@ static const char* MYITEMS_URL = "http://my.ebay.com/ws/eBayISAPI.dll?MyeBay&Cur
 #define MYITEMS_LINE(n) (n % 2)
 #define MAX_TDS 6
 
-void
-fprint_myitems(void)
+static void
+printMyItemsRow(char **row, int line)
 {
-	memBuf_t *mp = httpGet(MYITEMS_URL, NULL);
-	const char *table;
-	char **row;
 	const char *myitems_description[2][MAX_TDS] = {
 		{0, "Price:\t\t%s\n", "Shipping:\t%s\n", "Bids:\t\t%s\n",
 		 "Seller:\t\t%s\n", "Time:\t\t%s\n\n"},
 		{0, "ItemNr:\t\t%s\n", "Description:\t%s\n", 0, 0, 0}
 	};
+	int column = 0;
+
+	for (; row[column]; ++column) {
+		memBuf_t *mp;
+		char *value = NULL;
+		int freeValue = 0;
+
+		if (column >= MAX_TDS || !myitems_description[line][column])
+			continue;
+		mp = strToMemBuf(row[column]);
+		/* special case: ItemNr encoded in ViewItem URL
+		 */
+		if (line == 1 && column == 1) {
+			static const char search[] = "item=";
+			char *tmp = strstr(getTag(mp), search);
+
+			if (tmp) {
+				char *quote;
+
+				tmp += sizeof(search) - 1;
+				if ((quote=strchr(tmp, '\"'))) {
+					value = myStrndup(tmp, (size_t)(quote - tmp));
+					freeValue = 1;
+				}
+			}
+		} else
+			value = getNonTag(mp);
+		printLog(stdout, myitems_description[line][column], value ? value : "");
+		if (freeValue)
+			free(value);
+		clearMembuf(mp);
+	}
+}
+
+void
+printMyItems(void)
+{
+	memBuf_t *mp = httpGet(MYITEMS_URL, NULL);
+	const char *table;
+	char **row;
 
 	while ((table = getTableStart(mp))) {
 		int rowNum = 1;
@@ -1288,40 +1406,7 @@ fprint_myitems(void)
 		else
 			return; /* error? */
 		while ((row = getTableRow(mp))) {
-			int myItemsLine = MYITEMS_LINE(rowNum);
-			int columnNum = 0;
-
-			for (; row[columnNum]; ++columnNum) {
-				memBuf_t *mp;
-				char *value = NULL;
-				int freeValue = 0;
-
-				if (columnNum >= MAX_TDS || !myitems_description[myItemsLine][columnNum])
-					continue;
-				mp = strToMemBuf(row[columnNum]);
-				/* special case: ItemNr encoded in ViewItem URL
-				 */
-				if (myItemsLine == 1 && columnNum == 1) {
-					static const char search[] = "item=";
-					char *tmp = strstr(gettag(mp), search);
-
-					if (tmp) {
-						char *quote;
-
-						tmp += sizeof(search) - 1;
-						if ((quote=strchr(tmp, '\"'))) {
-							value = myStrndup(tmp, (size_t)(quote - tmp));
-							freeValue = 1;
-						}
-					}
-				} else
-					value = getnontag(mp);
-				printLog(stdout, myitems_description[myItemsLine][columnNum], value ? value : "");
-				if (freeValue)
-					free(value);
-				clearMembuf(mp);
-			}
-			rowNum++;
+			printMyItemsRow(row, MYITEMS_LINE(rowNum++));
 			freeTableRow(row);
 		}
 	}
@@ -1340,7 +1425,7 @@ testParser(int flag)
 		char *line;
 
 		/* dump non-tag data */
-		while ((line = getnontag(mp)))
+		while ((line = getNonTag(mp)))
 			printf("\"%s\"\n", line);
 
 		/* pagename? */
@@ -1373,24 +1458,36 @@ testParser(int flag)
 	    }
 	case 4:
 	    {
-		/* find the watching table */
 		const char *table;
 		char **row;
+		char *cp;
+		int rowNum = 0;
 
-		while ((table = getTableStart(mp))) {
-			int rowNum = 0;
+		while ((cp = getNonTag(mp))) {
+			if (!strcmp(cp, "Time left:"))
+				break;
+		}
+		if (!cp) {
+			printf("time left not found!\n");
+			break;
+		}
+		(void)getTableStart(mp); /* skip one table */
+		table = getTableStart(mp);
+		if (!table) {
+			printf("no table found!\n");
+			break;
+		}
 
-			if (!strstr(table, "tableName=\"Watching\""))
-				continue;
-			printf("table: %s\n", table);
-			while ((row = getTableRow(mp))) {
-				int columnNum = 0;
+		printf("table: %s\n", table);
+		while ((row = getTableRow(mp))) {
+			int columnNum = 0;
 
-				printf("\trow %d:\n", rowNum++);
-				for (; row[columnNum]; ++columnNum) {
-					printf("\t\tcolumn %d: %s\n", columnNum, row[columnNum]);
-					free(row[columnNum]);
-				}
+			printf("\trow %d:\n", rowNum++);
+			for (; row[columnNum]; ++columnNum) {
+				memBuf_t *cmp = strToMemBuf(row[columnNum]);
+				printf("\t\tcolumn %d: %s\n", columnNum, getNonTag(cmp));
+				free(row[columnNum]);
+				clearMembuf(cmp);
 			}
 		}
 		break;

@@ -201,16 +201,16 @@ sortAuctions(auctionInfo **auctions, int numAuctions, char *user, int *quantity)
 	for (i = 0; i < numAuctions; ++i) {
 		auctionInfo *aip = auctions[i];
 
-		if (aip->won > 0)
+		if ((i + 1) < numAuctions &&
+		    !strcmp(aip->auction, auctions[i+1]->auction))
+			(void)auctionError(aip, ae_duplicate, NULL);
+		else if (aip->won > 0)
 			*quantity -= aip->won;
 		else if (aip->auctionError != ae_none ||
 			 aip->endTime <= time(NULL))
 			;
 		else if (!isValidBidPrice(aip))
 			(void)auctionError(aip, ae_bidprice, NULL);
-		else if (i > 0 && auctions[i-1] &&
-			 !strcmp(aip->auction, auctions[i-1]->auction))
-			(void)auctionError(aip, ae_duplicate, NULL);
 		else
 			continue;
 		printAuctionError(aip, stderr);
@@ -932,7 +932,7 @@ main(int argc, char *argv[])
 			printAuctionError(dummy, stderr);
 			exit(1);
 		} else {
-			fprint_myitems();
+			printMyItems();
 			exit(0);
 		}
  	}

@@ -26,7 +26,11 @@ CHECKFLAGS = -O -pedantic -Wall -Wpointer-arith -Wcast-qual \
 
 # Simple portability check - look for no warnings
 check:
-	gcc -c $(CFLAGS) $(CHECKFLAGS) $(SRC)
+	gcc -c $(CFLAGS) `curl-config  --cflags` $(CHECKFLAGS) $(SRC)
+
+# lint check
+lint:
+	lint $(CFLAGS) `curl-config  --cflags` $(SRC)
 
 
 

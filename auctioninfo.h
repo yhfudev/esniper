@@ -69,13 +69,11 @@ typedef struct {
 	double bidPrice;/* price you want to bid (converted to double) */
 	time_t endTime; /* end time as calculated from remaining seconds */
 	time_t latency; /* latency from HTTP request to first page data */
-#if 0
-	char *host;	/* bid history host */
-#endif
 	char *query;	/* bid history query */
 	char *bidkey;	/* bid key */
 	char *bidpass;	/* bid password */
 	int quantity;	/* number of items available */
+	int quantityBid;/* number of items currently bid on */
 	int bids;	/* number of bids made */
 	double price;	/* current price */
 	char *currency;	/* currency used in auction */
@@ -84,7 +82,6 @@ typedef struct {
 	int winning;	/* number currently winning (-1 = no clue, 0 or greater = actual #) */
 	enum auctionErrorCode auctionError;/* error encountered while parsing */
 	char *auctionErrorDetail;/* details of error */
-	time_t loginTime; /* time of last login to eBay */
 } auctionInfo;
 
 extern auctionInfo *newAuctionInfo(const char *auction, const char *bidPriceStr);
