@@ -50,12 +50,12 @@ Build esniper on Sun, and HP and Cygwin, strip and copy to release directory:
 		strip esniper
 		mv esniper $CURRENT/esniper-solaris-sparc
 
-	HP:
+	Linux:
 		cd esniper
 		rcp sparky:esniper/\*.[ch] .
 		make
 		strip esniper
-		rcp esniper sparky:esniper/$CURRENT/esniper-hpux-hp
+		rcp esniper sparky:esniper/$CURRENT/esniper-linux-x86
 
 	Cygwin:
 		cd esniper
