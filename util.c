@@ -132,7 +132,6 @@ void
 logOpen(const char *progname, const auctionInfo *aip)
 {
 	char *logfilename;
-fprintf(stderr, "logOpen(%s, %s)\n", progname, aip ? aip->auction : "NULL");
 
 	if (aip == NULL)
 		logfilename = myStrdup2(progname, ".log");
