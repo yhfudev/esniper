@@ -28,11 +28,12 @@
 #define AUCTION_H_INCLUDED
 
 #include "auctioninfo.h"
+#include "esniper.h"
 
 extern int getInfo(auctionInfo *aip, int quantity, const char *user);
-extern int watch(auctionInfo *aip, int quantity, const char *user, long bidTime);
+extern int watch(auctionInfo *aip, option_t options);
 extern int preBid(auctionInfo *aip);
-extern int bid(int bidflag, auctionInfo *aip, int quantity, const char *user, const char *password);
+extern int bid(option_t options, auctionInfo *aip);
 
 /* secret option */
 extern void testParser(int argc, char *argv[]);

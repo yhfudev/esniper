@@ -52,6 +52,10 @@ extern char *timestamp(void);
 extern int skipline(FILE *fp);
 extern char *prompt(const char *p, int noecho);
 
+extern void clearPassword();
+extern void encryptPassword();
+extern void decryptPassword();
+
 #if defined(__CYGWIN__) || defined(WIN32)
 extern char *basename(char *);
 extern char *dirname(char *);

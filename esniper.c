@@ -48,7 +48,6 @@ static const char blurb[]="Please visit http://esniper.sourceforge.net/ for upda
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
 
 option_t options = {
 	NULL,             /* user */
@@ -60,12 +59,14 @@ option_t options = {
 	1,                /* bid */
 	1,                /* reduce quantity */
 	0,                /* debug */
-	0                 /* usage */
+	0,                /* usage */
+	0                 /* password encrypted? */
 };
 
 const char DEFAULT_CONF_FILE[] = ".esniper";
 const char HOSTNAME[] = "cgi.ebay.com";
 
+/* support functions */
 static void sigAlarm(int sig);
 static void sigTerm(int sig);
 static int sortAuctions(auctionInfo **auctions, int numAuctions, char *user,
@@ -87,6 +88,7 @@ static int CheckFilename(const void* valueptr, const optionTable_t* tableptr,
                          const char* filename, const char *line);
 static int SetHelp(const void* valueptr, const optionTable_t* tableptr,
                    const char* filename, const char *line);
+
 
 static void
 sigAlarm(int sig)
@@ -266,8 +268,9 @@ static int CheckQuantity(const void* valueptr, const optionTable_t* tableptr,
  *
  * returns: 0 = OK, else error
  */
-static int ReadUsername(const void* valueptr, const optionTable_t* tableptr,
-                        const char* filename, const char *line)
+static int
+ReadUsername(const void* valueptr, const optionTable_t* tableptr,
+             const char* filename, const char *line)
 {
 	char *username = prompt("Enter eBay username: ", 0);
 
@@ -286,8 +289,9 @@ static int ReadUsername(const void* valueptr, const optionTable_t* tableptr,
  *
  * returns: 0 = OK, else error
  */
-static int ReadPassword(const void* valueptr, const optionTable_t* tableptr,
-                        const char* filename, const char *line)
+static int
+ReadPassword(const void* valueptr, const optionTable_t* tableptr,
+             const char* filename, const char *line)
 {
 	char *passwd = prompt("Enter eBay password: ", 1);
 
@@ -297,8 +301,10 @@ static int ReadPassword(const void* valueptr, const optionTable_t* tableptr,
 	}
 	putchar('\n');
 
+	clearPassword();
 	/* don't log password! */
 	*(char**)(tableptr->value) = passwd;
+	encryptPassword();
 	return 0;
 }
 
@@ -612,8 +618,7 @@ main(int argc, char *argv[])
 				continue;
 			}
 		} else {
-			if (watch(auctions[i], options.quantity,
-				  options.user, options.bidtime)) {
+			if (watch(auctions[i], options)) {
 				printAuctionError(auctions[i], stderr);
 				continue;
 			}
@@ -640,9 +645,7 @@ main(int argc, char *argv[])
 			options.quantity, options.user));
 
 		for (retryCount = 0; retryCount < 3; retryCount++) {
-			bidRet = bid(options.bid, auctions[i], options.quantity,
-				     options.user, options.password);
-
+			bidRet = bid(options, auctions[i]);
 			if (!bidRet || auctions[i]->auctionError != ae_connect)
 				break;
 			printLog(stderr, "Auction %s: retrying...\n",

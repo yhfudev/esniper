@@ -50,6 +50,7 @@ typedef struct {
 	int reduce;
 	int debug;
 	int usage;
+	int encrypted;
 } option_t;
 
 extern option_t options;

@@ -26,7 +26,6 @@
 
 #include "auction.h"
 #include "buffer.h"
-#include "esniper.h"
 #if defined(unix) || defined (__unix) || defined (__MACH__)
 #       include <unistd.h>
 #       include <netinet/in.h>
@@ -775,12 +774,18 @@ bidSocket(FILE *fp, auctionInfo *aip, int quantity, const char *user, const char
 		quantity = aip->quantity;
 	sprintf(quantityStr, "%d", quantity);
 
+	decryptPassword();
 	log(("\n\nquery string:\n"));
 	cmdlen = sizeof(BID_CMD) + strlen(aip->auction) + strlen(aip->key) +
 		strlen(aip->bidPriceStr) + strlen(quantityStr) + strlen(user) +
 		strlen(password) - 17;
 	printLog(fp, BID_FMT, aip->host, HOSTNAME, cmdlen);
-	printLog(fp, BID_CMD, aip->auction, aip->key, aip->bidPriceStr, quantityStr, user,password);
+
+	/* don't log password */
+	fprintf(fp, BID_CMD, aip->auction, aip->key, aip->bidPriceStr, quantityStr, user, password);
+	log((BID_CMD, aip->auction, aip->key, aip->bidPriceStr, quantityStr, user, "(password hidden)"));
+	encryptPassword();
+
 	fflush(fp);
 	aip->bidResult = -1;
 
@@ -814,20 +819,20 @@ bidSocket(FILE *fp, auctionInfo *aip, int quantity, const char *user, const char
  * 1: error
  */
 int
-bid(int bidFlag, auctionInfo *aip, int quantity, const char *user, const char *password)
+bid(option_t options, auctionInfo *aip)
 {
 	FILE *fp;
 	int ret;
 
-	log(("\n\n*** bidAuction auction %s price %s quantity %d user %s\n", aip->auction, aip->bidPriceStr, quantity, user));
+	log(("\n\n*** bidAuction auction %s price %s quantity %d user %s\n", aip->auction, aip->bidPriceStr, options.quantity, options.user));
 
-	if (!bidFlag) {
+	if (!options.bid) {
 		printLog(stdout, "Bidding disabled\n");
 		return aip->bidResult = 0;
 	}
 	if (!(fp = verboseConnect(HOSTNAME, 6, 5)))
 		return aip->bidResult = auctionError(aip, ae_connect, NULL);
-	ret = bidSocket(fp, aip, quantity, user, password);
+	ret = bidSocket(fp, aip, options.quantity, options.user, options.password);
 	runout(fp);
 	fclose(fp);
 	return ret;
@@ -841,16 +846,16 @@ bid(int bidFlag, auctionInfo *aip, int quantity, const char *user, const char *p
  *	1 Error
  */
 int
-watch(auctionInfo *aip, int quantity, const char *user, long bidtime)
+watch(auctionInfo *aip, option_t options)
 {
 	int errorCount = 0;
 	long remain = -1, sleepTime = -1;
 
-	log(("*** WATCHING auction %s price-each %s quantity %d user %s bidtime %ld\n", aip->auction, aip->bidPriceStr, quantity, user, bidtime));
+	log(("*** WATCHING auction %s price-each %s quantity %d user %s bidtime %ld\n", aip->auction, aip->bidPriceStr, options.quantity, options.user, options.bidtime));
 
 	for (;;) {
 		time_t start = time(NULL);
-		int ret = getInfo(aip, quantity, user);
+		int ret = getInfo(aip, options.quantity, options.user);
 		time_t latency = time(NULL) - start;
 
 		if (ret) {
@@ -861,9 +866,9 @@ watch(auctionInfo *aip, int quantity, const char *user, long bidtime)
 				int j, ret = 1;
 
 				for (j = 0; ret && j < 3 && aip->auctionError == ae_notitle; ++j)
-					ret=getInfo(aip, quantity, user);
+					ret=getInfo(aip, options.quantity, options.user);
 				if (!ret)
-					remain = aip->remain - bidtime - (latency * 2);
+					remain = aip->remain - options.bidtime - (latency * 2);
 				else
 					return 1;
 			} else {
@@ -877,7 +882,7 @@ watch(auctionInfo *aip, int quantity, const char *user, long bidtime)
 		} else if (!isValidBidPrice(aip))
 			return auctionError(aip, ae_bidprice, NULL);
 		else
-			remain = aip->remain - bidtime - (latency * 2);
+			remain = aip->remain - options.bidtime - (latency * 2);
 
 		/* it's time!!! */
 		if (remain < 0)

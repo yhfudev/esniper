@@ -1,5 +1,5 @@
 # The following line needs to be uncommented if compiling on solaris
-#LIBS=-lsocket -lnsl
+LIBS=-lsocket -lnsl
 
 # install is typically in /usr/bin or /usr/sbin
 #INSTALL=/usr/bin/install

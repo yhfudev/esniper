@@ -31,9 +31,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
+#include <sys/types.h>
 #if defined(unix) || defined (__unix) || defined (__MACH__)
-#include <sys/time.h>
 #include <termios.h>
+#include <unistd.h>
 #endif
 
 /*
@@ -288,6 +290,72 @@ prompt(const char *p, int noecho)
 
 	return buf;
 }
+
+/*
+ * Password encrpytion/decryption.  xor with pseudo-random one-time pad,
+ * so password isn't (usually) obvious in memory dump.
+ */
+static char *passwordPad = NULL;
+static size_t passwordLen = 0;
+static int needSeed = 1;
+
+static void
+seedPasswordRandom()
+{
+	if (needSeed) {
+		srandom(getpid() * time(0));
+		needSeed = 0;
+	}
+}
+
+void
+clearPassword()
+{
+	int i;
+
+	seedPasswordRandom();
+	for (i = 0; i < passwordLen; ++i) {
+		options.password[i] = (char)random();
+		passwordPad[i] = (char)random();
+	}
+	free(options.password);
+	options.password = NULL;
+	free(passwordPad);
+	passwordPad = NULL;
+	passwordLen = 0;
+}
+
+void
+encryptPassword()
+{
+	int i;
+
+	if (options.encrypted || !options.password)
+		return;
+	seedPasswordRandom();
+	if (!passwordPad) {
+		passwordLen = strlen(options.password) + 1;
+		passwordPad = (char *)myMalloc(passwordLen);
+		for (i = 0; i < passwordLen; ++i)
+			passwordPad[i] = (char)random();
+	}
+	for (i = 0; i < passwordLen; ++i)
+		options.password[i] ^= passwordPad[i];
+	options.encrypted = 1;
+}
+
+void
+decryptPassword()
+{
+	int i;
+
+	if (!options.encrypted || !options.password || !passwordPad)
+		return;
+	for (i = 0; i < passwordLen; ++i)
+		options.password[i] ^= passwordPad[i];
+	options.encrypted = 0;
+}
+
 
 /*
  * Cygwin doesn't provide basename and dirname?
