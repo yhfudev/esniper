@@ -19,17 +19,20 @@ fi
 
 curl_ver=`$CURL_CONFIG --version | sed -e "s/libcurl //g"`
 curl_ver_hex=0x`$CURL_CONFIG --vernum`
-curl_ver_dec=`printf "%d" $curl_ver_hex`
+dnl use awk instead of straight printf, because printf of hex fails on solaris
+curl_ver_dec=`$AWK 'BEGIN {printf("%d\n", '"$curl_ver_hex"')}' </dev/null`
 
 dnl check version all other curl_easy were added in 7.1.1
 check_min=7.1.1
 check_min_hex=0x070101
-check_min_dec=`printf "%d" $check_min_hex`
+dnl use awk instead of straight printf, because printf of hex fails on solaris
+check_min_dec=`$AWK 'BEGIN {printf("%d\n", '"$check_min_hex"')}' </dev/null`
 
 dnl check version curl_easy_strerror was added in 7.11.2
 check_good=7.11.2
 check_good_hex=0x070b02
-check_good_dec=`printf "%d" $check_good_hex`
+dnl use awk instead of straight printf, because printf of hex fails on solaris
+check_good_dec=`$AWK 'BEGIN {printf("%d\n", '"$check_good_hex"')}' </dev/null`
 
 AC_MSG_CHECKING(for cURL version)
 if test $curl_ver_dec -lt $check_min_dec;then

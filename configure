@@ -2894,15 +2894,15 @@ fi
 
 curl_ver=`$CURL_CONFIG --version | sed -e "s/libcurl //g"`
 curl_ver_hex=0x`$CURL_CONFIG --vernum`
-curl_ver_dec=`printf "%d" $curl_ver_hex`
+curl_ver_dec=`$AWK 'BEGIN {printf("%d\n", '"$curl_ver_hex"')}' </dev/null`
 
 check_min=7.1.1
 check_min_hex=0x070101
-check_min_dec=`printf "%d" $check_min_hex`
+check_min_dec=`$AWK 'BEGIN {printf("%d\n", '"$check_min_hex"')}' </dev/null`
 
 check_good=7.11.2
 check_good_hex=0x070b02
-check_good_dec=`printf "%d" $check_good_hex`
+check_good_dec=`$AWK 'BEGIN {printf("%d\n", '"$check_good_hex"')}' </dev/null`
 
 echo "$as_me:$LINENO: checking for cURL version" >&5
 echo $ECHO_N "checking for cURL version... $ECHO_C" >&6
