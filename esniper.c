@@ -982,6 +982,8 @@ static const char BID_FMT[] =
 static const char BID_CMD[] =
 	"MfcISAPICommand=AcceptBid&item=%s&key=%s&maxbid=%s&quant=%s&userid=%s&pass=%s\r\n\r\n";
 
+static const char CONGRATS[] = "Congratulations...";
+
 /*
  * Place bid.
  *
@@ -1020,7 +1022,7 @@ bidItem(int bid, const char *item, const char *amount, const char *quantity, con
 
 	for (line = getnontag(fp), i = 0; iip->bidResult < 0 && line && i < 10;
 	     ++i, line = getnontag(fp)) {
-		if (!strcmp(line, "Congratulations...")) { /* high bidder */
+		if (!strncmp(line, CONGRATS, sizeof(CONGRATS) - 1)) { /* high bidder */
 			printLog(stdout, "%s ", line);
 			printLog(stdout, "%s\n", getnontag(fp));
 			iip->bidResult = 0;
