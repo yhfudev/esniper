@@ -190,6 +190,8 @@ function getLogData($artnr) {
 		$fp=fopen($fn,"r");
 		$text=fread($fp, filesize ($fn));
 		fclose($fp);
+	} else {
+		$text = false;
 	}
 	return($text);
 }
@@ -199,8 +201,8 @@ function getLogData($artnr) {
 
 function getHighestBid($logData) {
 //Filtert das höchste Gebot aus den Logs
-	ereg("Currently: [0-9]+\.?[0-9]+",$logData,$aktGebote);
-    return(substr($aktGebote[count($aktGebote)-1],11));
+	preg_match_all("/Currently: [0-9]+\.?[0-9]+/",$logData,$aktGebote,0,0);
+    return(substr($aktGebote[0][count($aktGebote[0])-1],11));
 }
 
 

@@ -184,11 +184,9 @@ if (!empty($snipelist)) {
     foreach($snipelist as $snipe) {
 		$artnr = $snipe->artnr;
 		statusPruefen($artnr,$db);
-		$fn="/tmp/".$artnr.".ebaysnipelog";
-		if (file_exists($fn)) {
-				$fp=fopen($fn,"r");
-			$text=fread($fp, filesize ($fn));
-			fclose($fp);
+		
+		$text = getLogData($artnr);
+		if ($text != false) {	
 			$text = str_replace("\n","<br>",$text);  //in Textarea nicht benötigt, nimmt auch \n
 		} else {
 			$text = "<span style=\"color:#FF0000;font-weight:bold;\">Fehler - keine Datei zum Datenbankeintrag gefunden!</span>";
