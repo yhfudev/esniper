@@ -1,8 +1,13 @@
-2004-12-06
+2004-12-15
+	* 2.9.0Beta released
+	* allow use of older versions of libcurl
+	* login rewrite
+	* bug report generator
+	* sort auctions by current status (winning bid already placed goes first)
 
+2004-12-06
 	* autotools patch (from hoetzel)
 
 2004-11-25
-
 	* Released 2.9.0Alpha
 	* Added libcurl fixes (from bomm)
