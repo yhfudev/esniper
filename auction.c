@@ -867,7 +867,7 @@ bid(option_t options, auctionInfo *aip)
 	int quantity = aip->quantity < options.quantity ?
 				aip->quantity : options.quantity;
 	char quantityStr[12];	/* must hold an int */
-	int i, ret;
+	int ret;
 
 	sprintf(quantityStr, "%d", quantity);
 
