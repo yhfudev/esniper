@@ -39,7 +39,7 @@
 #include <stdio.h>
 #include <string.h>
 
-static int readAuctions(FILE *fp, auctionInfo ***aip, char *buf);
+static int readAuctions(FILE *fp, auctionInfo ***aip);
 
 /*
  * readAuctionFile(): read a file listing auctions to watch.
@@ -50,36 +50,17 @@ int
 readAuctionFile(const char *filename, auctionInfo ***aip)
 {
 	FILE *fp = fopen(filename, "r");
-	int numAuctions = 0;
 	char *buf = NULL;
+	size_t bufsize = 0, count = 0;
+	int c, i, j, line, numAuctions = 0;
 
 	if (fp == NULL) {
 		fprintf(stderr, "Cannot open %s: %s\n", filename,
 			strerror(errno));
 		exit(1);
 	}
-	numAuctions = readAuctions(fp, aip, buf);
-	fclose(fp);
-	free(buf);
-	if (numAuctions == 0)
-		fprintf(stderr, "Cannot find any auctions!\n");
-	if (numAuctions <= 0)
-		exit(1);
-	return numAuctions;
-} /* readAuctionFile() */
 
-/*
- * readAuctions(): read auctions from file
- *
- * returns: number of auctions, or -1 if error
- */
-static int
-readAuctions(FILE *fp, auctionInfo ***aip, char *buf)
-{
-	size_t bufsize = 0, count = 0;
-	int c, i, j, line, numAuctions = 0;
-
-	while ((c = getc(fp)) != EOF) {
+	while (numAuctions != -1 && (c = getc(fp)) != EOF) {
 		if (isspace(c))
 			continue;
 		/* skip comments and anything starting with a letter,
@@ -102,7 +83,7 @@ readAuctions(FILE *fp, auctionInfo ***aip, char *buf)
 				/* use price of previous auction */
 				if (numAuctions == 1) {
 					fprintf(stderr, "Cannot find price on first auction\n");
-					return -1;
+					numAuctions = -1;
 				}
 			} else {
 				addchar(buf, bufsize, count, ' ');
@@ -116,7 +97,7 @@ readAuctions(FILE *fp, auctionInfo ***aip, char *buf)
 				if (c != EOF && c != '\n') {
 					term(buf, bufsize, count);
 					fprintf(stderr, "Invalid auction line: %s\n", &buf[line]);
-					return -1;
+					numAuctions = -1;
 				}
 			}
 			addchar(buf, bufsize, count, '\n');
@@ -126,32 +107,41 @@ readAuctions(FILE *fp, auctionInfo ***aip, char *buf)
 				putc(c, stderr);
 			} while ((c = getc(fp)) != EOF && c != '\n');
 			putc('\n', stderr);
-			return -1;
+			numAuctions = -1;
 		}
 		if (c == EOF)
 			break;
 	}
+	fclose(fp);
 
-	*aip = (auctionInfo **)myMalloc(sizeof(auctionInfo *) * numAuctions);
+	if (numAuctions > 0) {
+		*aip = (auctionInfo **)myMalloc(
+					sizeof(auctionInfo *) * numAuctions);
 
-	for (i = 0, j = 0; i < numAuctions; ++i, ++j) {
-		char *auction, *bidPriceStr;
+		for (i = 0, j = 0; i < numAuctions; ++i, ++j) {
+			char *auction, *bidPriceStr;
 
-		auction = &buf[j];
-		for (; !isspace((int)(buf[j])); ++j)
-			;
-		if (buf[j] == '\n') {
-			buf[j] = '\0';
-			bidPriceStr = (*aip)[i-1]->bidPriceStr;
-		} else {
-			buf[j] = '\0';
-			bidPriceStr = &buf[++j];
-			for (; buf[j] != '\n'; ++j)
+			auction = &buf[j];
+			for (; !isspace((int)(buf[j])); ++j)
 				;
-			buf[j] = '\0';
+			if (buf[j] == '\n') {
+				buf[j] = '\0';
+				bidPriceStr = (*aip)[i-1]->bidPriceStr;
+			} else {
+				buf[j] = '\0';
+				bidPriceStr = &buf[++j];
+				for (; buf[j] != '\n'; ++j)
+					;
+				buf[j] = '\0';
+			}
+			(*aip)[i] = newAuctionInfo(auction, bidPriceStr);
 		}
-		(*aip)[i] = newAuctionInfo(auction, bidPriceStr);
-	}
+	} else if (numAuctions == 0)
+		fprintf(stderr, "Cannot find any auctions!\n");
 
+	free(buf);
+
+	if (numAuctions <= 0)
+		exit(1);
 	return numAuctions;
 } /* readAuctions() */
