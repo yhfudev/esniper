@@ -404,7 +404,7 @@ parseAuction(FILE *fp, auctionInfo *aip, int quantity, const char *user)
 				winner = "[private]";
 		} else
 			winner = line;
-		if (strcmp(winner, user)) {
+		if (strcasecmp(winner, user)) {
 			printLog(stdout, "High bidder: %s (NOT %s)\n", winner, user);
 			if (!aip->remain)
 				aip->won = 0;
@@ -430,7 +430,7 @@ parseAuction(FILE *fp, auctionInfo *aip, int quantity, const char *user)
 
 			if (!(line = getnontag(fp)))	/* user */
 				return auctionError(aip, ae_nohighbid, NULL);
-			match = !strcmp(user, line);
+			match = !strcasecmp(user, line);
 			if (!(line = getnontag(fp)) ||	/* reputation ( */
 			    !(line = getnontag(fp)) ||	/* reputation number */
 			    !(line = getnontag(fp)) ||	/* reputation ) */
