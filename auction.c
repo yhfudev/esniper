@@ -857,10 +857,6 @@ watch(auctionInfo *aip)
 		else
 			remain = aip->remain - options.bidtime - latency;
 
-		/* it's time!!! */
-		if (remain < 0)
-			break;
-
 		/*
 		 * if we're less than two minutes away,
 		 * get key for bid
@@ -881,6 +877,10 @@ watch(auctionInfo *aip)
 			keyLatency = time(NULL) - end;
 			remain -= keyLatency;
 		}
+
+		/* it's time!!! */
+		if (remain < 0)
+			break;
 
 		/*
 		 * Setup sleep schedule so we get updates once a day, then
