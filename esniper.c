@@ -31,7 +31,7 @@
  * For updates, bug reports, etc, please go to esniper.sourceforge.net.
  */
 
-static const char version[]="esniper version 1.4";
+static const char version[]="esniper version 1.5";
 static const char blurb[]="Please visit http://esniper.sourceforge.net/ for updates and bug reports";
 
 #if defined(unix) || defined (__unix) || defined (__MACH__)
