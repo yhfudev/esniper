@@ -3,8 +3,8 @@ For more information, see <http://esniper.sf.net/>.
 Es werden nicht alle Features von esniper genutzt, einige wurden Aufgrund der Verwaltung 
 über PHP abgebildet.
 
-!!!You must use the esniper file that is provided in this folder. Changes of the original esniper will
-be done soon.
+!!!You can use the esniper file that is provided in this folder or compile the newest 
+version from the CVS.
 
 Zugriff auf /tmp für temporäre Dateien notwendig.
 Need access to /tmp for temporaly fileactions.
