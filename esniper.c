@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002, Scott Nicol <esniper@sourceforge.net>
+ * Copyright (c) 2002, 2003, Scott Nicol <esniper@sourceforge.net>
  * All rights reserved
  *
  * Redistribution and use in source and binary forms, with or without
@@ -31,7 +31,7 @@
  * For updates, bug reports, etc, please go to esniper.sourceforge.net.
  */
 
-static const char version[]="esniper version 1.6";
+static const char version[]="esniper version 2.0";
 static const char blurb[]="Please visit http://esniper.sourceforge.net/ for updates and bug reports";
 
 #if defined(unix) || defined (__unix) || defined (__MACH__)
@@ -55,6 +55,7 @@ static const char blurb[]="Please visit http://esniper.sourceforge.net/ for upda
 static void *myMalloc(size_t);
 static char *myStrdup(const char *);
 static void printLog(FILE *, const char *, ...);
+static char * getnontag(FILE *fp);
 
 /* various buffer sizes.  Assume these sizes are big enough (I hope!) */
 #define QUERY_LEN	1024
@@ -70,33 +71,193 @@ static FILE *logfile = NULL;
 static int debug = 0;
 
 /*
- * All information associated with an item
+ * Bidding increments
+ *
+ * first number is threshold for next increment range, second is increment.
+ * For example, 1.00, 0.05 means that under $1.00 the increment is $0.05.
+ *
+ * Increments obtained from:
+ *	http://pages.ebay.com/help/basics/g-bid-increment.html
+ */
+static double increments[] = {
+	1.00, 0.05,
+	5.00, 0.25,
+	25.00, 0.50,
+	100.00, 1.00,
+	250.00, 2.50,
+	500.00, 5.00,
+	1000.00, 10.00,
+	2500.00, 25.00,
+	5000.00, 50.00,
+	-1.00, 100.00
+};
+
+/*
+ * errors from parseError(), getAuctionInfo(), watchAuction()
+ */
+enum auctionErrorCode {
+	ae_none,
+	ae_baditem,
+	ae_notitle,
+	ae_noprice,
+	ae_convprice,
+	ae_noquantity,
+	ae_nonumbid,
+	ae_notime,
+	ae_badtime,
+	ae_nohighbid,
+	ae_connect,
+	ae_badredirect,
+	ae_bidprice,
+	ae_bidkey,
+	ae_badpass,
+	ae_outbid,
+	ae_reservenotmet,
+	ae_ended,
+	ae_duplicate,
+	ae_toomany,
+	/* ae_unknown must be last error */
+	ae_unknown
+};
+
+static const char *auctionErrorString[] = {
+	"",
+	"Auction %s: Unknown item\n",
+	"Auction %s: Title not found\n",
+	"Auction %s: Current price not found\n",
+	"Auction %s: Cannot convert price \"%s\"\n",
+	"Auction %s: Quantity not found\n",
+	"Auction %s: Number of bids not found\n",
+	"Auction %s: Time remaining not found\n",
+	"Auction %s: Unknown time interval \"%s\"\n",
+	"Auction %s: High bidder not found\n",
+	"Auction %s: Connect failed\n",
+	"Auction %s: Redirect failed\n",
+	"Auction %s: Bid price less than minimum bid price\n",
+	"Auction %s: Bid key not found\n",
+	"Auction %s: Bad username or password\n",
+	"Auction %s: You have been outbid\n",
+	"Auction %s: Reserve not met\n",
+	"Auction %s: Auction has ended\n",
+	"Auction %s: Duplicate auction\n",
+	"Auction %s: Too many errors, quitting\n",
+	/* ae_unknown must be last error */
+	"Auction %s: Unknown error code %d\n",
+};
+
+/*
+ * All information associated with an auction
  */
 typedef struct {
+	char *auction;	/* auction number */
+	char *bidPriceStr;/* price you want to bid */
+	double bidPrice;/* price you want to bid (converted to double) */
 	long remain;	/* seconds remaining */
-	char *host;	/* bidding history host */
-	char *query;	/* bidding history query */
-	char *key;	/* bidding key */
+	char *host;	/* bid history host */
+	char *query;	/* bid history query */
+	char *key;	/* bid key */
 	int quantity;	/* number of items available */
 	int bids;	/* number of bids made */
 	double price;	/* current price */
-	double bidResult;/* result code from bid (-1 = no bid yet) */
-} itemInfo;
+	int bidResult;  /* result code from bid (-1=no bid yet, 0=success) */
+	int won;	/* number won (-1 = no clue, 0 or greater = actual # */
+	enum auctionErrorCode auctionError;/* error encountered while parsing */
+	char *auctionErrorDetail;/* details of error */
+} auctionInfo;
 
-static itemInfo *
-newItemInfo(char *host, char *query, char *key)
+static auctionInfo *
+newAuctionInfo(char *auction, char *bidPriceStr)
 {
-	itemInfo *iip = (itemInfo *)myMalloc(sizeof(itemInfo));
+	auctionInfo *aip = (auctionInfo *)myMalloc(sizeof(auctionInfo));
 
-	iip->remain = 0;
-	iip->host = host;
-	iip->query = query;
-	iip->key = key;
-	iip->quantity = 0;
-	iip->bids = 0;
-	iip->price = 0;
-	iip->bidResult = -1;
-	return iip;
+	aip->auction = auction;
+	aip->bidPriceStr = bidPriceStr;
+	aip->bidPrice = atof(bidPriceStr);
+	aip->remain = 0;
+	aip->host = NULL;
+	aip->query = NULL;
+	aip->key = NULL;
+	aip->quantity = 0;
+	aip->bids = 0;
+	aip->price = 0;
+	aip->bidResult = -1;
+	aip->won = -1;
+	aip->auctionError = ae_none;
+	aip->auctionErrorDetail = NULL;
+	return aip;
+}
+
+static void
+freeAuction(auctionInfo *aip)
+{
+	if (!aip)
+		return;
+	// Not allocated
+	//free(aip->auction);
+	//free(aip->bidPriceStr);
+	free(aip->host);
+	free(aip->query);
+	free(aip->key);
+	// Not allocated
+	//free(aip->auctionErrorDetail);
+	free(aip);
+}
+
+/*
+ * compareAuctionInfo(): used to sort auctionInfo table
+ *
+ * returns (-1, 0, 1) if time remaining in p1 is (less than, equal to, greater
+ * than) p2
+ */
+static int compareAuctionInfo(const void *p1, const void *p2)
+{
+	long r1 = (*((auctionInfo **)p1))->remain;
+	long r2 = (*((auctionInfo **)p2))->remain;
+
+	return (r1 == r2) ? 0 : (r1 < r2 ? -1 : 1);
+}
+
+/*
+ * printAuctionError()
+ */
+static void
+printAuctionError(auctionInfo *aip, FILE *fp)
+{
+	enum auctionErrorCode err = aip->auctionError;
+
+	if (err == 0)
+		;
+	else if (err < 0 || err >= ae_unknown)
+		printLog(fp, auctionErrorString[ae_unknown], aip->auction, err);
+	else
+		printLog(fp, auctionErrorString[err], aip->auction,
+			 aip->auctionErrorDetail);
+}
+
+/*
+ * reset parse error code.
+ */
+static void
+resetAuctionError(auctionInfo *aip)
+{
+	aip->auctionError = ae_none;
+	free(aip->auctionErrorDetail);
+	aip->auctionErrorDetail = NULL;
+}
+
+/*
+ * Set parse error.
+ *
+ * returns: 1, so functions that fail with code 1 can return auctionError().
+ */
+static int
+auctionError(auctionInfo *aip, enum auctionErrorCode pe, const char *details)
+{
+	resetAuctionError(aip);
+	aip->auctionError = pe;
+	if (details)
+		aip->auctionErrorDetail = myStrdup(details);
+	return 1;
 }
 
 /*
@@ -143,11 +304,21 @@ myStrdup(const char *s)
  * Debugging functions and macros.
  */
 static void
-logOpen(const char *item)
+logClose()
+{
+	if (logfile) {
+		fclose(logfile);
+		logfile = NULL;
+	}
+}
+
+static void
+logOpen(const auctionInfo *aip)
 {
 	char logfilename[128];
 
-	sprintf(logfilename, "esniper.%s.log", item);
+	logClose();
+	sprintf(logfilename, "esniper.%s.log", aip->auction);
 	if (!(logfile = fopen(logfilename, "a"))) {
 		fprintf(stderr, "Unable to open log file %s: %s\n",
 			logfilename, strerror(errno));
@@ -188,7 +359,6 @@ dlog(const char *fmt, ...)
 {
 	va_list arglist;
 
-
 	va_start(arglist, fmt);
 	vlog(fmt, arglist);
 	va_end(arglist);
@@ -202,7 +372,7 @@ printLog(FILE *fp, const char *fmt, ...)
 {
 	va_list arglist;
 
-	if (debug) {
+	if (debug && logfile) {
 		va_start(arglist, fmt);
 		vlog(fmt, arglist);
 		va_end(arglist);
@@ -231,6 +401,19 @@ logChar(int c)
 }
 
 /*
+ * Log the next nontag.
+ */
+static int
+logNonTag(const char *msg, FILE *fp, int ret)
+{
+	if (debug && logfile) {
+		dlog("%s ", msg);
+		dlog("%s\n", getnontag(fp));
+	}
+	return ret;
+}
+
+/*
  * Cygwin doesn't provide basename?
  */
 static char *
@@ -249,6 +432,26 @@ basename(char *s)
 	slash = strrchr(s, '/');
 	return slash ? slash + 1 : s;
 #endif
+}
+
+/*
+ * isValidBidPrice(): Determine if the bid price is valid.
+ */
+static int
+isValidBidPrice(const auctionInfo *aip)
+{
+	double increment = 0.0;
+
+	if (aip->bids) {
+		int i;
+
+		for (i = 0; increments[i] > 0; i += 2) {
+			if (aip->bidPrice < increments[i])
+				break;
+		}
+		increment = increments[i+1];
+	}
+	return aip->bidPrice >= (aip->price + increment);
 }
 
 /*
@@ -368,6 +571,19 @@ resize(char *buf, size_t *size)
 			buf = resize(buf, &bufsize);\
 		buf[count] = '\0';\
 	} while (0)
+
+/*
+ * skip rest of line, up to newline.  Useful for handling comments.
+ */
+static int
+skipline(FILE *fp)
+{
+	int c;
+
+	for (c = getc(fp); c!=EOF && c!='\n'; c = getc(fp))
+		;
+	return c;
+}
 
 /*
  * Get next tag text, eliminating leading and trailing whitespace
@@ -619,10 +835,8 @@ getseconds(char *timestr)
 			accum += num * 3600;
 		else if (!strncmp(timestr, day, sizeof(day) - 1))
 			accum += num * 86400;
-		else {
-			printLog(stdout, "Error: unknown time interval \"%s\"\n", timestr);
+		else
 			return -1;
-		}
 		while (*timestr && !isdigit((int)*timestr))
 			++timestr;
 	}
@@ -631,17 +845,18 @@ getseconds(char *timestr)
 }
 
 /*
- * parseItem(): parses bid history page
+ * parseAuction(): parses bid history page
  *
  * returns:
  *	0 OK
- *	1 non-fatal error (badly formatted page, etc)
- *	2 fatal error (price too high, quantity requested not available, etc)
+ *	1 error (badly formatted page, etc) - sets auctionError
  */
 static int
-parseItem(FILE *fp, char *item, char *quantity, char *amount, char *user, itemInfo *iip)
+parseAuction(FILE *fp, auctionInfo *aip, int quantity, char *user)
 {
 	char *line, *s1;
+
+	resetAuctionError(aip);
 
 	/*
 	 * Auction title
@@ -650,13 +865,13 @@ parseItem(FILE *fp, char *item, char *quantity, char *amount, char *user, itemIn
 		if (!strcmp(line, "eBay Bid History for") ||
 		    !strcmp(line, "eBayBid History for"))
 			break;
+		if (!strcmp(line, "Unknown Item"))
+			return auctionError(aip, ae_baditem, NULL);
 	}
-	if (!line || !(line=getnontag(fp)) || !(s1=strstr(line, " (Item #"))) {
-		printLog(stderr, "Item title not found\n");
-		return 1;
-	}
+	if (!line || !(line=getnontag(fp)) || !(s1=strstr(line, " (Item #")))
+		return auctionError(aip, ae_notitle, NULL);
 	*s1 = '\0';
-	printLog(stdout, "Item %s: %s\n", item, line);
+	printLog(stdout, "Auction %s: %s\n", aip->auction, line);
 
 
 	/*
@@ -666,19 +881,12 @@ parseItem(FILE *fp, char *item, char *quantity, char *amount, char *user, itemIn
 		if (!strcmp("Currently", line))
 			break;
 	}
-	if (!line || !(line = getnontag(fp))) {
-		printLog(stderr, "Current price not found\n");
-		return 1;
-	}
+	if (!line || !(line = getnontag(fp)))
+		return auctionError(aip, ae_noprice, NULL);
 	printLog(stdout, "Currently: %s\n", line);
-	iip->price = atof(line + strcspn(line, "0123456789"));
-	if (iip->price < 0.01) {
-		printLog(stderr, "Cannot convert amount %s\n", line);
-		return 1;
-	} else if (iip->price > atof(amount)) {
-		printLog(stderr, "Current price above your limit.\n");
-		return 2;
-	}
+	aip->price = atof(line + strcspn(line, "0123456789"));
+	if (aip->price < 0.01)
+		return auctionError(aip, ae_convprice, line);
 
 
 	/*
@@ -689,13 +897,8 @@ parseItem(FILE *fp, char *item, char *quantity, char *amount, char *user, itemIn
 			break;
 	}
 	if (!line || !(line = getnontag(fp)) ||
-	    (iip->quantity = atoi(line)) < 1) {
-		printLog(stderr, "Quantity not found\n");
-		return 1;
-	} else if (iip->quantity < atoi(quantity)) {
-		printLog(stderr, "Quantity requested not available.\n");
-		return 2;
-	}
+	    (aip->quantity = atoi(line)) < 1)
+		return auctionError(aip, ae_noquantity, NULL);
 
 
 	/*
@@ -705,11 +908,9 @@ parseItem(FILE *fp, char *item, char *quantity, char *amount, char *user, itemIn
 		if (!strcmp("# of bids", line))
 			break;
 	}
-	if (!line || !(line = getnontag(fp)) || (iip->bids = atoi(line)) < 0) {
-		printLog(stderr, "Number of bids not found\n");
-		return 1;
-	}
-	printLog(stdout, "Bids: %d\n", iip->bids);
+	if (!line || !(line = getnontag(fp)) || (aip->bids = atoi(line)) < 0)
+		return auctionError(aip, ae_nonumbid, NULL);
+	printLog(stdout, "Bids: %d\n", aip->bids);
 
 
 	/*
@@ -719,91 +920,91 @@ parseItem(FILE *fp, char *item, char *quantity, char *amount, char *user, itemIn
 		if (!strcmp("Time left", line))
 			break;
 	}
-	if (!line || !(line = getnontag(fp))) {
-		printLog(stderr, "Time remaining not found\n");
-		return 1;
-	}
-	if ((iip->remain = getseconds(line)) < 0)
-		return 1;
+	if (!line || !(line = getnontag(fp)))
+		return auctionError(aip, ae_notime, NULL);
+	if ((aip->remain = getseconds(line)) < 0)
+		return auctionError(aip, ae_badtime, line);
 	printLog(stdout, "Time remaining: %s (%ld seconds)\n",
-		line, iip->remain);
+		line, aip->remain);
 
 
 	/*
 	 * High bidder
 	 */
-	if (iip->bids == 0) {
+	if (aip->bids == 0) {
 		puts("High bidder: --");
-	} else if (iip->quantity == 1) {
-		/* single item with bids */
+	} else if (aip->quantity == 1) {
+		/* single auction with bids */
 		while((line = getnontag(fp))) {
 			if (!strcmp("Date of Bid", line))
 				break;
 		}
-		if (!line || !(line = getnontag(fp))) {
-			printLog(stderr, "High bidder not found\n");
-			return 1;
-		}
+		if (!line || !(line = getnontag(fp)))
+			return auctionError(aip, ae_nohighbid, NULL);
 		if (strstr(line, "private auction")) {
-			if (iip->bidResult == 0 && iip->price <= atof(amount))
+			if (aip->bidResult == 0 && aip->price <= aip->bidPrice)
 				line = user;
 			else
 				line = "[private]";
 		}
-		if (strcmp(line, user))
+		if (strcmp(line, user)) {
 			printLog(stdout, "High bidder: %s (NOT %s)\n", line, user);
-		else
+			if (!aip->remain)
+				aip->won = 0;
+		} else {
 			printLog(stdout, "High bidder: %s!!!\n", line);
+			if (!aip->remain)
+				aip->won = 1;
+		}
 	} else {
 		/* dutch with bids */
-		int bids = iip->bids;
-		int quantity = iip->quantity;
+		int bids = aip->bids;
+		int numItems = aip->quantity;
 		int match = 0;
 
 		while((line = getnontag(fp))) {
 			if (!strcmp("Date of Bid", line))
 				break;
 		}
-		if (!line) {
-			printLog(stderr, "High bidder not found\n");
-			return 1;
-		}
-		while (bids && quantity > 0) {
+		if (!line)
+			return auctionError(aip, ae_nohighbid, NULL);
+		while (bids && numItems > 0) {
 			int bidQuant;
 
-			if (!(line = getnontag(fp))) {	/* user */
-				printLog(stderr, "High bidder not found\n");
-				return 1;
-			}
+			if (!(line = getnontag(fp)))	/* user */
+				return auctionError(aip, ae_nohighbid, NULL);
 			match = !strcmp(user, line);
 			if (!(line = getnontag(fp)) ||	/* reputation */
 			    !(line = getnontag(fp)) ||	/* bid */
-			    !(line = getnontag(fp)) ||	/* quantity */
-			    !(bidQuant = atoi(line))) {
-				printLog(stderr, "High bidder not found\n");
-				return 1;
-			}
-			quantity -= bidQuant;
+			    !(line = getnontag(fp)) ||	/* numItems */
+			    !(bidQuant = atoi(line)))
+				return auctionError(aip, ae_nohighbid, NULL);
+			numItems -= bidQuant;
 			--bids;
 			if (match) {
-				if (quantity >= 0)
+				if (numItems >= 0) {
+					if (!aip->remain)
+						aip->won = bidQuant;
 					printLog(stdout, "High bidder: %s!!!\n", user);
-				else
-					printLog(stdout, "High bidder: %s!!! (%d out of %d items)\n", user, bidQuant + quantity, bidQuant);
+				} else {
+					if (!aip->remain)
+						aip->won = bidQuant + numItems;
+					printLog(stdout, "High bidder: %s!!! (%d out of %d items)\n", user, bidQuant + numItems, bidQuant);
+				}
 				break;
 			}
-			if (!(line = getnontag(fp))) {	/* date */
-				printLog(stderr, "High bidder not found\n");
-				return 1;
-			}
+			if (!(line = getnontag(fp)))	/* date */
+				return auctionError(aip, ae_nohighbid, NULL);
 		}
-		if (!match)
+		if (!match) {
 			printLog(stdout, "High bidder: various dutch bidders (NOT %s)\n", user);
+			if (!aip->remain)
+				aip->won = 0;
+		}
 	}
 
-
 	return 0;
-} /* parseItem() */
+} /* parseAuction() */
 
 static const char QUERY_FMT[] =
 	"GET /%s HTTP/1.0\r\n"
@@ -816,35 +1017,32 @@ static const char QUERY_FMT[] =
 static const char QUERY_CMD[] = "aw-cgi/eBayISAPI.dll?ViewBids&item=%s";
 
 /*
- * getItemInfo(): Get info on item from bid history page.
+ * getAuctionInfo(): Get info on auction from bid history page.
  *
  * returns:
  *	0 OK
- *	1 non-fatal error (badly formatted page, etc)
- *	2 fatal error (price too high, quantity requested not available, etc)
+ *	1 error (badly formatted page, etc) set auctionError
  */
 static int
-getItemInfo(char *item, char *quantity, char *amount, char *user, itemInfo *iip)
+getAuctionInfo(auctionInfo *aip, int quantity, char *user)
 {
 	FILE *fp;
 	char *line, *s1, *s2;
 	int ret;
 
-	log(("\n\n*** getItemInfo item %s amount %s user %s\n", item, amount, user));
+	log(("\n\n*** getAuctionInfo auction %s price %s user %s\n", aip->auction, aip->bidPriceStr, user));
 
-	if (!iip->host)
-		iip->host = myStrdup(HOSTNAME);
-	if (!(fp = verboseConnect(iip->host, 10, 5))) {
-		printLog(stderr, "Connect Failed.\n");
-		return 1;
+	if (!aip->host)
+		aip->host = myStrdup(HOSTNAME);
+	if (!(fp = verboseConnect(aip->host, 10, 5)))
+		return auctionError(aip, ae_connect, NULL);
+
+	if (!aip->query) {
+		aip->query = (char *)myMalloc(sizeof(QUERY_CMD)+strlen(aip->auction));
+		sprintf(aip->query, QUERY_CMD, aip->auction);
 	}
 
-	if (!iip->query) {
-		iip->query = (char *)myMalloc(sizeof(QUERY_CMD)+strlen(item));
-		sprintf(iip->query, QUERY_CMD, item);
-	}
-
-	printLog(fp, QUERY_FMT, iip->query, iip->host);
+	printLog(fp, QUERY_FMT, aip->query, aip->host);
 	fflush(fp);
 
 	/*
@@ -863,31 +1061,29 @@ getItemInfo(char *item, char *quantity, char *amount, char *user, itemInfo *iip)
 		size_t newQueryLen;
 
 		log(("Redirect..."));
-		if (match(fp, "Location: http://")) {
-			printLog(stderr, "new item location not found\n");
-			return 1;
-		}
-		if (strcasecmp(iip->host, (newHost = getuntilchar(fp, '/')))) {
+		if (match(fp, "Location: http://"))
+			return auctionError(aip, ae_badredirect, NULL);
+		if (strcasecmp(aip->host, (newHost = getuntilchar(fp, '/')))) {
 			log(("redirect hostname is %s\n", newHost));
-			free(iip->host);
-			iip->host= myStrdup(newHost);
+			free(aip->host);
+			aip->host= myStrdup(newHost);
 		}
 		newQuery = getuntilchar(fp, '\n');
 		newQueryLen = strlen(newQuery);
 		if (newQuery[newQueryLen - 1] == '\r')
 			newQuery[--newQueryLen] = '\0';
-		if (strcmp(iip->query, newQuery)) {
-			free(iip->query);
-			iip->query = myStrdup(newQuery);
+		if (strcmp(aip->query, newQuery)) {
+			free(aip->query);
+			aip->query = myStrdup(newQuery);
 		}
 
 		runout(fp);
 		fclose(fp);
 
-		return getItemInfo(item, quantity, amount, user, iip);
+		return getAuctionInfo(aip, quantity, user);
 	}
 
-	ret = parseItem(fp, item, quantity, amount, user, iip);
+	ret = parseAuction(fp, aip, quantity, user);
 
 	/* done! */
 	runout(fp);
@@ -916,38 +1112,36 @@ static const char PRE_BID_CMD[] =
  * returns 0 on success, 1 on failure.
  */
 static int
-preBidItem(char *item, char *amount, itemInfo *iip)
+preBidAuction(auctionInfo *aip)
 {
 	FILE *fp;
 	char *tmpkey;
 	char *cp;
-	size_t cmdlen = sizeof(PRE_BID_CMD) + strlen(item) + strlen(amount) -9;
+	size_t cmdlen = sizeof(PRE_BID_CMD) + strlen(aip->auction) + strlen(aip->bidPriceStr) -9;
 	int ret = 0;
 
-	log(("\n\n*** preBidItem item %s amount %s\n", item, amount));
+	log(("\n\n*** preBidAuction auction %s price %s\n", aip->auction, aip->bidPriceStr));
 
-	if (!(fp = verboseConnect(HOSTNAME, 6, 5))) {
-		printLog(stderr, "Connect Failed.\n");
-		return 1;
-	}
+	if (!(fp = verboseConnect(HOSTNAME, 6, 5)))
+		return auctionError(aip, ae_connect, NULL);
 
 
 	log(("\n\nquery string:\n"));
-	printLog(fp, PRE_BID_FMT, iip->host, iip->query, HOSTNAME, cmdlen);
-	printLog(fp, PRE_BID_CMD, item, amount);
+	printLog(fp, PRE_BID_FMT, aip->host, aip->query, HOSTNAME, cmdlen);
+	printLog(fp, PRE_BID_CMD, aip->auction, aip->bidPriceStr);
 	fflush(fp);
 
 	log(("sent pre-bid\n"));
 
 	if (match(fp, "<input type=\"hidden\" name=\"key\" value=\""))
-		ret = 1;
+		ret = auctionError(aip, ae_bidkey, NULL);
 	else {
 		tmpkey = getuntilchar(fp, '\"');
 		log(("  reported key is: %s\n", tmpkey));
 
 		/* translate key for URL */
-		iip->key = (char *)myMalloc(strlen(tmpkey)*3 + 1);
-		for (cp = iip->key; *tmpkey; ++tmpkey) {
+		aip->key = (char *)myMalloc(strlen(tmpkey)*3 + 1);
+		for (cp = aip->key; *tmpkey; ++tmpkey) {
 			if (*tmpkey == '$') {
 				*cp++ = '%';
 				*cp++ = '2';
@@ -957,7 +1151,7 @@ preBidItem(char *item, char *amount, itemInfo *iip)
 		}
 		*cp = '\0';
 
-		log(("\n\ntranslated key is: %s\n\n", iip->key));
+		log(("\n\ntranslated key is: %s\n\n", aip->key));
 	}
 
 	runout(fp);
@@ -988,72 +1182,63 @@ static const char CONGRATS[] = "Congratulations...";
  * Place bid.
  *
  * Returns:
- * 0: no error
- * 1: known error
- * 2: unknown error (retry?)
+ * 0: OK
+ * 1: error
  */
 int
-bidItem(int bid, const char *item, const char *amount, const char *quantity, const char *user, const char *password, itemInfo *iip)
+bidAuction(int bid, auctionInfo *aip, int quantity, const char *user, const char *password)
 {
 	FILE *fp;
 	size_t cmdlen;
 	int i;
 	char *line;
+	char quantityStr[12];	/* must hold an int */
 
-	log(("\n\n*** bidItem item %s amount %s quantity %s user %s\n", item, amount, quantity, user));
+	log(("\n\n*** bidAuction auction %s price %s quantity %d user %s\n", aip->auction, aip->bidPriceStr, quantity, user));
 
 	if (!bid) {
 		printLog(stdout, "Bidding disabled\n");
-		return iip->bidResult = 0;
+		return aip->bidResult = 0;
 	}
-	if (!(fp = verboseConnect(HOSTNAME, 6, 5))) {
-		printLog(stderr, "Connect Failed.\n");
-		return iip->bidResult = 2;
-	}
+	if (!(fp = verboseConnect(HOSTNAME, 6, 5)))
+		return aip->bidResult = auctionError(aip, ae_connect, NULL);
+
+	if (aip->quantity < quantity)
+		quantity = aip->quantity;
+	sprintf(quantityStr, "%d", quantity);
 
 	log(("\n\nquery string:\n"));
-	cmdlen = sizeof(BID_CMD) + strlen(item) + strlen(iip->key) +
-		strlen(amount) + strlen(quantity) + strlen(user) +
+	cmdlen = sizeof(BID_CMD) + strlen(aip->auction) + strlen(aip->key) +
+		strlen(aip->bidPriceStr) + strlen(quantityStr) + strlen(user) +
 		strlen(password) - 17;
-	printLog(fp, BID_FMT, iip->host, HOSTNAME, cmdlen);
-	printLog(fp, BID_CMD, item, iip->key, amount, quantity, user,password);
+	printLog(fp, BID_FMT, aip->host, HOSTNAME, cmdlen);
+	printLog(fp, BID_CMD, aip->auction, aip->key, aip->bidPriceStr, quantityStr, user,password);
 	fflush(fp);
-	iip->bidResult = -1;
+	aip->bidResult = -1;
 
-	for (line = getnontag(fp), i = 0; iip->bidResult < 0 && line && i < 10;
+	for (line = getnontag(fp), i = 0; aip->bidResult < 0 && line && i < 10;
 	     ++i, line = getnontag(fp)) {
-		if (!strncmp(line, CONGRATS, sizeof(CONGRATS) - 1)) { /* high bidder */
-			printLog(stdout, "%s ", line);
-			printLog(stdout, "%s\n", getnontag(fp));
-			iip->bidResult = 0;
-		} else if (!strcmp(line, "User ID")) { /* bad user/pass */
-			printLog(stdout, "%s ", line);
-			printLog(stdout, "%s\n", getnontag(fp));
-			iip->bidResult = 1;
-		} else if (!strcmp(line, "We're sorry...")) { /* outbid */
-			printLog(stdout, "%s ", line);
-			printLog(stdout, "%s\n", getnontag(fp));
-			iip->bidResult = 1;
-		} else if (!strcmp(line, "You are the current high bidder...")) {
+		if (!strncmp(line, CONGRATS, sizeof(CONGRATS) - 1)) /* high bidder */
+			return logNonTag(line, fp, aip->bidResult = 0);
+		else if (!strcmp(line, "User ID"))	/* bad user/pass */
+			return logNonTag(line, fp, aip->bidResult = auctionError(aip, ae_badpass, NULL));
+		else if (!strcmp(line, "We're sorry..."))	/* outbid */
+			return logNonTag(line, fp, aip->bidResult = auctionError(aip, ae_outbid, NULL));
+		else if (!strcmp(line, "You are the current high bidder..."))
 							/* reserve not met */
-			printLog(stdout, "%s ", line);
-			printLog(stdout, "%s\n", getnontag(fp));
-			iip->bidResult = 1;
-		} else if (!strcmp(line, "Cannot proceed")) {
-							/* auction closed */
-			printLog(stdout, "%s\n", getnontag(fp));
-			iip->bidResult = 1;
-		}
+			return logNonTag(line, fp, aip->bidResult = auctionError(aip, ae_reservenotmet, NULL));
+		else if (!strcmp(line, "Cannot proceed")) /* auction closed */
+			return logNonTag(line, fp, aip->bidResult = auctionError(aip, ae_ended, NULL));
 	}
-	if (iip->bidResult == -1) {
+	if (aip->bidResult == -1) {
 		printLog(stdout, "Cannot determine result of bid\n");
-		return 0;	// prevent another bid
+		return 0;	/* prevent another bid */
 	}
 
 	runout(fp);
 	fclose(fp);
 
-	return iip->bidResult;
+	return aip->bidResult;
 }
 
 /* secret option - test parser */
@@ -1114,43 +1299,55 @@ timestamp()
 	time_t t = time(0);
 	struct tm *tmp = localtime(&t);
 
-	strftime(buf, 80, "%x %X", tmp);
+	strftime(buf, 80, "%c", tmp);
 	return buf;
 }
 
 /*
- * watchItem(): watch item until it is time to bid
+ * watchAuction(): watch auction until it is time to bid
  *
  * returns:
  *	0 OK
  *	1 Error
  */
 static int
-watchItem(char *item, char *quantity, char *amount, char *user, long bidtime, itemInfo *iip)
+watchAuction(auctionInfo *aip, int quantity, char *user, long bidtime)
 {
 	int errorCount = 0;
 	long remain = -1, sleepTime = -1;
 
-	log(("*** WATCHING item %s amount-each %s quantity %s user %s bidtime %ld\n", item, amount, quantity, user, bidtime));
+	log(("*** WATCHING auction %s price-each %s quantity %d user %s bidtime %ld\n", aip->auction, aip->bidPriceStr, quantity, user, bidtime));
 
 	for (;;) {
 		time_t start = time(NULL);
-		int ret = getItemInfo(item, quantity, amount, user, iip);
+		int ret = getAuctionInfo(aip, quantity, user);
 		time_t latency = time(NULL) - start;
 
-		if (ret > 1 || (ret == 1 && remain == -1)) /* Fatal error! */
-			return 1;
+		if (ret) {
+			printAuctionError(aip, stderr);
 
-		if (ret == 1) {	/* non-fatal error */
-			log((" ERROR %d!!!\n", ++errorCount));
-			if (errorCount > 50) {
-				printLog(stderr, "Cannot get item info\n");
-				return 1;
+			/* fatal error? */
+			if (remain == -1) {	/* first time */
+				int j, ret = 1;
+
+				for (j = 0; ret && j < 3 && aip->auctionError == ae_notitle; ++j)
+					ret=getAuctionInfo(aip, quantity, user);
+				if (!ret)
+					remain = aip->remain - bidtime - (latency * 2);
+				else
+					return 1;
+			} else {
+				/* non-fatal error */
+				log((" ERROR %d!!!\n", ++errorCount));
+				if (errorCount > 50)
+					return auctionError(aip, ae_toomany, NULL);
+				printLog(stdout, "Cannot find auction - internet or eBay problem?\nWill try again after sleep.\n");
+				remain -= sleepTime + (latency * 2);
 			}
-			printLog(stdout, "Cannot find item - internet or eBay problem?\nWill try again after sleep.\n");
-			remain -= sleepTime + (latency * 2);
-		} else
-			remain = iip->remain - bidtime - (latency * 2);
+		} else if (!isValidBidPrice(aip))
+			return auctionError(aip, ae_bidprice, NULL);
+		else
+			remain = aip->remain - bidtime - (latency * 2);
 
 		/* it's time!!! */
 		if (remain < 0)
@@ -1160,13 +1357,13 @@ watchItem(char *item, char *quantity, char *amount, char *user, long bidtime, it
 		 * if we're less than two minutes away,
 		 * get key for bid
 		 */
-		if (remain <= 150 && !iip->key) {
+		if (remain <= 150 && !aip->key) {
 			int i;
 			time_t keyLatency;
 
 			printf("\n");
 			for (i = 0; i < 5; ++i) {
-				if (!preBidItem(item, amount, iip))
+				if (!preBidAuction(aip))
 					break;
 			}
 			if (i == 5) {
@@ -1213,25 +1410,219 @@ watchItem(char *item, char *quantity, char *amount, char *user, long bidtime, it
 	}
 
 	return 0;
-} /* watchItem() */
+} /* watchAuction() */
+
+/*
+ * readAuctions(): read auctions from file
+ *
+ * returns: number of auctions
+ */
+static int
+readAuctions(FILE *fp, auctionInfo ***aip)
+{
+	static char *buf = NULL;
+	static size_t bufsize = 0;
+	size_t count = 0;
+	int i, j;
+	int c;
+	int numAuctions = 0;
+	int line;
+
+	while ((c = getc(fp)) != EOF) {
+		if (c == '#') {
+			c = skipline(fp);
+			if (c == EOF)
+				break;
+		} else if (isspace(c))
+			;
+		else if (isdigit(c)) {
+			++numAuctions;
+			/* get auction number */
+			line = count;
+			do {
+				addchar(buf, bufsize, count, c);
+			} while (isdigit(c = getc(fp)));
+			for (; isspace(c) && c != EOF && c != '\n' && c != '#'; c = getc(fp))
+				;
+			if (c == '#')	/* comment? */
+				c = skipline(fp);
+			/* no price? */
+			if (c == EOF || c == '\n') {
+				/* can use price of previous auction */
+				if (numAuctions == 1) {
+					fprintf(stderr, "Cannot find price on first auction\n");
+					exit(1);
+				}
+				addchar(buf, bufsize, count, '\n');
+				continue;
+			}
+			addchar(buf, bufsize, count, ' ');
+			/* get price */
+			for (; !isspace(c) && c != EOF && c != '#'; c = getc(fp))
+				addchar(buf, bufsize, count, c);
+			if (c == '#')	/* comment? */
+				c = skipline(fp);
+			for (; isspace(c) && c!=EOF && c!='\n'; c = getc(fp))
+				;
+			if (c == '#')	/* comment? */
+				c = skipline(fp);
+			if (c != EOF && c != '\n') {
+				term(buf, bufsize, count);
+				fprintf(stderr, "Invalid auction line: %s\n", &buf[line]);
+				exit(0);
+			}
+			addchar(buf, bufsize, count, '\n');
+			if (c == EOF)
+				break;
+		}
+	}
+
+	*aip = (auctionInfo **)malloc(sizeof(auctionInfo *) * numAuctions);
+
+	for (i = 0, j = 0; i < numAuctions; ++i, ++j) {
+		char *auction, *bidPriceStr;
+
+		auction = &buf[j];
+		for (; !isspace((int)(buf[j])); ++j)
+			;
+		if (buf[j] == '\n') {
+			buf[j] = '\0';
+			bidPriceStr = (*aip)[i-1]->bidPriceStr;
+		} else {
+			buf[j] = '\0';
+			bidPriceStr = &buf[++j];
+			for (; buf[j] != '\n'; ++j)
+				;
+			buf[j] = '\0';
+		}
+		(*aip)[i] = newAuctionInfo(auction, bidPriceStr);
+	}
+
+	return numAuctions;
+}
+
+/*
+ * readAuctionFile(): read a file listing auctions to watch.
+ *
+ * returns: number of auctions to watch
+ */
+static int
+readAuctionFile(const char *filename, auctionInfo ***aip)
+{
+	FILE *fp = fopen(filename, "r");
+	int numAuctions = 0;
+
+	if (fp == NULL) {
+		fprintf(stderr, "Cannot open %s: %s\n", filename,
+			strerror(errno));
+		exit(1);
+	}
+	numAuctions = readAuctions(fp, aip);
+	fclose(fp);
+	if (numAuctions == 0) {
+		fprintf(stderr, "Cannot find any auctions!\n");
+		exit(1);
+	}
+	return numAuctions;
+} /* readAuctionFile() */
+
+/*
+ * Get initial auction info, sort items based on end time.
+ */
+static int
+sortAuctions(auctionInfo **auctions, int numAuctions, char *user, int quantity)
+{
+	int i, sawError = 0;
+
+	for (i = 0; i < numAuctions; ++i) {
+		int j;
+
+		if (debug)
+			logOpen(auctions[i]);
+		for (j = 0; j < 3; ++j) {
+			if (j > 0)
+				printLog(stderr, "Retrying...\n");
+			if (!getAuctionInfo(auctions[i], quantity, user))
+				break;
+			printAuctionError(auctions[i], stderr);
+		}
+		if (j == 3)
+			exit(1);
+		printLog(stdout, "\n");
+	}
+	if (numAuctions > 1) {
+		printLog(stdout, "Sorting auctions...\n");
+		/* sort by end time */
+		qsort(auctions, numAuctions, sizeof(auctionInfo *), compareAuctionInfo);
+	}
+
+	/* get rid of obvious cases */
+	for (i = 0; i < numAuctions; ++i) {
+		auctionInfo *aip = auctions[i];
+
+		if (!aip->remain)
+			auctionError(aip, ae_ended, NULL);
+		else if (!isValidBidPrice(aip))
+			auctionError(aip, ae_bidprice, NULL);
+		else if (i > 0 && auctions[i-1] &&
+			 !strcmp(aip->auction, auctions[i-1]->auction))
+			auctionError(aip, ae_duplicate, NULL);
+		else
+			continue;
+		printAuctionError(aip, stderr);
+		freeAuction(auctions[i]);
+		auctions[i] = NULL;
+		++sawError;
+	}
+
+	/* eliminate dead auctions */
+	if (sawError) {
+		int j;
+
+		for (i = j = 0; i < numAuctions; ++i) {
+			if (auctions[i])
+				auctions[j++] = auctions[i];
+		}
+		numAuctions -= sawError;
+	}
+	return numAuctions;
+}
+
+/* cleanup open files */
+static void
+cleanup()
+{
+	logClose();
+}
 
 int
 main(int argc, char *argv[])
 {
 	long bidtime = 0;
-	char *item, *amount, *quantity, *user, *password;
-	int retryCount, now = 0, usage = 0;
+	char *user, *password;
+	int quantity;
+	int now = 0, usage = 0;
 	int bid = 1;	/* really make a bid? */
 	int parse = 0;	/* secret option - for testing page parsing */
-	int ret = 0;
+	int ret = 1;	/* assume failure, change if successful */
 	const char *progname = basename(argv[0]);
-	itemInfo *iip = newItemInfo(NULL, NULL, NULL);
-	int c;
+	auctionInfo **auctions = NULL;
+	char *filename = NULL;
+	int c, i;
+	int argcmin = 5, argcmax = 6;
+	int numAuctions = 0, numAuctionsOrig = 0;
 
-	while ((c = getopt(argc, argv, "dnpv")) != EOF) {
+	atexit(cleanup);
+
+	while ((c = getopt(argc, argv, "df:npv")) != EOF) {
 		switch (c) {
 		case 'd':
 			debug = 1;
+			break;
+		case 'f':
+			filename = optarg;
+			argcmin = 3;
+			argcmax = 4;
 			break;
 		case 'n':
 			bid = 0;
@@ -1254,12 +1645,14 @@ main(int argc, char *argv[])
 		exit(0);
 	}
 
-	if (usage || argc < 5 || argc > 6) {
+	if (usage || argc < argcmin || argc > argcmax) {
 		fprintf(stderr,
-			"usage: %s [-dn] item price quantity username password [secs|now]\n"
+			"usage: %s [-dn] auction price quantity username password [secs|now]\n"
+			"       %s [-dn] -f <file> quantity username password [secs|now]\n"
 			"\n"
 			"where:\n"
 			"-d: write debug output to file\n"
+			"-f: read auction data from file\n"
 			"-n: do not place bid\n"
 			"-v: print version and exit\n"
 			"\n"
@@ -1267,20 +1660,30 @@ main(int argc, char *argv[])
 			"\"now\" is specified.\n"
 			"\n"
 			"%s\n",
-			progname, DEFAULT_BIDTIME, blurb);
+			progname, progname, DEFAULT_BIDTIME, blurb);
 		exit(1);
 	}
 
 	/* init variables */
-	item = argv[0];
-	amount = argv[1];
-	quantity = argv[2];
-	user = argv[3];
-	password = argv[4];
-	if (argc == 6) {
-		now = !strcmp("now", argv[5]);
+	if (filename) {
+		numAuctions = readAuctionFile(filename, &auctions);
+	} else {
+		numAuctions = 1;
+		auctions = (auctionInfo **)malloc(sizeof(auctionInfo *));
+		auctions[0] = newAuctionInfo(argv[0], argv[1]);
+	}
+	quantity = atoi(argv[argcmax - 4]);
+	if (quantity <= 0) {
+		printLog(stderr, "Invalid quantity: %s\n", argv[argcmax - 4]);
+		exit(1);
+	}
+	user = argv[argcmax - 3];
+	password = argv[argcmax - 2];
+	argv[argcmax - 2] = "";	/* clear password from command line */
+	if (argc == argcmax) {
+		now = !strcmp("now", argv[argcmax - 1]);
 		if (!now) {
-			if ((bidtime = atol(argv[5])) < MIN_BIDTIME) {
+			if ((bidtime = atol(argv[argcmax - 1])) < MIN_BIDTIME) {
 				printf("NOTE: minimum bid time %d seconds\n",
 					MIN_BIDTIME);
 				bidtime = MIN_BIDTIME;
@@ -1289,64 +1692,95 @@ main(int argc, char *argv[])
 	} else
 		bidtime = DEFAULT_BIDTIME;
 
-	if (debug)
-		logOpen(item);
-
-	log(("item %s amount %s quantity %s user %s bidtime %ld\n",
-		item, amount, quantity, user, bidtime));
-
 	signal(SIGALRM, sigAlarm);
 	signal(SIGHUP, SIG_IGN);
 	signal(SIGTERM, sigTerm);
 
-	if (now) {
-		if (getItemInfo(item, quantity, amount, user, iip))
-			exit(1);
-		if (iip->remain && preBidItem(item, amount, iip))
-			exit(1);
-	} else {
-		if (watchItem(item, quantity, amount, user, bidtime, iip))
-			exit(1);
-	}
+	numAuctionsOrig = numAuctions;
+	numAuctions = sortAuctions(auctions, numAuctions, user, quantity);
 
-	/* ran out of time! */
-	if (!iip->remain) {
-		if (bid) {
-			printLog(stderr, "Sorry, auction is over\n");
-			exit(1);
+	for (i = 0; i < numAuctions && quantity > 0; ++i) {
+		int retryCount, bidRet;
+
+		if (!auctions[i])
+			continue;
+
+		if (debug)
+			logOpen(auctions[i]);
+
+		log(("auction %s price %s quantity %d user %s bidtime %ld\n",
+			auctions[i]->auction, auctions[i]->bidPriceStr, quantity, user, bidtime));
+
+		if (numAuctionsOrig > 1)
+			printLog(stdout, "\nNeed to win %d item(s), %d auction(s) remain\n\n", quantity, numAuctions - i);
+
+		if (now) {
+			if (preBidAuction(auctions[i])) {
+				printAuctionError(auctions[i], stderr);
+				continue;
+			}
+		} else {
+			if (watchAuction(auctions[i], quantity, user, bidtime)){
+				printAuctionError(auctions[i], stderr);
+				continue;
+			}
 		}
-		exit(0);
+
+		/* ran out of time! */
+		if (!auctions[i]->remain) {
+			auctionError(auctions[i], ae_ended, NULL);
+			printAuctionError(auctions[i], stderr);
+			continue;
+		}
+
+		if (bid)
+			printLog(stdout, "\nAuction %s: Bidding...\n", auctions[i]->auction);
+
+		if (!auctions[i]->key && bid) {
+			printLog(stderr, "Auction %s: Problem with bid.  No bid placed.\n", auctions[i]->auction);
+			continue;
+		}
+
+		log(("*** BIDDING!!! auction %s price %s quantity %d user %s\n",
+			auctions[i]->auction, auctions[i]->bidPriceStr, quantity, user));
+
+		for (retryCount = 0; retryCount < 3; retryCount++) {
+			bidRet = bidAuction(bid, auctions[i], quantity, user, password);
+
+			if (!bidRet || auctions[i]->auctionError != ae_connect)
+				break;
+			printLog(stderr, "Auction %s: retrying...\n", auctions[i]->auction);
+		}
+
+		/* failed bid */
+		if (bidRet) {
+			printAuctionError(auctions[i], stderr);
+			continue;
+		}
+
+		/* view auction after bid */
+		if (bidtime > 0 && bidtime < 60) {
+			printLog(stdout, "Auction %s: Waiting %d seconds for auction to complete...\n", auctions[i]->auction, bidtime);
+			sleep(bidtime + 1); /* make sure it really is over */
+		}
+
+		printLog(stdout, "\nAuction %s: Post-bid info:\n", auctions[i]->auction);
+		if (getAuctionInfo(auctions[i], quantity, user))
+			printAuctionError(auctions[i], stderr);
+
+		if (auctions[i]->won == -1) {
+			int won = auctions[i]->quantity;
+
+			if (quantity < won)
+				won = quantity;
+			quantity -= won;
+			printLog(stdout, "\nunknown outcome, assume that you have won %d items\n", won);
+		} else {
+			quantity -= auctions[i]->won;
+			printLog(stdout, "\nwon %d items\n", auctions[i]->won);
+			ret = 0;
+		}
 	}
-
-	if (bid)
-		printLog(stdout, "\nBidding...\n");
-
-	if (!iip->key && bid) {
-		printLog(stderr, "Problem with bid.  No bid placed.\n");
-		exit(1);
-	}
-
-	log(("*** BIDDING!!! item %s amount %s quantity %s user %s\n",
-		item, amount, quantity, user));
-
-	for (retryCount = 0; retryCount < 3; retryCount++) {
-		ret = bidItem(bid, item, amount, quantity, user, password,iip);
-
-		if (ret == 0 || ret == 1)
-			break;
-		printLog(stderr, "retrying...\n");
-	}
-
-	if (!(ret == 0 || ret == 1))
-		exit(ret);
-
-	/* view item after bid */
-	if (bidtime > 0 && bidtime < 60) {
-		printLog(stdout, "Waiting %d seconds for auction to complete...\n", bidtime);
-		sleep(bidtime + 1);	/* make sure it really is over */
-	}
-	printLog(stdout, "\nPost-bid info:\n");
-	getItemInfo(item, quantity, amount, user, iip);
 
 	exit(ret);
 }
