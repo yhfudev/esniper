@@ -32,9 +32,12 @@ CHECKFLAGS = -O -pedantic -Wall -Wpointer-arith -Wcast-qual \
 	-Wstrict-prototypes -Wmissing-prototypes -Wmissing-declarations \
 	-Wnested-externs
 
-SRC = auction.c auctionfile.c auctioninfo.c buffer.c esniper.c options.c util.c
-OBJ = auction.o auctionfile.o auctioninfo.o buffer.o esniper.o options.o util.o
-HDR = auction.h auctionfile.h auctioninfo.h buffer.h esniper.h options.h util.h
+SRC = auction.c auctionfile.c auctioninfo.c buffer.c esniper.c http.c \
+	options.c util.c
+OBJ = auction.o auctionfile.o auctioninfo.o buffer.o esniper.o http.o \
+	options.o util.o
+HDR = auction.h auctionfile.h auctioninfo.h buffer.h esniper.h http.h \
+	options.h util.h
 
 all: esniper
 

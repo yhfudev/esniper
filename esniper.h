@@ -37,6 +37,7 @@
 
 extern const char DEFAULT_CONF_FILE[];
 extern const char HOSTNAME[];
+extern const char BID_HOSTNAME[];
 
 /* this structure holds all values from command line or config entries */
 typedef struct {

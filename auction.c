@@ -26,6 +26,7 @@
 
 #include "auction.h"
 #include "buffer.h"
+#include "http.h"
 #if defined(WIN32) /* TODO */
 #       include <winsock.h>
 #else
@@ -37,113 +38,17 @@
 #	include <arpa/inet.h>
 #endif
 #include <ctype.h>
-#include <errno.h>
 #include <limits.h>
-#include <netdb.h>
-#include <signal.h>
 #include <stdio.h>
 #include <string.h>
-#include <strings.h>	/* AIX 4.2 strcasecmp() */
 #include <time.h>
 
-static int logNonTag(const char *msg, FILE *fp, int ret);
-static FILE *verboseConnect(proxy_t *proxy, const char *host, unsigned int retryTime, int retryCount);
 static int match(FILE *fp, const char *str);
-static char *gettag(FILE *fp);
+static const char *gettag(FILE *fp);
 static char *getnontag(FILE *fp);
-static char *getuntilchar(FILE *fp, int until);
-static void runout(FILE *fp);
 static long getseconds(char *timestr);
 static int parseAuction(FILE *fp, auctionInfo *aip, int quantity, const char *user);
-static int bidSocket(FILE *fp, auctionInfo *aip, int quantity,
-                     const char *user, const char *password);
-
-/*
- * Log the next nontag.
- */
-static int
-logNonTag(const char *msg, FILE *fp, int ret)
-{
-	if (options.debug) {
-		dlog("%s ", msg);
-		dlog("%s\n", getnontag(fp));
-	}
-	return ret;
-}
-
-/*
- * Open a connection to the host.  Return valid FILE * if successful, NULL
- * otherwise
- */
-static FILE *
-verboseConnect(proxy_t *proxy, const char *host, unsigned int retryTime, int retryCount)
-{
-	int saveErrno, sockfd = -1, rc = -1, count;
-	struct sockaddr_in servAddr;
-	struct hostent *entry = NULL;
-	static struct sigaction alarmAction;
-	static int firstTime = 1;
-	const char *connectHost;
-	int connectPort;
-
-	/* use proxy? */
-	if (proxy->host) {
-		connectHost = proxy->host;
-		connectPort = proxy->port;
-	} else {
-		connectHost = host;
-		connectPort = 80;
-	}
-
-	if (firstTime)
-		sigaction(SIGALRM, NULL, &alarmAction);
-	for (count = 0; count < 10; count++) {
-		if (!(entry = gethostbyname(connectHost))) {
-			log(("gethostbyname errno %d\n", h_errno));
-			sleep(1);
-		} else
-			break;
-	}
-	if (!entry) {
-		printLog(stderr, "Cannot convert \"%s\" to IP address\n", connectHost);
-		return NULL;
-	}
-	if (entry->h_addrtype != AF_INET) {
-		printLog(stderr, "%s is not an internet host?\n", connectHost);
-		return NULL;
-	}
-
-	memset(&servAddr, 0, sizeof(servAddr));
-	servAddr.sin_family = AF_INET;
-	memcpy(&servAddr.sin_addr.s_addr, entry->h_addr, (size_t)4);
-	servAddr.sin_port = htons((unsigned short)connectPort);
-
-	log(("connecting to %s:%d", connectHost, connectPort));
-	while (retryCount-- > 0) {
-		if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-			printLog(stderr, "Socket error %d: %s\n", errno,
-				strerror(errno));
-			return NULL;
-		}
-		alarmAction.sa_flags &= ~SA_RESTART;
-		sigaction(SIGALRM, &alarmAction, NULL);
-		alarm(retryTime);
-		rc = connect(sockfd, (struct sockaddr *)&servAddr, (size_t)sizeof(struct sockaddr_in));
-		saveErrno = errno;
-		alarm(0);
-		alarmAction.sa_flags |= SA_RESTART;
-		sigaction(SIGALRM, &alarmAction, NULL);
-		if (!rc)
-			break;
-		log(("connect errno %d", saveErrno));
-		close(sockfd);
-		sockfd = -1;
-	}
-	if (!rc) {
-		log((" OK "));
-	}
-	return (sockfd >= 0) ? fdopen(sockfd, "a+") : 0;
-}
+static int parseBid(FILE *fp, auctionInfo *aip);
 
 /*
  * attempt to match some input, ignoring \r and \n
@@ -179,7 +84,7 @@ match(FILE *fp, const char *str)
  * Get next tag text, eliminating leading and trailing whitespace
  * and leaving only a single space for all internal whitespace.
  */
-static char *
+static const char *
 gettag(FILE *fp)
 {
 	static char *buf = NULL;
@@ -196,7 +101,10 @@ gettag(FILE *fp)
 
 	/* first char - check for comment */
 	c = getc(fp);
-	if (c == '>' || c == EOF) {
+	if (c == '>') {
+		log(("gettag(): returning empty tag\n"));
+		return "";
+	} else if (c == EOF) {
 		log(("gettag(): returning NULL\n"));
 		return NULL;
 	}
@@ -350,55 +258,6 @@ getnontag(FILE *fp)
 	term(buf, bufsize, count);
 	log(("getnontag(): returning %s\n", count ? buf : "NULL"));
 	return count ? buf : NULL;
-}
-
-static char *
-getuntilchar(FILE *fp, int until)
-{
-	static char buf[1024]; /* returned string cannot be longer than this */
-	int count;
-	int c;
-
-	log(("\n\ngetuntilchar('%c')\n\n", until));
-
-	count = 0;
-	while ((c = getc(fp)) != EOF) {
-		if (options.debug)
-			logChar(c);
-		if (count >= 1024) {
-			/* error! too long */
-			if (options.debug)
-				logChar(EOF);
-			return NULL;
-		}
-		if ((char)c == until) {
-			buf[count] = '\0';
-			if (options.debug)
-				logChar(EOF);
-			return buf;
-		}
-		buf[count++] = (char)c;
-	}
-	if (options.debug)
-		logChar(EOF);
-	return NULL;
-}
-
-static void
-runout(FILE *fp)
-{
-	int c, count;
-
-	if (options.debug) {
-		dlog("\n\nrunout()\n\n");
-		for (count = 0, c = getc(fp); c != EOF; ++count, c = getc(fp))
-			logChar(c);
-		logChar(EOF);
-		dlog("%d bytes", count);
-	} else {
-		for (c = getc(fp); c != EOF; c = getc(fp))
-			;
-	}
 }
 
 static long
@@ -606,18 +465,7 @@ parseAuction(FILE *fp, auctionInfo *aip, int quantity, const char *user)
 	return 0;
 } /* parseAuction() */
 
-static const char QUERY_FMT[] =
-	"GET %s%s/%s HTTP/1.0\r\n"
-	"User-Agent: Mozilla/4.7 [en] (X11; U; Linux 2.2.12 i686)\r\n"
-	"Host: %s\r\n"
-	"Accept: text/*\r\n"
-	"Accept-Language: en\r\n"
-	"Accept-Charset: iso-8859-1,*,utf-8\r\n"
-	"Pragma: no-cache\r\n"
-	"Cache-Control: no-cache\r\n"
-	"\r\n";
-static const char QUERY_CMD[] = "aw-cgi/eBayISAPI.dll?ViewBids&item=%s";
-static const char UNAVAILABLE[] = "unavailable/";
+static const char GETINFO[] = "aw-cgi/eBayISAPI.dll?ViewBids&item=";
 
 /*
  * getInfo(): Get info on auction from bid history page.
@@ -630,100 +478,26 @@ int
 getInfo(auctionInfo *aip, int quantity, const char *user)
 {
 	FILE *fp;
-	char *line, *s1, *s2;
 	int ret;
 
 	log(("\n\n*** getInfo auction %s price %s user %s\n", aip->auction, aip->bidPriceStr, user));
 
 	if (!aip->host)
 		aip->host = myStrdup(HOSTNAME);
-	if (!(fp = verboseConnect(&options.proxy, aip->host, 10, 5)))
-		return auctionError(aip, ae_connect, NULL);
+	if (!aip->query)
+		aip->query = myStrdup2(GETINFO, aip->auction);
+	if (!(fp = httpGet(aip, aip->host, aip->query, NULL, 1)))
+		return 1;
 
-	if (!aip->query) {
-		aip->query = (char *)myMalloc(sizeof(QUERY_CMD)+strlen(aip->auction));
-		sprintf(aip->query, QUERY_CMD, aip->auction);
-	}
-
-	if (options.proxy.host)
-		printLog(fp, QUERY_FMT, "http://", aip->host, aip->query, aip->host);
-	else
-		printLog(fp, QUERY_FMT, "", "", aip->query, aip->host);
-	fflush(fp);
-
-	/*
-	 * Redirect?
-	 *
-	 * Line will look like "HTTP/x.x 302 Object Moved" where x.x is HTTP
-	 * version number.
-	 */
-	line = getuntilchar(fp, '\n');
-	s1 = strtok(line, " \t");
-	s2 = strtok(NULL, " \t");
-	if (s1 && s2 && !strncmp("HTTP/", s1, (size_t)5) &&
-	    (!strcmp("301", s2) || !strcmp("302", s2))) {
-		/* redirect */
-		char *newHost = NULL;
-		char *newQuery = NULL;
-		size_t newQueryLen = 0;
-
-		log(("Redirect..."));
-		if (match(fp, "Location: http://"))
-			ret = auctionError(aip, ae_badredirect, NULL);
-		else {
-			newHost = getuntilchar(fp, '/');
-			if (strcasecmp(aip->host, newHost)) {
-				log(("redirect hostname is %s\n", newHost));
-				newHost = myStrdup(newHost);
-			} else
-				newHost = NULL;
-			newQuery = getuntilchar(fp, '\n');
-			newQueryLen = strlen(newQuery);
-			if (newQuery[newQueryLen - 1] == '\r')
-				newQuery[--newQueryLen] = '\0';
-			log(("redirected to %s", newQuery));
-			if (!strncmp(newQuery, UNAVAILABLE, sizeof(UNAVAILABLE) - 1)) {
-				log(("Unavailable!"));
-				free(newHost);
-				ret = auctionError(aip, ae_unavailable, NULL);
-			} else {
-				if (newHost) {
-					free(aip->host);
-					aip->host = newHost;
-				}
-				if (strcmp(aip->query, newQuery)) {
-					free(aip->query);
-					aip->query = myStrdup(newQuery);
-				}
-
-				runout(fp);
-				fclose(fp);
-				return getInfo(aip, quantity, user);
-			}
-		}
-	} else
-		ret = parseAuction(fp, aip, quantity, user);
-
-	/* done! */
+	ret = parseAuction(fp, aip, quantity, user);
 	runout(fp);
 	fclose(fp);
 	return ret;
 }
 
-static const char PRE_BID_FMT[] =
-	"POST %s%s/ws/eBayISAPI.dll HTTP/1.0\r\n"
-	"Referer: http://%s/%s\r\n"
-	"User-Agent: Mozilla/4.7 [en] (X11; U; Linux 2.2.12 i686)\r\n"
-	"Host: %s\r\n"
-	"Accept: text/*\r\n"
-	"Accept-Language: en\r\n"
-	"Accept-Charset: iso-8859-1,*,utf-8\r\n"
-	"Pragma: no-cache\r\n"
-	"Cache-Control: no-cache\r\n"
-	"Content-type: application/x-www-form-urlencoded\r\n"
-	"Content-length: %d\r\n\r\n";
-static const char PRE_BID_CMD[] =
-	"MfcISAPICommand=MakeBid&item=%s&maxbid=%s\r\n";
+static const char PRE_BID_URL[] = "ws/eBayISAPI.dll";
+static const char PRE_BID_DATA_1[] = "MfcISAPICommand=MakeBid&item=";
+static const char PRE_BID_DATA_3[] = "&maxbid=";
 
 /*
  * Get key for bid
@@ -734,31 +508,20 @@ int
 preBid(auctionInfo *aip)
 {
 	FILE *fp;
-	char *tmpkey;
-	char *cp;
-	size_t cmdlen = sizeof(PRE_BID_CMD) + strlen(aip->auction) + strlen(aip->bidPriceStr) - 7;
+	char *data = myStrdup4(PRE_BID_DATA_1, aip->auction, PRE_BID_DATA_3, aip->bidPriceStr);
 	int ret = 0;
 
 	log(("\n\n*** preBidAuction auction %s price %s\n", aip->auction, aip->bidPriceStr));
 
-	if (!(fp = verboseConnect(&options.proxy, BID_HOSTNAME, 6, 5)))
-		return auctionError(aip, ae_connect, NULL);
-
-
-	log(("\n\nquery string:\n"));
-	if (options.proxy.host)
-		printLog(fp, PRE_BID_FMT, "http://", BID_HOSTNAME, aip->host, aip->query, BID_HOSTNAME, cmdlen);
-	else
-		printLog(fp, PRE_BID_FMT, "", "", aip->host, aip->query, BID_HOSTNAME, cmdlen);
-	printLog(fp, PRE_BID_CMD, aip->auction, aip->bidPriceStr);
-	fflush(fp);
-
-	log(("sent pre-bid\n"));
+	if (!(fp = httpPost(aip, BID_HOSTNAME, PRE_BID_URL, "", data, 0)))
+		return 1;
 
 	if (match(fp, "<input type=\"hidden\" name=\"key\" value=\""))
 		ret = auctionError(aip, ae_bidkey, NULL);
 	else {
-		tmpkey = getuntilchar(fp, '\"');
+		char *cp, *tmpkey;
+
+		tmpkey = getUntil(fp, '\"');
 		log(("  reported key is: %s\n", tmpkey));
 
 		/* translate key for URL */
@@ -775,90 +538,68 @@ preBid(auctionInfo *aip)
 
 		log(("\n\ntranslated key is: %s\n\n", aip->key));
 	}
-
 	runout(fp);
 	fclose(fp);
-
-	log(("socket closed\n"));
-
 	return ret;
 }
 
-static const char BID_FMT[] =
-	"POST %s%s/ws/eBayISAPI.dll HTTP/1.0\r\n"
-	"Referer: http://%s/ws/eBayISAPI.dll\r\n"
-	"User-Agent: Mozilla/4.7 [en] (X11; U; Linux 2.2.12 i686)\r\n"
-	"Host: %s\r\n"
-	"Accept: text/*\r\n"
-	"Accept-Language: en\r\n"
-	"Accept-Charset: iso-8859-1,*,utf-8\r\n"
-	"Pragma: no-cache\r\n"
-	"Cache-Control: no-cache\r\n"
-	"Content-type: application/x-www-form-urlencoded\r\n"
-	"Content-length: %d\r\n\r\n";
-static const char BID_CMD[] =
-	"MfcISAPICommand=AcceptBid&item=%s&key=%s&maxbid=%s&quant=%s&userid=%s&pass=%s\r\n";
+static const char BID_URL[] = "ws/eBayISAPI.dll";
+static const char BID_DATA[] = "MfcISAPICommand=AcceptBid&item=%s&key=%s&maxbid=%s&quant=%s&userid=%s&pass=%s";
 
 static const char CONGRATS[] = "Congratulations...";
+static const char PAGENAME[] = "var pageName = \"";
 
 /*
- * Place bid.
+ * Parse bid result.
  *
  * Returns:
  * 0: OK
  * 1: error
  */
 static int
-bidSocket(FILE *fp, auctionInfo *aip, int quantity, const char *user, const char *password)
+parseBid(FILE *fp, auctionInfo *aip)
 {
-	size_t cmdlen;
-	int i;
-	char *line;
-	char quantityStr[12];	/* must hold an int */
+	const char *line;
 
-	if (aip->quantity < quantity)
-		quantity = aip->quantity;
-	sprintf(quantityStr, "%d", quantity);
-
-	decryptPassword();
-	log(("\n\nquery string:\n"));
-	cmdlen = sizeof(BID_CMD) + strlen(aip->auction) + strlen(aip->key) +
-		strlen(aip->bidPriceStr) + strlen(quantityStr) + strlen(user) +
-		strlen(password) - 15;
-	if (options.proxy.host)
-		printLog(fp, BID_FMT, "http://", BID_HOSTNAME, BID_HOSTNAME, BID_HOSTNAME, cmdlen);
-	else
-		printLog(fp, BID_FMT, "", "", BID_HOSTNAME, BID_HOSTNAME, cmdlen);
-
-	/* don't log password */
-	fprintf(fp, BID_CMD, aip->auction, aip->key, aip->bidPriceStr, quantityStr, user, password);
-	log((BID_CMD, aip->auction, aip->key, aip->bidPriceStr, quantityStr, user, "(password hidden)"));
-	encryptPassword();
-
-	fflush(fp);
 	aip->bidResult = -1;
+	while ((line = gettag(fp))) {
+		char *var, *pagename, *quote;
 
-	for (line = getnontag(fp), i = 0; aip->bidResult < 0 && line && i < 10;
-	     ++i, line = getnontag(fp)) {
-		if (!strncmp(line, CONGRATS, sizeof(CONGRATS) - 1)) /* high bidder */
-			return logNonTag(line, fp, aip->bidResult = 0);
-		else if (!strcmp(line, "User ID"))	/* bad user/pass */
-			return logNonTag(line, fp, aip->bidResult = auctionError(aip, ae_badpass, NULL));
-		else if (!strcmp(line, "We're sorry..."))	/* outbid */
-			return logNonTag(line, fp, aip->bidResult = auctionError(aip, ae_outbid, NULL));
-		else if (!strcmp(line, "You are the current high bidder..."))
-							/* reserve not met */
-			return logNonTag(line, fp, aip->bidResult = auctionError(aip, ae_reservenotmet, NULL));
-		else if (!strcmp(line, "Cannot proceed")) /* auction closed */
-			return logNonTag(line, fp, aip->bidResult = auctionError(aip, ae_ended, NULL));
-	}
-	if (aip->bidResult == -1) {
-		printLog(stdout, "Cannot determine result of bid\n");
-		return 0;	/* prevent another bid */
-	}
+		if (strncmp(line, "!--", 3) || !(var = strstr(line, PAGENAME)))
+			continue;
 
-	return aip->bidResult;
-} /* bidSocket() */
+		pagename = var + sizeof(PAGENAME) - 1;
+		quote = strchr(pagename, '"');
+
+		if (!*quote) {
+			log(("Cannot find trailing quote in pagename: %s\n", pagename));
+			break;
+		}
+
+		*quote = '\0';
+		log(("parseBid(): pagename = %s\n", pagename));
+		if (!strcmp(pagename, "AcceptBid_HighBidder")) {
+			aip->bidResult = 0;
+			return 0;
+		} else if (!strcmp(pagename, "AcceptBid_Outbid")) {
+			aip->bidResult = auctionError(aip, ae_outbid, NULL);
+			return 1;
+		} else if (!strcmp(pagename, "AcceptBid_ReserveNotMet")) {
+			aip->bidResult = auctionError(aip, ae_reservenotmet, NULL);
+			return 1;
+		} else if (!strcmp(pagename, "MakeBidErrorPassword") ||
+			   !strcmp(pagename, "PageMakeBid")) {
+			aip->bidResult = auctionError(aip, ae_badpass, NULL);
+			return 1;
+		} else if (!strcmp(pagename, "MakeBidError")) {
+			aip->bidResult = auctionError(aip, ae_ended, NULL);
+			return 1;
+		}
+		break;
+	}
+	printLog(stdout, "Cannot determine result of bid\n");
+	return 0;	/* prevent another bid */
+} /* parseBid() */
 
 /*
  * Place bid.
@@ -871,17 +612,33 @@ int
 bid(option_t options, auctionInfo *aip)
 {
 	FILE *fp;
+	size_t dataLen;
+	char *data;
+	int quantity = aip->quantity < options.quantity ?
+				aip->quantity : options.quantity;
+	char quantityStr[12];	/* must hold an int */
 	int ret;
 
-	log(("\n\n*** bidAuction auction %s price %s quantity %d user %s\n", aip->auction, aip->bidPriceStr, options.quantity, options.user));
+	sprintf(quantityStr, "%d", quantity);
+
+	/* create data */
+	decryptPassword();
+	dataLen = sizeof(BID_DATA) + strlen(aip->auction) + strlen(aip->key) + strlen(aip->bidPriceStr) + strlen(quantityStr) + strlen(options.user) + strlen(options.password) - 12;
+	data = (char *)myMalloc(dataLen);
+	sprintf(data, BID_DATA, aip->auction, aip->key, aip->bidPriceStr, quantityStr, options.user, options.password);
+	encryptPassword();
+	log(("\n\nbid(): query data:\n"));
+	log((BID_DATA, aip->auction, aip->key, aip->bidPriceStr, quantityStr, options.user, "(password hidden)"));
 
 	if (!options.bid) {
 		printLog(stdout, "Bidding disabled\n");
 		return aip->bidResult = 0;
 	}
-	if (!(fp = verboseConnect(&options.proxy, BID_HOSTNAME, 6, 5)))
-		return aip->bidResult = auctionError(aip, ae_connect, NULL);
-	ret = bidSocket(fp, aip, options.quantity, options.user, options.password);
+
+	if (!(fp = httpPost(aip, BID_HOSTNAME, BID_URL, "", data, 0)))
+		return 1;
+
+	ret = parseBid(fp, aip);
 	runout(fp);
 	fclose(fp);
 	return ret;
@@ -1014,12 +771,26 @@ watch(auctionInfo *aip, option_t options)
 	return 0;
 } /* watch() */
 
+#if DEBUG
 /* secret option - test parser */
 void
 testParser(void)
 {
+	/* run through bid parser */
+	/*
+	auctionInfo *aip = newAuctionInfo("1", "2");
+	int ret = parseBid(stdin, aip);
+
+	printf("ret = %d\n", ret);
+	printAuctionError(aip, stdout);
+	*/
+
+	/* dump non-tag data */
+	/*
 	char *line;
 
 	while ((line = getnontag(stdin)))
 		printf("\"%s\"\n", line);
+	*/
 }
+#endif

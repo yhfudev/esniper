@@ -24,20 +24,13 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef AUCTION_H_INCLUDED
-#define AUCTION_H_INCLUDED
+#ifndef HTTP_H_INCLUDED
+#define HTTP_H_INCLUDED
 
+#include <stdio.h>
 #include "auctioninfo.h"
-#include "esniper.h"
 
-extern int getInfo(auctionInfo *aip, int quantity, const char *user);
-extern int watch(auctionInfo *aip, option_t options);
-extern int preBid(auctionInfo *aip);
-extern int bid(option_t options, auctionInfo *aip);
+extern FILE *httpGet(auctionInfo *aip, const char *host, const char *url, const char *cookies, int saveRedirect);
+extern FILE *httpPost(auctionInfo *aip, const char *host, const char *url, const char *cookies, const char *data, int saveRedirect);
 
-#if DEBUG
-/* secret option */
-extern void testParser(void);
-#endif
-
-#endif /* AUCTION_H_INCLUDED */
+#endif /* HTTP_H_INCLUDED */

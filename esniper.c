@@ -37,7 +37,7 @@
 #include "options.h"
 #include "util.h"
 
-static const char version[]="esniper version 2.2.2";
+static const char version[]="esniper version 2.3.0";
 static const char blurb[]="Please visit http://esniper.sourceforge.net/ for updates and bug reports";
 
 #if !defined(WIN32)
@@ -540,7 +540,11 @@ main(int argc, char *argv[])
    };
 
 	/* all known options */
-	static const char optionstring[]="bc:dhHl:np:Pq:rs:u:UvX";
+	static const char optionstring[]="bc:dhHl:np:Pq:rs:u:Uv"
+#if DEBUG
+		"X"
+#endif
+		;
 
 	atexit(cleanup);
 	progname = basename(argv[0]);
@@ -569,9 +573,11 @@ main(int argc, char *argv[])
 		case 'l': /* log directory */
 			parseGetoptValue(c, optarg, optiontab);
 			break;
+#if DEBUG
 		case 'X': /* secret option - for testing page parsing */
 			testParser();
 			exit(0);
+#endif
 		case 'v': /* version */
 			fprintf(stderr, "%s\n%s\n", version, blurb);
 			exit(0);

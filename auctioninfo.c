@@ -63,6 +63,7 @@ static const char *auctionErrorString[] = {
 	"Auction %s: High bidder not found\n",
 	"Auction %s: Connect failed\n",
 	"Auction %s: Redirect failed\n",
+	"Auction %s: Unexpected HTTP status: %s\n",
 	"Auction %s: Bid price less than minimum bid price\n",
 	"Auction %s: Bid key not found\n",
 	"Auction %s: Bad username or password\n",

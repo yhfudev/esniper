@@ -237,6 +237,63 @@ logChar(int c)
 		putc(c, logfile);
 }
 
+/* read from file until you see the given character. */
+char *
+getUntil(FILE *fp, int until)
+{
+	static char *buf = NULL;
+	static size_t bufsize = 0;
+	size_t count = 0;
+	int c;
+
+	log(("\n\ngetUntilChar('%c')\n\n", until));
+
+	while ((c = getc(fp)) != EOF) {
+		if (options.debug)
+			logChar(c);
+		if ((char)c == until) {
+			term(buf, bufsize, count);
+			if (options.debug)
+				logChar(EOF);
+			return buf;
+		}
+		addchar(buf, bufsize, count, c);
+	}
+	if (options.debug)
+		logChar(EOF);
+	return NULL;
+}
+
+/* read one complete line, discarding \r and \n */
+char *
+getLine(FILE *fp)
+{
+	char *line = getUntil(fp, '\n');
+
+	if (line) {
+		int len = strlen(line);
+
+		if (line[len - 1] == '\r')
+			line[len - 1] = '\0';
+	}
+	return line;
+}
+
+/* Runout remainder of file, logging its contents */
+void
+runout(FILE *fp)
+{
+	if (options.debug) {
+		int c, count;
+
+		dlog("\n\nrunout()\n\n");
+		for (count = 0, c = getc(fp); c != EOF; ++count, c = getc(fp))
+			logChar(c);
+		logChar(EOF);
+		dlog("%d bytes", count);
+	}
+}
+
 /*
  * Return a valid string, even if it is null
  */

@@ -45,6 +45,7 @@ enum auctionErrorCode {
 	ae_nohighbid,
 	ae_connect,
 	ae_badredirect,
+	ae_badstatus,
 	ae_bidprice,
 	ae_bidkey,
 	ae_badpass,
