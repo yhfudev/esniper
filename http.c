@@ -621,7 +621,9 @@ openOsfhandleHack(SOCKET sock, int flags)
 	if (isNT())
 		return _open_osfhandle(sock, flags);
 
-	printLog(stderr, "This program only works with Windows NT, 2000, and XP\n");
+	printLog(stderr,
+		"This program only works with Windows NT, 2000, and XP.\n"
+		"You must use esniper-cygwin.exe on Windows 95, 98 and Me.\n");
 	exit(1);
 }
 
