@@ -70,7 +70,9 @@ Copy files to sourceforge:
 	ftp upload.sourceforge.net -> anonymous
 		cd incoming
 		bin
-		put $CURRFILE.tgz
+		prompt
+		mput *.tgz
+		quit
 
 	scp $CURRFILE/sample* $CURRFILE/esniper.1 $CURRFILE/*.html \
 		esniper@shell.sf.net:/home/groups/e/es/esniper/htdocs
