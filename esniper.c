@@ -1038,5 +1038,7 @@ main(int argc, char *argv[])
 		}
 	}
 
+	cleanupCurlStuff();
+
 	return ret;
 }
