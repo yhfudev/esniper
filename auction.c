@@ -51,6 +51,9 @@ typedef struct {
 	char *srcId;
 } pageInfo_t;
 
+struct tm * tmPtr;
+static char timestr[21];
+
 static int match(memBuf_t *mp, const char *str);
 static const char *getTag(memBuf_t *mp);
 static char *getNonTag(memBuf_t *mp);
@@ -725,10 +728,8 @@ parseAuction(memBuf_t *mp, auctionInfo *aip, const char *user, time_t start, tim
 	free(line); /* allocated in "Time left:" getNonTagFromString() */
 	aip->endTime = start + remain;
 	/* formated time/date output */
-	static char timestr[21];
-		struct tm *tmPtr;
-		tmPtr = localtime(&(aip->endTime));
-		strftime(timestr , 20, "%d/%m/%Y %T", tmPtr);
+	tmPtr = localtime(&(aip->endTime));
+	strftime(timestr , 20, "%d/%m/%Y %T", tmPtr);
 	printLog(stdout, "End time: %s\n", timestr);
 
 	if (!(line = getNonTag(mp)))
