@@ -31,7 +31,7 @@
  * For updates, bug reports, etc, please go to esniper.sourceforge.net.
  */
 
-static const char version[]="esniper version 1.2";
+static const char version[]="esniper version 1.3";
 static const char blurb[]="Please visit http://esniper.sourceforge.net/ for updates and bug reports";
 
 #if defined(unix) || defined (__unix) || defined (__MACH__)
@@ -74,7 +74,7 @@ static int debug = 0;
  * All information associated with an item
  */
 typedef struct {
-	size_t remain;	/* seconds remaining */
+	long remain;	/* seconds remaining */
 	char *host;	/* bidding history host */
 	char *query;	/* bidding history query */
 	char *key;	/* bidding key */
@@ -146,7 +146,7 @@ logOpen(const char *item)
 {
 	char logfilename[128];
 
-	sprintf(logfilename, "esniper.log.%s", item);
+	sprintf(logfilename, "esniper.%s.log", item);
 	if (!(logfile = fopen(logfilename, "a"))) {
 		fprintf(stderr, "Unable to open log file %s: %s\n",
 			logfilename, strerror(errno));
@@ -579,11 +579,11 @@ runout(FILE *fp)
 static long
 getseconds(char *timestr)
 {
-	static char *second = "sec";
-	static char *minute = "min";
-	static char *hour = "hour";
-	static char *day = "day";
-	static char *ended = "ended";
+	static char second[] = "sec";
+	static char minute[] = "min";
+	static char hour[] = "hour";
+	static char day[] = "day";
+	static char ended[] = "ended";
 	long accum = 0;
 	long num;
 
@@ -593,13 +593,13 @@ getseconds(char *timestr)
 		num = strtol(timestr, &timestr, 10);
 		while (isspace((int)*timestr))
 			++timestr;
-		if (!strncmp(timestr, second, strlen(second)))
+		if (!strncmp(timestr, second, sizeof(second) - 1))
 			return(accum + num);
-		else if (!strncmp(timestr, minute, strlen(minute)))
+		else if (!strncmp(timestr, minute, sizeof(minute) - 1))
 			accum += num * 60;
-		else if (!strncmp(timestr, hour, strlen(hour)))
+		else if (!strncmp(timestr, hour, sizeof(hour) - 1))
 			accum += num * 3600;
-		else if (!strncmp(timestr, day, strlen(day)))
+		else if (!strncmp(timestr, day, sizeof(day) - 1))
 			accum += num * 86400;
 		else {
 			printf("Error: unknown time interval \"%s\"\n",timestr);
@@ -704,8 +704,7 @@ parseItem(FILE *fp, char *item, char *quantity, char *amount, char *user, itemIn
 		printLog(stderr, "Time remaining not found\n");
 		return 1;
 	}
-	iip->remain = getseconds(line);
-	if (iip->remain < 0)
+	if ((iip->remain = getseconds(line)) < 0)
 		return 1;
 	printLog(stdout, "Time remaining: %s (%ld seconds)\n",
 		line, iip->remain);
@@ -865,7 +864,7 @@ getItemInfo(char *item, char *quantity, char *amount, char *user, itemInfo *iip)
 }
 
 static const char PRE_BID_FMT[] =
-	"POST /ws/eBayISAPI.dll HTTP/1.0\n" \
+	"POST /aw-cgi/eBayISAPI.dll HTTP/1.0\n" \
 	"Referer: http://%s/%s\n" \
 	"Connection: Keep-Alive\n" \
 	"User-Agent: Mozilla/4.7 [en] (X11; U; Linux 2.2.12 i686)\n" \
@@ -900,7 +899,7 @@ preBidItem(char *item, char *amount, itemInfo *iip)
 
 
 	log(("\n\nquery string:\n"));
-	printLog(fp, PRE_BID_FMT, iip->host, iip->query, iip->host, cmdlen);
+	printLog(fp, PRE_BID_FMT, iip->host, iip->query, HOSTNAME, cmdlen);
 	printLog(fp, PRE_BID_CMD, item, amount);
 	fflush(fp);
 
@@ -936,8 +935,8 @@ preBidItem(char *item, char *amount, itemInfo *iip)
 }
 
 static const char BID_FMT[] =
-	"POST /ws/eBayISAPI.dll HTTP/1.0\n"	\
-	"Referer: http://%s/ws/eBayISAPI.dll\n" \
+	"POST /aw-cgi/eBayISAPI.dll HTTP/1.0\n"	\
+	"Referer: http://%s/aw-cgi/eBayISAPI.dll\n" \
 	"Connection: Keep-Alive\n" \
 	"User-Agent: Mozilla/4.7 [en] (X11; U; Linux 2.2.12 i686)\n" \
 	"Host: %s\n" \
@@ -979,7 +978,7 @@ bidItem(int bid, const char *item, const char *amount, const char *quantity, con
 	cmdlen = sizeof(BID_CMD) + strlen(item) + strlen(iip->key) +
 		strlen(amount) + strlen(quantity) + strlen(user) +
 		strlen(password) - 15;
-	printLog(fp, BID_FMT, iip->host, iip->host, cmdlen);
+	printLog(fp, BID_FMT, iip->host, HOSTNAME, cmdlen);
 	printLog(fp, BID_CMD, item, iip->key, amount, quantity, user,password);
 	fflush(fp);
 
@@ -1075,10 +1074,10 @@ sigTerm(int sig)
  *	1 Error
  */
 static int
-watchItem(char *item, char *quantity, char *amount, char *user, long bidtime, int bid, itemInfo *iip)
+watchItem(char *item, char *quantity, char *amount, char *user, long bidtime, itemInfo *iip)
 {
 	int errorCount = 0;
-	long prevSecs = -1;
+	long remain = -1, sleepTime = -1;
 
 	log(("*** WATCHING item %s amount-each %s quantity %s user %s bidtime %ld\n", item, amount, quantity, user, bidtime));
 
@@ -1086,82 +1085,78 @@ watchItem(char *item, char *quantity, char *amount, char *user, long bidtime, in
 		time_t start = time(NULL);
 		int ret = getItemInfo(item, quantity, amount, user, iip);
 		time_t latency = time(NULL) - start;
-		long secs;
 
-		if (ret >= 2) {
-			/*
-			 * Fatal error!
-			 */
+		if (ret > 1 || (ret == 1 && remain == -1)) /* Fatal error! */
 			return 1;
-		} else if (ret == 1) {
-			/*
-			 * error!
-			 *
-			 * If this is the first time through the loop
-			 * (i.e. prevSecs < 0), then this causes an
-			 * an exit.  Otherwise, we just assume the
-			 * 'net (or eBay) is flakey, sleep a reasonable
-			 * time and try again.
-			 */
-			if (prevSecs < 0)
-				return 1;
+
+		if (ret == 1) {	/* non-fatal error */
 			log((" ERROR %d!!!\n", ++errorCount));
 			if (errorCount > 50) {
 				printLog(stderr, "Cannot get item info\n");
 				return 1;
 			}
 			printLog(stdout, "Cannot find item - internet or eBay problem?\nWill try again after sleep.\n");
-			secs = prevSecs/2;
-		} else {
-			if (!iip->remain && prevSecs < 0)
-				return 0;
-			secs = (long)(iip->remain) - bidtime;
+			remain -= sleepTime + (latency * 2);
+		} else
+			remain = iip->remain - bidtime - (latency * 2);
 
-			/* it's time!!! */
-			if (secs < 0)
-				break;
-			/*
-			 * if we're less than a minute away,
-			 * get key for bid
-			 */
-			if (secs < 60 && !iip->key && bid) {
-				int i;
+		/* it's time!!! */
+		if (remain < 0)
+			break;
 
-				printf("\n");
-				for (i = 0; i < 5; ++i) {
-					if (!preBidItem(item, amount, iip))
-						break;
-				}
-				if (i == 5) {
-					printLog(stderr, "Cannot get bid key\n");
-					return 1;
-				}
+		/*
+		 * if we're less than two minutes away,
+		 * get key for bid
+		 */
+		if (remain <= 150 && !iip->key) {
+			int i;
+			time_t keyLatency;
+
+			printf("\n");
+			for (i = 0; i < 5; ++i) {
+				if (!preBidItem(item, amount, iip))
+					break;
 			}
-			/* laggy connection at end of auction? */
-			if (secs > 7 && secs < 60 && latency > 5) {
-				log((" latency %ld NO SLEEP\n", latency));
-				continue;
+			if (i == 5) {
+				printLog(stderr, "Cannot get bid key\n");
+				return 1;
 			}
-			/*
-			 * special handling when we're right on the
-			 * cusp
-			 */
-			if (secs < 8) {
-				secs -= latency;
-				log(("latency %ld CLOSE!!! SLEEP %ld",
-					latency, secs));
-				if (secs > 0)
-					sleep(secs);
-				break;
-			} else	/* logarithmic decay by twos */
-				secs /= 2;
-
-			log((" latency %ld sleep %ld\n", latency, secs));
+			keyLatency = time(NULL) - start - latency;
+			remain -= keyLatency;
 		}
-		printf("Sleeping for %ld seconds\n", secs);
-		prevSecs = secs;
-		sleep(secs);
-		printf("\n");
+
+		/*
+		 * Setup sleep schedule so we get updates once a day, then
+		 * at 2 hours, 1 hour, 5 minutes, 2 minutes
+		 */
+		if (remain <= 150)	/* 2 minutes + 30 seconds (slop) */
+			sleepTime = remain;
+		else if (remain < 720)	/* 5 minutes + 2 minutes (slop) */
+			sleepTime = remain - 120;
+		else if (remain < 3900)	/* 1 hour + 5 minutes (slop) */
+			sleepTime = remain - 600;
+		else if (remain < 10800)/* 2 hours + 1 hour (slop) */
+			sleepTime = remain - 3600;
+		else if (remain < 97200)/* 1 day + 3 hours (slop) */
+			sleepTime = remain - 7200;
+		else			/* knock off one day */
+			sleepTime = 86400;
+
+		if (sleepTime >= 86400)
+			printf("Sleeping for a day\n");
+		else if (sleepTime >= 3600)
+			printf("Sleeping for %d hours %d minutes\n",
+				sleepTime/3600, (sleepTime % 3600) / 60);
+		else if (sleepTime >= 60)
+			printf("Sleeping for %d minutes %d seconds\n",
+				sleepTime/60, sleepTime % 60);
+		else
+			printf("Sleeping for %ld seconds\n", sleepTime);
+		sleep(sleepTime);
+		putchar('\n');
+
+		if (sleepTime == remain)
+			break;
 	}
 
 	return 0;
@@ -1256,12 +1251,9 @@ main(int argc, char *argv[])
 		if (iip->remain && preBidItem(item, amount, iip))
 			exit(1);
 	} else {
-		if (watchItem(item, quantity, amount, user, bidtime, bid, iip))
+		if (watchItem(item, quantity, amount, user, bidtime, iip))
 			exit(1);
 	}
-
-	if (bid)
-		printLog(stdout, "\nBidding...\n");
 
 	/* ran out of time! */
 	if (!iip->remain) {
@@ -1272,7 +1264,8 @@ main(int argc, char *argv[])
 		exit(0);
 	}
 
-	log((" IT'S TIME!!!\n"));
+	if (bid)
+		printLog(stdout, "\nBidding...\n");
 
 	if (!iip->key && bid) {
 		printLog(stderr, "Problem with bid.  No bid placed.\n");
