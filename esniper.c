@@ -37,7 +37,7 @@
 #include "options.h"
 #include "util.h"
 
-static const char version[]="esniper version 2.5.0";
+static const char version[]="esniper version 2.5.1";
 static const char blurb[]="Please visit http://esniper.sourceforge.net/ for updates and bug reports";
 
 #if !defined(WIN32)
@@ -205,8 +205,9 @@ cleanup()
  *
  * returns: 0 = OK, else error
  */
-static int CheckDebug(const void* valueptr, const optionTable_t* tableptr,
-                      const char* filename, const char *line)
+static int
+CheckDebug(const void* valueptr, const optionTable_t* tableptr,
+           const char* filename, const char *line)
 {
 	int val = *((const int*)valueptr);
 
@@ -221,8 +222,9 @@ static int CheckDebug(const void* valueptr, const optionTable_t* tableptr,
  *
  * returns: 0 = OK, else error
  */
-static int CheckSecs(const void* valueptr, const optionTable_t* tableptr,
-                     const char* filename, const char *line)
+static int
+CheckSecs(const void* valueptr, const optionTable_t* tableptr,
+          const char* filename, const char *line)
 {
    int intval;
    char *endptr;
@@ -276,12 +278,38 @@ static int CheckSecs(const void* valueptr, const optionTable_t* tableptr,
 }
 
 /*
+ * CheckPass(): set password
+ *
+ * returns: 0 = OK, else error
+ */
+static int
+CheckPass(const void* valueptr, const optionTable_t* tableptr,
+          const char* filename, const char *line)
+{
+   if(!valueptr) {
+      if(filename)
+         printLog(stderr,
+                  "Invalid password at \"%s\" in file %s\n",
+                  line, filename);
+      else
+         printLog(stderr,
+                  "Invalid password at option -%s\n",
+                  line);
+      return 1;
+   }
+   setPassword(myStrdup((const char *)valueptr));
+   log(("password has been set\n"));
+   return 0;
+}
+
+/*
  * CheckQuantity(): convert integer value, check for positive value
  *
  * returns: 0 = OK, else error
  */
-static int CheckQuantity(const void* valueptr, const optionTable_t* tableptr,
-                         const char* filename, const char *line)
+static int
+CheckQuantity(const void* valueptr, const optionTable_t* tableptr,
+              const char* filename, const char *line)
 {
    if(*(const int*)valueptr <= 0) {
       if(filename)
@@ -296,6 +324,32 @@ static int CheckQuantity(const void* valueptr, const optionTable_t* tableptr,
    }
    /* copy value to target variable */
    *(int*)(tableptr->value) = *(const int*)valueptr;
+   log(("quantity is %d\n", *(const int*)(tableptr->value)));
+   return 0;
+}
+
+/*
+ * CheckUser(): set user
+ *
+ * returns: 0 = OK, else error
+ */
+static int
+CheckUser(const void* valueptr, const optionTable_t* tableptr,
+          const char* filename, const char *line)
+{
+   if(!valueptr) {
+      if(filename)
+         printLog(stderr,
+                  "Invalid user at \"%s\" in file %s\n",
+                  line, filename);
+      else
+         printLog(stderr,
+                  "Invalid user at option -%s\n",
+                  line);
+      return 1;
+   }
+   setUsername(myStrdup((const char *)valueptr));
+   log(("user has been set\n"));
    return 0;
 }
 
@@ -318,8 +372,7 @@ ReadUser(const void* valueptr, const optionTable_t* tableptr,
 		return 1;
 	}
 
-	free(*(char**)(tableptr->value));
-	*(char**)(tableptr->value) = myStrdup(username);
+	setUsername(myStrdup(username));
 	log(("username is %s\n", *(char**)(tableptr->value)));
 	return 0;
 }
@@ -341,10 +394,8 @@ ReadPass(const void* valueptr, const optionTable_t* tableptr,
 	}
 	putchar('\n');
 
-	clearPassword();
+	setPassword(passwd);
 	/* don't log password! */
-	*(char**)(tableptr->value) = myStrdup(passwd);
-	encryptPassword();
 	return 0;
 }
 
@@ -517,13 +568,13 @@ main(int argc, char *argv[])
 
    /* this table describes options and config entries */
    static optionTable_t optiontab[] = {
-   {"username", "u", (void*)&options.user,         OPTION_STRING,   NULL},
-   {"password",NULL, (void*)&options.password,     OPTION_STRING,   NULL},
+   {"username", "u", (void*)&options.username,     OPTION_STRING,   &CheckUser},
+   {"password",NULL, (void*)&options.password,     OPTION_STRING,   &CheckPass},
    {"seconds",  "s", (void*)&options.bidtime,      OPTION_SPECIAL,  &CheckSecs},
    {"quantity", "q", (void*)&options.quantity,     OPTION_INT,  &CheckQuantity},
    {"proxy",    "p", (void*)&options.proxy,        OPTION_STRING,  &CheckProxy},
    {NULL,       "P", (void*)&options.password,     OPTION_STRING,   &ReadPass},
-   {NULL,       "U", (void*)&options.user,         OPTION_STRING,   &ReadUser},
+   {NULL,       "U", (void*)&options.username,     OPTION_STRING,   &ReadUser},
    {NULL,       "c", (void*)&options.conffilename, OPTION_STRING,   &CheckConfigFile},
    {NULL,       "f", (void*)&options.auctfilename, OPTION_STRING,   &CheckAuctionFile},
    {"reduce",  NULL, (void*)&options.reduce,       OPTION_BOOL,     NULL},
@@ -677,8 +728,8 @@ main(int argc, char *argv[])
 	argc -= optind;
 	argv += optind;
 
-	log(("options.user=%s\n", nullStr(options.user)));
-	/* Do not log password! */
+	/* don't log username/password */
+	/*log(("options.username=%s\n", nullStr(options.username)));*/
 	/*log(("options.password=%s\n", nullStr(options.password)));*/
 	log(("options.bidtime=%d\n", options.bidtime));
 	log(("options.quantity=%d\n", options.quantity));
@@ -698,7 +749,7 @@ main(int argc, char *argv[])
 			printLog(stderr, "Error: auctions and prices must be specified in pairs.\n");
 			options.usage = 1;
 		}
-		if (!options.user) {
+		if (!options.username) {
 			if (options.batch) {
 				printLog(stderr, "Error: no username specified.\n");
 				options.usage = 1;
@@ -736,8 +787,8 @@ main(int argc, char *argv[])
 	numAuctionsOrig = numAuctions;
 	{
 		int quantity = options.quantity;
-		numAuctions = sortAuctions(auctions, numAuctions, options.user,
-					   &quantity);
+		numAuctions = sortAuctions(auctions, numAuctions,
+					   options.username, &quantity);
 
 		if (quantity < options.quantity) {
 			printLog(stdout, "\nYou have already won %d item(s).\n",
@@ -762,7 +813,7 @@ main(int argc, char *argv[])
 
 		log(("auction %s price %s quantity %d user %s bidtime %ld\n",
 		     auctions[i]->auction, auctions[i]->bidPriceStr,
-		     options.quantity, options.user, options.bidtime));
+		     options.quantity, options.username, options.bidtime));
 
 		if (numAuctionsOrig > 1)
 			printLog(stdout, "\nNeed to win %d item(s), %d auction(s) remain\n\n", options.quantity, numAuctions - i);
@@ -796,9 +847,9 @@ main(int argc, char *argv[])
 			continue;
 		}
 
-		log(("*** BIDDING!!! auction %s price %s quantity %d user %s\n",
+		log(("*** BIDDING!!! auction %s price %s quantity %d\n",
 			auctions[i]->auction, auctions[i]->bidPriceStr,
-			options.quantity, options.user));
+			options.quantity));
 
 		for (retryCount = 0; retryCount < 3; retryCount++) {
 			bidRet = bid(options, auctions[i]);
@@ -823,7 +874,7 @@ main(int argc, char *argv[])
 
 		printLog(stdout, "\nAuction %s: Post-bid info:\n",
 			 auctions[i]->auction);
-		if (getInfo(auctions[i], options.quantity, options.user))
+		if (getInfo(auctions[i], options.quantity, options.username))
 			printAuctionError(auctions[i], stderr);
 
 		if (auctions[i]->won == -1) {

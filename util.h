@@ -62,9 +62,11 @@ extern char *prompt(const char *p, int noecho);
 extern int boolValue(const char *value);
 extern int parseProxy(const char *value, proxy_t *proxy);
 
-extern void clearPassword(void);
-extern void encryptPassword(void);
-extern void decryptPassword(void);
+extern char *stars(size_t len);
+extern void setUsername(char *username);
+extern void setPassword(char *password);
+extern char *getPassword(void);
+extern void freePassword(char *password);
 
 #if defined(__CYGWIN__) || defined(WIN32)
 extern char *basename(char *);

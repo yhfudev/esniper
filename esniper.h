@@ -41,7 +41,7 @@ extern const char BID_HOSTNAME[];
 
 /* this structure holds all values from command line or config entries */
 typedef struct {
-	char *user;
+	char *username;
 	char *password;
 	int bidtime;
 	int quantity;

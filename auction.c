@@ -863,7 +863,7 @@ bid(option_t options, auctionInfo *aip)
 {
 	FILE *fp;
 	size_t dataLen, passwordLen;
-	char *data, *logData, *tmp;
+	char *data, *logData, *tmpUsername, *tmpPassword, *password;
 	int quantity = aip->quantity < options.quantity ?
 				aip->quantity : options.quantity;
 	char quantityStr[12];	/* must hold an int */
@@ -872,20 +872,19 @@ bid(option_t options, auctionInfo *aip)
 	sprintf(quantityStr, "%d", quantity);
 
 	/* create data */
-	decryptPassword();
-	passwordLen = strlen(options.password);
-	dataLen = sizeof(BID_DATA) + strlen(aip->auction) + strlen(aip->key) + strlen(aip->bidPriceStr) + strlen(quantityStr) + strlen(options.user) + passwordLen - 12;
+	password = getPassword();
+	passwordLen = strlen(password);
+	dataLen = sizeof(BID_DATA) + strlen(aip->auction) + strlen(aip->key) + strlen(aip->bidPriceStr) + strlen(quantityStr) + strlen(options.username) + passwordLen - 12;
 	data = (char *)myMalloc(dataLen);
-	sprintf(data, BID_DATA, aip->auction, aip->key, aip->bidPriceStr, quantityStr, options.user, options.password);
-	encryptPassword();
+	sprintf(data, BID_DATA, aip->auction, aip->key, aip->bidPriceStr, quantityStr, options.username, password);
+	freePassword(password);
 
 	logData = (char *)myMalloc(dataLen);
-	tmp = (char *)myMalloc(passwordLen + 1);
-	for (i = 0; i < passwordLen; ++i)
-		tmp[i] = '*';
-	tmp[i] = '\0';
-	sprintf(logData, BID_DATA, aip->auction, aip->key, aip->bidPriceStr, quantityStr, options.user, tmp);
-	free(tmp);
+	tmpUsername = stars(strlen(options.username));
+	tmpPassword = stars(passwordLen);
+	sprintf(logData, BID_DATA, aip->auction, aip->key, aip->bidPriceStr, quantityStr, tmpUsername, tmpPassword);
+	free(tmpUsername);
+	free(tmpPassword);
 
 	if (!options.bid) {
 		printLog(stdout, "Bidding disabled\n");
@@ -917,11 +916,11 @@ watch(auctionInfo *aip, option_t options)
 	long remain = LONG_MIN;
 	unsigned int sleepTime = 0;
 
-	log(("*** WATCHING auction %s price-each %s quantity %d user %s bidtime %ld\n", aip->auction, aip->bidPriceStr, options.quantity, options.user, options.bidtime));
+	log(("*** WATCHING auction %s price-each %s quantity %d bidtime %ld\n", aip->auction, aip->bidPriceStr, options.quantity, options.bidtime));
 
 	for (;;) {
 		time_t start = time(NULL);
-		int ret = getInfo(aip, options.quantity, options.user);
+		int ret = getInfo(aip, options.quantity, options.username);
 		time_t latency = time(NULL) - start;
 
 		if (ret) {
@@ -949,7 +948,7 @@ watch(auctionInfo *aip, option_t options)
 
 				for (j = 0; ret && j < 3 && aip->auctionError == ae_notitle; ++j)
 					ret = getInfo(aip, options.quantity,
-						      options.user);
+						      options.username);
 				if (!ret)
 					remain = aip->remain - options.bidtime - (latency * 2);
 				else

@@ -40,7 +40,9 @@
 #include <unistd.h>
 #endif
 
+static void toLowerString(char *s);
 static void seedPasswordRandom(void);
+static void cryptPassword(char *password);
 
 /*
  * various utility functions used in esniper.
@@ -406,9 +408,7 @@ boolValue(const char *value)
       return 1;
 
    buf = myStrdup(value);
-   for (i = 0; buf[i]; ++i)
-      buf[i] = (char)tolower((int)(buf[i]));
-
+   toLowerString(buf);
    for (i = 0; boolvalues[i]; i++) {
       if (!strcmp(buf, boolvalues[i]))
          break;
@@ -491,6 +491,13 @@ parseProxy(const char *value, proxy_t *proxy)
 	return 0;
 }
 
+static void
+toLowerString(char *s)
+{
+	for (; *s; ++s)
+		*s = (char)tolower((int)*s);
+}
+
 /*
  * Password encrpytion/decryption.  xor with pseudo-random one-time pad,
  * so password isn't (usually) obvious in memory dump.
@@ -508,54 +515,69 @@ seedPasswordRandom(void)
 	}
 }
 
+/* create a malloc'ed string filled with '*' (to cover username/password
+ * in logs)
+ */
+char *
+stars(size_t len)
+{
+	char *s = (char *)myMalloc(len + 1);
+
+	memset(s, '*', len);
+	s[len] = '\0';
+	return s;
+}
+
 void
-clearPassword(void)
+setUsername(char *username)
+{
+	toLowerString(username);
+	free(options.username);
+	options.username = username;
+}
+
+void
+setPassword(char *password)
 {
 	int i;
 
 	seedPasswordRandom();
-	for (i = 0; i < passwordLen; ++i) {
-		options.password[i] = (char)random();
-		passwordPad[i] = (char)random();
-	}
-	free(options.password);
-	options.password = NULL;
 	free(passwordPad);
-	passwordPad = NULL;
-	passwordLen = 0;
+	passwordLen = strlen(password) + 1;
+	passwordPad = (char *)myMalloc(passwordLen);
+	for (i = 0; i < passwordLen; ++i)
+		passwordPad[i] = (char)random();
+	toLowerString(password);
+	cryptPassword(password);
+	free(options.password);
+	options.password = password;
 }
 
-void
-encryptPassword(void)
+static void
+cryptPassword(char *password)
 {
 	int i;
 
-	if (options.encrypted || !options.password)
-		return;
-	seedPasswordRandom();
-	if (!passwordPad) {
-		passwordLen = strlen(options.password) + 1;
-		passwordPad = (char *)myMalloc(passwordLen);
-		for (i = 0; i < passwordLen; ++i)
-			passwordPad[i] = (char)random();
-	}
 	for (i = 0; i < passwordLen; ++i)
-		options.password[i] ^= passwordPad[i];
-	options.encrypted = 1;
+		password[i] ^= passwordPad[i];
+}
+
+char *
+getPassword()
+{
+	char *password = (char *)myMalloc(passwordLen);
+
+	memcpy(password, options.password, passwordLen);
+	cryptPassword(password);
+	return password;
 }
 
 void
-decryptPassword(void)
+freePassword(char *password)
 {
-	int i;
-
-	if (!options.encrypted || !options.password || !passwordPad)
-		return;
-	for (i = 0; i < passwordLen; ++i)
-		options.password[i] ^= passwordPad[i];
-	options.encrypted = 0;
+	memset(password, '\0', passwordLen);
+	free(password);
 }
-
 
 /*
  * Cygwin doesn't provide basename and dirname?
