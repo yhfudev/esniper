@@ -34,25 +34,22 @@
 static const char version[]="esniper version 1.0";
 static const char blurb[]="Please visit http://esniper.sourceforge.net/ for updates and bug reports";
 
-#ifdef unix
-	#include <unistd.h>
-#endif
-#ifdef __CYGWIN__
-	#include <sys/socket.h>
-	#include <netinet/in.h>
-#elif defined(__linux)
-	#include <libgen.h>
-	#include <sys/time.h>
-/*
-	#include <sys/un.h>
-	#include <arpa/inet.h>
-	#include <fcntl.h>
-*/
-#elif defined(__hpux)
-	#include <libgen.h>
-	#include <sys/socket.h>
-#elif defined(sun)
-	#include <libgen.h>
+#if defined(unix) || defined (__unix)
+#	include <unistd.h>
+#	include <sys/socket.h>
+#	ifdef __CYGWIN__
+#		include <netinet/in.h>
+#	elif defined(__linux)
+#		include <netinet/in.h>
+#		include <sys/time.h>
+#	elif defined(__hpux)
+		/* nothing special yet */
+#	elif defined(sun)
+		/* nothing special yet */
+#	endif
+#elif defined(WIN32)
+	/* TODO */
+#	include <winsock.h>
 #endif
 #include <ctype.h>
 #include <errno.h>
@@ -172,7 +169,6 @@ logChar(char ch)
 	putc(ch, logfile);
 }
 
-#ifdef __CYGWIN__
 /*
  * Cygwin doesn't provide basename?
  */
@@ -180,16 +176,19 @@ static char *
 basename(char *s)
 {
 	char *slash;
+#if defined(__CYGWIN__) || defined(WIN32)
 	char *backslash;
 
-	if (!s)
-		return s;
-
+	if (!s) return s;
 	slash = strrchr(s, '/');
 	backslash = strrchr(s, '\\');
 	return slash > backslash ? slash + 1 : (backslash ? backslash + 1 : s);
-}
+#else
+	if (!s) return s;
+	slash = strrchr(s, '/');
+	return slash ? slash + 1 : s;
 #endif
+}
 
 /*
  * Open a connection to the host.  Return valid FILE * if successful, NULL
@@ -254,8 +253,10 @@ verboseConnect(const char *host, int retryTime, int retryCount)
 	return (sockfd >= 0) ? fdopen(sockfd, "a+") : 0;
 }
 
-// attempt to match some input, ignoring \r and \n
-// returns 0 on success, -1 on failure
+/*
+ * attempt to match some input, ignoring \r and \n
+ * returns 0 on success, -1 on failure
+ */
 static int
 match(FILE *fp, const char *str)
 {
