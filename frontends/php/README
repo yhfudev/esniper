@@ -3,7 +3,7 @@ For more information, see <http://esniper.sf.net/>.
 Es werden nicht alle Features von esniper genutzt, einige wurden Aufgrund der Verwaltung 
 über PHP abgebildet.
 
-You must use the esniper file that is provided in this folder. Changes of the original esniper will
+!!!You must use the esniper file that is provided in this folder. Changes of the original esniper will
 be done soon.
 
 Zugriff auf /tmp für temporäre Dateien notwendig.
@@ -29,6 +29,7 @@ installation steps:
 2. Create a database in MySQL and import the esniper.sql structure.
 3. Create a user in MySQL for the database (or use the root-user).
 4. Adapt the confic.inc to your installation properties.
+   !There have to be absolute references on files: e.g. /usr/bin/esniper
 5. Put the reload.php in the crontab to run every hour.
    The reload.php stops unknown esniper processes and starts missings.
 6. Sniper from the Web. 
