@@ -91,7 +91,7 @@ $gruppe = $_GET["gruppe"];
 $filtergruppe = $_GET["filtergruppe"];
 
 //Eintrag erstellen
-
+$auktionenSQL = "SELECT * FROM snipe ORDER BY status,endtime ASC"; //Standard
 switch($zutun) {
     Case 1:
 	//Artikel löschen
@@ -116,10 +116,7 @@ switch($zutun) {
     	} else {
     		$auktionenSQL = "SELECT * FROM snipe WHERE gruppe = \"".$filtergruppe."\" ORDER BY status,endtime ASC";
     	}
-    	break;
-	Default:
-		$auktionenSQL = "SELECT * FROM snipe ORDER BY status,endtime ASC";
-		break;
+    	break;		
 }
 
 $sql = "SELECT count(*) FROM snipe";
