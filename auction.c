@@ -45,6 +45,8 @@ static int match(FILE *fp, const char *str);
 static const char *gettag(FILE *fp);
 static char *getnontag(FILE *fp);
 static long getseconds(char *timestr);
+
+static int getQuantity(int want, int available);
 static int parseAuction(FILE *fp, auctionInfo *aip, int quantity, const char *user);
 static int parseAuctionInternal(FILE *fp, auctionInfo *aip, int quantity, const char *user, char **currently, char **winner);
 static int parseBid(FILE *fp, auctionInfo *aip);
@@ -266,6 +268,20 @@ getnontag(FILE *fp)
 	term(buf, bufsize, count);
 	log(("getnontag(): returning %s\n", count ? buf : "NULL"));
 	return count ? buf : NULL;
+} /* getnontag() */
+
+/*
+ * Calculate quantity to bid on.  If it is a dutch auction, never
+ * bid on more than 1 less item than what is available.
+ */
+static int
+getQuantity(int want, int available)
+{
+	if (want == 1 || available == 1)
+		return 1;
+	if (available > want)
+		return want;
+	return available - 1;
 }
 
 static long
@@ -613,8 +629,7 @@ preBid(auctionInfo *aip)
 {
 	FILE *fp;
 	size_t dataLen;
-	int quantity = aip->quantity < options.quantity ?
-				aip->quantity : options.quantity;
+	int quantity = getQuantity(aip->quantity, options.quantity);
 	char quantityStr[12];	/* must hold an int */
 	char *data;
 	int ret = 0;
@@ -722,10 +737,9 @@ bid(auctionInfo *aip)
 	FILE *fp;
 	size_t dataLen, passwordLen;
 	char *data, *logData, *tmpUsername, *tmpPassword, *password;
-	int quantity = aip->quantity < options.quantity ?
-				aip->quantity : options.quantity;
-	char quantityStr[12];	/* must hold an int */
 	int ret;
+	int quantity = getQuantity(aip->quantity, options.quantity);
+	char quantityStr[12];	/* must hold an int */
 
 	sprintf(quantityStr, "%d", quantity);
 
