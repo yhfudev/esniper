@@ -162,9 +162,9 @@ function getEsniperPid($shpid) {
 }
 
 
-function snipeRunCheck($pid) {   
+function snipeRunCheck($pid) {
     $pids = getPids();
-    if (!empty($pids)) {    	
+    if (!empty($pids)) {
     	return(in_array($pid,$pids));
     } else {
     	return(false);
@@ -201,7 +201,7 @@ function getLogData($artnr) {
 
 function getHighestBid($logData) {
 //Filtert das höchste Gebot aus den Logs
-	preg_match_all("/Currently: [0-9]+\.?[0-9]+/",$logData,$aktGebote,0,0);
+	preg_match_all("/Currently: [0-9]+\.?[0-9]+/",$logData,$aktGebote);
     return(substr($aktGebote[0][count($aktGebote[0])-1],11));
 }
 
@@ -256,7 +256,7 @@ function collectGarbage($db) {
 	//$msg = "";
     //Pids abschiessen, welche nicht laufen dürfen
     $sql = "SELECT pid FROM snipe WHERE status = 0";
-    $snipePids = $db->get_col($sql);    
+    $snipePids = $db->get_col($sql);
     $pids = getPids();
     if (!empty($pids)) {
 		foreach($pids as $pid) {
@@ -278,13 +278,13 @@ function collectGarbage($db) {
 			}
 	    }
     }
-    
+
     if (!empty($snipeArtnr)) {
     	foreach($snipeArtnr as $artnr) {
 			statusPruefen($artnr,$db);
     	}
     }
-    
+
     return($msg);
 }
 ?>
