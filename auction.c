@@ -453,7 +453,9 @@ parseAuction(FILE *fp, auctionInfo *aip, int quantity, const char *user)
 	 * Auction title
 	 */
 	while ((line = getnontag(fp))) {
-		if (!strcmp(line, "eBay Bid History for") ||
+		if (!strcmp(line, "eBay.com Bid History for") ||
+		    !strcmp(line, "eBay.comBid History for") ||
+		    !strcmp(line, "eBay Bid History for") ||
 		    !strcmp(line, "eBayBid History for"))
 			break;
 		if (!strcmp(line, "Unknown Item"))
