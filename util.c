@@ -171,7 +171,8 @@ logOpen(const auctionInfo *aip, const char *logdir)
                 /* non-fatal error! */
 		fprintf(stderr, "Unable to open log file %s: %s\n",
 			logfilename, strerror(errno));
-	}
+	} else
+		dlog("### %s version %s ###\n", getProgname(), getVersion());
 	free(logfilename);
 }
 
