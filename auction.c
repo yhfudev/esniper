@@ -38,6 +38,7 @@
 #endif
 #include <ctype.h>
 #include <errno.h>
+#include <limits.h>
 #include <netdb.h>
 #include <signal.h>
 #include <stdio.h>
@@ -598,6 +599,7 @@ static const char QUERY_FMT[] =
 	"Accept-Charset: iso-8859-1,*,utf-8\r\n"
 	"\r\n";
 static const char QUERY_CMD[] = "aw-cgi/eBayISAPI.dll?ViewBids&item=%s";
+static const char UNAVAILABLE[] = "unavailable/";
 
 /*
  * getInfo(): Get info on auction from bid history page.
@@ -639,41 +641,51 @@ getInfo(auctionInfo *aip, int quantity, const char *user)
 	s2 = strtok(NULL, " \t");
 	if (s1 && s2 && !strncmp("HTTP/", s1, (size_t)5) &&
 	    (!strcmp("301", s2) || !strcmp("302", s2))) {
-		char *newHost;
-		char *newQuery;
-		size_t newQueryLen;
+		/* redirect */
+		char *newHost = NULL;
+		char *newQuery = NULL;
+		size_t newQueryLen = 0;
 
 		log(("Redirect..."));
-		if (match(fp, "Location: http://")) {
-			runout(fp);
-			fclose(fp);
-			return auctionError(aip, ae_badredirect, NULL);
-		}
-		if (strcasecmp(aip->host, (newHost = getuntilchar(fp, '/')))) {
-			log(("redirect hostname is %s\n", newHost));
-			free(aip->host);
-			aip->host= myStrdup(newHost);
-		}
-		newQuery = getuntilchar(fp, '\n');
-		newQueryLen = strlen(newQuery);
-		if (newQuery[newQueryLen - 1] == '\r')
-			newQuery[--newQueryLen] = '\0';
-		if (strcmp(aip->query, newQuery)) {
-			free(aip->query);
-			aip->query = myStrdup(newQuery);
-		}
+		if (match(fp, "Location: http://"))
+			ret = auctionError(aip, ae_badredirect, NULL);
+		else {
+			newHost = getuntilchar(fp, '/');
+			if (strcasecmp(aip->host, newHost)) {
+				log(("redirect hostname is %s\n", newHost));
+				newHost = myStrdup(newHost);
+			} else
+				newHost = NULL;
+			newQuery = getuntilchar(fp, '\n');
+			newQueryLen = strlen(newQuery);
+			if (newQuery[newQueryLen - 1] == '\r')
+				newQuery[--newQueryLen] = '\0';
+			log(("redirected to %s", newQuery));
+			if (!strncmp(newQuery, UNAVAILABLE, sizeof(UNAVAILABLE) - 1)) {
+				log(("Unavailable!"));
+				free(newHost);
+				ret = auctionError(aip, ae_unavailable, NULL);
+			} else {
+				if (newHost) {
+					free(aip->host);
+					aip->host = newHost;
+				}
+				if (strcmp(aip->query, newQuery)) {
+					free(aip->query);
+					aip->query = myStrdup(newQuery);
+				}
 
-		runout(fp);
-		fclose(fp);
-		return getInfo(aip, quantity, user);
-	}
-
-	ret = parseAuction(fp, aip, quantity, user);
+				runout(fp);
+				fclose(fp);
+				return getInfo(aip, quantity, user);
+			}
+		}
+	} else
+		ret = parseAuction(fp, aip, quantity, user);
 
 	/* done! */
 	runout(fp);
 	fclose(fp);
-
 	return ret;
 }
 
@@ -857,7 +869,7 @@ int
 watch(auctionInfo *aip, option_t options)
 {
 	int errorCount = 0;
-	long remain = -1;
+	long remain = LONG_MIN;
 	unsigned int sleepTime = 0;
 
 	log(("*** WATCHING auction %s price-each %s quantity %d user %s bidtime %ld\n", aip->auction, aip->bidPriceStr, options.quantity, options.user, options.bidtime));
@@ -870,19 +882,36 @@ watch(auctionInfo *aip, option_t options)
 		if (ret) {
 			printAuctionError(aip, stderr);
 
-			/* fatal error? */
-			if (remain == -1) {	/* first time */
+			/*
+			 * Fatal error?  We allow up to 50 errors, then quit.
+			 * eBay "unavailable" doesn't count towards the total.
+			 */
+			if (aip->auctionError == ae_unavailable) {
+				if (remain >= 0)
+					remain -= sleepTime + (latency * 2);
+				if (remain == LONG_MIN || remain > 86400) {
+					/* typical eBay maintenance period
+					 * is two hours.  Sleep for half that
+					 * amount of time.
+					 */
+					printLog(stdout, "%s: Will try again, sleeping for an hour\n", timestamp());
+					sleepTime = 3600;
+					sleep(sleepTime);
+					continue;
+				}
+			} else if (remain == LONG_MIN) { /* first time */
 				int j;
 
 				for (j = 0; ret && j < 3 && aip->auctionError == ae_notitle; ++j)
-					ret=getInfo(aip, options.quantity, options.user);
+					ret = getInfo(aip, options.quantity,
+						      options.user);
 				if (!ret)
 					remain = aip->remain - options.bidtime - (latency * 2);
 				else
 					return 1;
 			} else {
 				/* non-fatal error */
-				log((" ERROR %d!!!\n", ++errorCount));
+				log(("ERROR %d!!!\n", ++errorCount));
 				if (errorCount > 50)
 					return auctionError(aip, ae_toomany, NULL);
 				printLog(stdout, "Cannot find auction - internet or eBay problem?\nWill try again after sleep.\n");

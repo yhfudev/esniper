@@ -129,6 +129,11 @@ sortAuctions(auctionInfo **auctions, int numAuctions, char *user, int *quantity)
 			if (!getInfo(auctions[i], *quantity, user))
 				break;
 			printAuctionError(auctions[i], stderr);
+			if (auctions[i]->auctionError == ae_unavailable) {
+				--j;	/* doesn't count as an attempt */
+				printLog(stderr, "%s: Will retry, sleeping for an hour\n", timestamp());
+				sleep(3600);
+			}
 		}
 		if (j == 3)
 			exit(1);

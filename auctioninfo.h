@@ -53,6 +53,7 @@ enum auctionErrorCode {
 	ae_ended,
 	ae_duplicate,
 	ae_toomany,
+	ae_unavailable,
 	/* ae_unknown must be last error */
 	ae_unknown
 };
