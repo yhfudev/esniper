@@ -41,20 +41,20 @@
 #include <string.h>
 
 static int parseConfigValue(const char *name, const char *value,
-                            optionTable_t *table, const char *filename,
+                            const optionTable_t *table, const char *filename,
                             const char *line);
 static int parseBoolValue(const char *name, const char *value,
-                          optionTable_t *tableptr, const char *filename,
+                          const optionTable_t *tableptr, const char *filename,
                           const char *line, int neg);
 static int parseStringValue(const char *name, const char *value,
-                            optionTable_t *tableptr, const char *filename,
+                            const optionTable_t *tableptr, const char *filename,
                             const char *line);
 static int parseIntValue(const char *name, const char *value,
-                         optionTable_t *tableptr, const char *filename,
+                         const optionTable_t *tableptr, const char *filename,
                          const char *line);
 static int parseSpecialValue(const char *name, const char *value,
-                             optionTable_t *tableptr, const char *filename,
-                             const char *line);
+                             const optionTable_t *tableptr,
+                             const char *filename, const char *line);
 
 /*
  * readConfigFile(): read configuration from file, skipping auctions
@@ -152,15 +152,15 @@ parseGetoptValue(int option, const char *optval, optionTable_t *table)
  * returns: 0 = OK, else error
  */
 static int
-parseConfigValue(const char *name, const char *value, optionTable_t *table,
-	const char *filename, const char *line)
+parseConfigValue(const char *name, const char *value,
+	const optionTable_t *table, const char *filename, const char *line)
 {
-   optionTable_t *tableptr;
+   const optionTable_t *tableptr;
    const char *tablename;
 
    log(("parsing name %s value %s\n", name, nullStr(value)));
    /* lookup name in table */
-   for(tableptr=table; tableptr->value; tableptr++) {
+   for (tableptr=table; tableptr->value; tableptr++) {
       if(filename)
          tablename = tableptr->configname;
       else
@@ -213,52 +213,21 @@ parseConfigValue(const char *name, const char *value, optionTable_t *table,
  * returns: 0 = OK, else error
  */
 static int
-parseBoolValue(const char *name, const char *value, optionTable_t *tableptr,
-	const char *filename, const char *line, int neg)
+parseBoolValue(const char *name, const char *value,
+	const optionTable_t *tableptr, const char *filename, const char *line,
+	int neg)
 {
-   int intval = 0;
-   static const char* boolvalues[] =
-      {
-         "0",
-         "1",
-         "n",
-         "y",
-         "no",
-         "yes",
-         "off",
-         "on",
-         "false",
-         "true",
-         "disabled",
-         "enabled",
-         NULL
-      };
+   int intval = boolValue(value);
 
-   if (value) {
-      char *buf = strdup(value);
-      int i;
-
-      for (i = 0; buf[i]; ++i)
-         buf[i] = (char)tolower((int)(buf[i]));
-
-      for (i = 0; boolvalues[i]; i++) {
-         if (!strcmp(buf, boolvalues[i]))
-            break;
-      }
-      if (!boolvalues[i]) {
-         if(filename)
-            printLog(stderr,
-                     "Invalid boolean value in file %s, line \"%s\"\n",
-                     filename, line);
-         else
-            printLog(stderr,
-                   "Invalid boolean value \"%s\" at command line option -%s\n",
-                     value, line);
-         return 1;
-      }
-      intval = i % 2;
-   } else {
-      intval = 1;
+   if (intval == -1) {
+      if(filename)
+         printLog(stderr, "Invalid boolean value in file %s, line \"%s\"\n",
+                  filename, line);
+      else
+         printLog(stderr,
+                  "Invalid boolean value \"%s\" at command line option -%s\n",
+                  value, line);
+      return 1;
    }
    if(neg) intval = !intval;
    *(int*)(tableptr->value) = intval;
@@ -273,8 +242,8 @@ parseBoolValue(const char *name, const char *value, optionTable_t *tableptr,
  * returns: 0 = OK, else error
  */
 static int
-parseStringValue(const char *name, const char *value, optionTable_t *tableptr,
-	const char *filename, const char *line)
+parseStringValue(const char *name, const char *value,
+	const optionTable_t *tableptr, const char *filename, const char *line)
 {
    if(!value) {
       if(filename)
@@ -308,8 +277,8 @@ parseStringValue(const char *name, const char *value, optionTable_t *tableptr,
  * returns: 0 = OK, else error
  */
 static int
-parseSpecialValue(const char *name, const char *value, optionTable_t *tableptr,
-	const char *filename, const char *line)
+parseSpecialValue(const char *name, const char *value,
+	const optionTable_t *tableptr, const char *filename, const char *line)
 {
    if(tableptr->checkfunc) {
       /* check value with specific check function */
@@ -333,8 +302,8 @@ parseSpecialValue(const char *name, const char *value, optionTable_t *tableptr,
  * returns: 0 = OK, else error
  */
 static int
-parseIntValue(const char *name, const char *value, optionTable_t *tableptr,
-	const char *filename, const char *line)
+parseIntValue(const char *name, const char *value,
+	const optionTable_t *tableptr, const char *filename, const char *line)
 {
    int intval;
    char *endptr;

@@ -67,26 +67,30 @@ option_t options = {
 const char DEFAULT_CONF_FILE[] = ".esniper";
 const char HOSTNAME[] = "cgi.ebay.com";
 
+static const char *progname = NULL;
+
 /* support functions */
 static void sigAlarm(int sig);
 static void sigTerm(int sig);
 static int sortAuctions(auctionInfo **auctions, int numAuctions, char *user,
-                        int *quantity, const char *progname);
+                        int *quantity);
 static void cleanup(void);
-static void usage(const char *progname, int longhelp);
+static void usage(int longhelp);
 int main(int argc, char *argv[]);
 
 /* used for option table */
+static int CheckDebug(const void* valueptr, const optionTable_t* tableptr,
+                      const char* filename, const char *line);
 static int CheckSecs(const void* valueptr, const optionTable_t* tableptr,
-                        const char* filename, const char *line);
+                     const char* filename, const char *line);
 static int CheckQuantity(const void* valueptr, const optionTable_t* tableptr,
                          const char* filename, const char *line);
 static int ReadUser(const void* valueptr, const optionTable_t* tableptr,
-                        const char* filename, const char *line);
+                    const char* filename, const char *line);
 static int ReadPass(const void* valueptr, const optionTable_t* tableptr,
-                        const char* filename, const char *line);
+                    const char* filename, const char *line);
 static int CheckFile(const void* valueptr, const optionTable_t* tableptr,
-                         const char* filename, const char *line);
+                     const char* filename, const char *line);
 static int SetHelp(const void* valueptr, const optionTable_t* tableptr,
                    const char* filename, const char *line);
 
@@ -110,8 +114,7 @@ sigTerm(int sig)
  * Get initial auction info, sort items based on end time.
  */
 static int
-sortAuctions(auctionInfo **auctions, int numAuctions, char *user,
-	     int *quantity, const char *progname)
+sortAuctions(auctionInfo **auctions, int numAuctions, char *user, int *quantity)
 {
 	int i, sawError = 0;
 
@@ -182,6 +185,30 @@ cleanup()
 /* specific check functions would reside in main module */
 
 /*
+ * CheckDebug(): convert boolean value, open of close log file
+ *
+ * returns: 0 = OK, else error
+ */
+static int CheckDebug(const void* valueptr, const optionTable_t* tableptr,
+                      const char* filename, const char *line)
+{
+	int val = boolValue(valueptr);
+
+	if (val == -1) {
+		if (filename)
+			printLog(stderr, "Invalid boolean value in file %s, line \"%s\"\n", filename, line);
+		else
+			printLog(stderr, "Invalid boolean value \"%s\" at command line option -%s\n", valueptr, line);
+
+		return 1;
+	}
+	val ? logOpen(progname, NULL) : logClose();
+	*(int*)(tableptr->value) = val;
+	log(("Debug mode is %s\n", val ? "on" : "off"));
+	return 0;
+}
+
+/*
  * CheckSecs(): convert integer value or "now", check minimum value
  *
  * returns: 0 = OK, else error
@@ -218,7 +245,8 @@ static int CheckSecs(const void* valueptr, const optionTable_t* tableptr,
          printLog(stderr, "Config entry \"%s\" in file %s", line, filename);
       else
          printLog(stderr, "Option -%s", line);
-      printLog(stderr, "accepts integer values greater than 4 or \"now\"\n");
+      printLog(stderr, "accepts integer values greater than %d or \"now\"\n",
+               MIN_BIDTIME - 1);
       return 1;
    }
    /* check minimum */
@@ -375,7 +403,7 @@ static const char usageLong[] =
  "Options on the command line override settings in config and auction files.\n";
 
 static void
-usage(const char *progname, int longhelp)
+usage(int longhelp)
 {
 	fprintf(stderr, usageSummary, progname);
 	if (longhelp)
@@ -389,7 +417,6 @@ int
 main(int argc, char *argv[])
 {
 	int ret = 1;	/* assume failure, change if successful */
-	const char *progname = basename(argv[0]);
 	auctionInfo **auctions = NULL;
 	int c, i;
 	int argcmin = 2;
@@ -409,7 +436,7 @@ main(int argc, char *argv[])
    {NULL,       "r", (void*)&options.reduce,       OPTION_BOOL_NEG, NULL},
    {"bid",     NULL, (void*)&options.bid,          OPTION_BOOL,     NULL},
    {NULL,       "n", (void*)&options.bid,          OPTION_BOOL_NEG, NULL},
-   {"debug",    "d", (void*)&options.debug,        OPTION_BOOL,     NULL},
+   {"debug",    "d", (void*)&options.debug,        OPTION_SPECIAL, &CheckDebug},
    {"batch",    "b", (void*)&options.batch,        OPTION_BOOL,     NULL},
    {NULL,       "?", (void*)&options.usage,        OPTION_BOOL,     NULL},
    {NULL,       "h", (void*)&options.usage,        OPTION_SPECIAL,  &SetHelp},
@@ -420,21 +447,18 @@ main(int argc, char *argv[])
 	static const char optionstring[]="bc:df:hnpq:rs:u:UvX";
 
 	atexit(cleanup);
+	progname = basename(argv[0]);
 
 	/* first, check for debug, config file and auction file
 	 * options but accept all other options to avoid error messages
 	 */
 	while ((c = getopt(argc, argv, optionstring)) != EOF) {
-		int olddebug = options.debug;
 		switch (c) {
-		case 'd': /* debug */
-			/* This is in both getopt() sections, because we want
+			/* Debug is in both getopt() sections, because we want
 			 * debugging as soon as possible, and also because
 			 * command line -d overrides settings in config files
 			 */
-			if (!olddebug)
-				logOpen(progname, NULL);
-			/* fall through */
+		case 'd': /* debug */
 		case 'h': /* long help */
 		case '?': /* unknown -> help */
 			parseGetoptValue(c, NULL, optiontab);
@@ -460,7 +484,7 @@ main(int argc, char *argv[])
 	}
 
 	if (options.usage) {
-		usage(progname, options.usage > 1);
+		usage(options.usage > 1);
 		exit(1);
 	}
 
@@ -501,21 +525,17 @@ main(int argc, char *argv[])
 	optind = 1;
 	/* check options which may overwrite settings from config file */
 	while ((c = getopt(argc, argv, optionstring)) != EOF) {
-		int olddebug = options.debug;
 		switch (c) {
 		case 'q': /* quantity */
 		case 's': /* seconds */
 		case 'u': /* user */
 			parseGetoptValue(c, optarg, optiontab);
 			break;
-		case 'd': /* debug */
-			/* This is in both getopt() sections, because we want
+			/* Debug is in both getopt() sections, because we want
 			 * debugging as soon as possible, and also because
 			 * command line -d overrides settings in config files
 			 */
-			if (!olddebug)
-				logOpen(progname, NULL);
-			/* fall through */
+		case 'd': /* debug */
 		case 'b': /* batch */
 		case 'n': /* don't bid */
 		case 'p': /* read password */
@@ -576,7 +596,7 @@ main(int argc, char *argv[])
 	}
 
 	if (options.usage) {
-		usage(progname, options.usage > 1);
+		usage(options.usage > 1);
 		exit(1);
 	}
 
@@ -598,7 +618,7 @@ main(int argc, char *argv[])
 	{
 		int quantity = options.quantity;
 		numAuctions = sortAuctions(auctions, numAuctions, options.user,
-					   &quantity, progname);
+					   &quantity);
 
 		if (quantity < options.quantity) {
 			printLog(stdout, "\nYou have already won %d item(s).\n",

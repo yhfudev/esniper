@@ -27,6 +27,7 @@
 #include "util.h"
 #include "esniper.h"
 #include "buffer.h"
+#include <ctype.h>
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -131,6 +132,7 @@ void
 logOpen(const char *progname, const auctionInfo *aip)
 {
 	char *logfilename;
+fprintf(stderr, "logOpen(%s, %s)\n", progname, aip ? aip->auction : "NULL");
 
 	if (aip == NULL)
 		logfilename = myStrdup2(progname, ".log");
@@ -157,6 +159,7 @@ vlog(const char *fmt, va_list arglist)
 
 	if (!logfile) {
 		fprintf(stderr, "Log file not open\n");
+		vfprintf(stderr, fmt, arglist);
 	} else {
 		gettimeofday(&tv, NULL);
 		t = (time_t)(tv.tv_sec);
@@ -297,6 +300,47 @@ prompt(const char *p, int noecho)
 	}
 
 	return buf;
+}
+
+/*
+ * Converts string to boolean.
+ *  returns 0 (false), 1 (true), or -1 (invalid).  NULL is true.
+ */
+int
+boolValue(const char *value)
+{
+   static const char* boolvalues[] =
+      {
+         "0",
+         "1",
+         "n",
+         "y",
+         "no",
+         "yes",
+         "off",
+         "on",
+         "false",
+         "true",
+         "disabled",
+         "enabled",
+         NULL
+      };
+   int i;
+   char *buf;
+
+   if (!value)
+      return 1;
+
+   buf = myStrdup(value);
+   for (i = 0; buf[i]; ++i)
+      buf[i] = (char)tolower((int)(buf[i]));
+
+   for (i = 0; boolvalues[i]; i++) {
+      if (!strcmp(buf, boolvalues[i]))
+         break;
+   }
+   free(buf);
+   return boolvalues[i] ? i % 2 : -1;
 }
 
 /*

@@ -51,6 +51,7 @@ extern const char *nullStr(const char *);
 extern char *timestamp(void);
 extern int skipline(FILE *fp);
 extern char *prompt(const char *p, int noecho);
+extern int boolValue(const char *value);
 
 extern void clearPassword(void);
 extern void encryptPassword(void);
