@@ -208,7 +208,7 @@ function updateHighestBid($db) {
 
 
 function updateEndtime($db) {
-	$sql = "SELECT * FROM snipe WHERE endtime = 0";
+	$sql = "SELECT * FROM snipe WHERE endtime <= 0";
 	$snipelist = $db->get_results($sql);
 	if (!empty($snipelist)) {
 		foreach($snipelist as $snipe) {
