@@ -156,8 +156,8 @@ function getPids() {
 function getEsniperPid($shpid) {
 //Workaround
 	$output = shell_exec("pstree -p|grep ".$shpid);
-	if (preg_match_all("/\([0-9]+\)/",$output,$pids,PREG_SET_ORDER)) {
-		return(substr($pids[1][0],1,strlen($pids[1][0])-2));
+	if (preg_match_all("/\([0-9]+\)/",$output,$pids,PREG_PATTERN_ORDER)) {
+		return(substr($pids[0][1],1,strlen($pids[0][1])-2));
 	}
 }
 
@@ -201,7 +201,7 @@ function getLogData($artnr) {
 
 function getHighestBid($logData) {
 //Filtert das höchste Gebot aus den Logs
-	preg_match_all("/Currently: [0-9]+\.?[0-9]+/",$logData,$aktGebote);
+	preg_match_all("/Currently: [0-9]+\.?[0-9]+/",$logData,$aktGebote,PREG_PATTERN_ORDER);
     return(substr($aktGebote[0][count($aktGebote[0])-1],11));
 }
 
