@@ -80,9 +80,9 @@ function auktionEndtime($text) {
 
 function ueberbotenStatus($text) {
 	//True meldet, dass überboten wurde.
-    ereg("bid: [0-9]+\.?[0-9]+",$text,$meineGebote);
+    $bidFound = ereg("bid: [0-9]+\.?[0-9]+",$text,$meineGebote);
     $bidMinimum = ereg("Bid price less than minimum bid price",$text);
-    if (substr($meineGebote[count($meineGebote)-1],5) - getHighestBid($text) <= 0 || $bidMinimum != false) {
+    if (($bidFound != false && substr($meineGebote[count($meineGebote)-1],5) - getHighestBid($text) <= 0) || $bidMinimum != false) {
 		return(true);
     } else {
 		return(false);
