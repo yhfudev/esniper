@@ -586,6 +586,9 @@ parseBid(FILE *fp, auctionInfo *aip)
 		} else if (!strcmp(pagename, "AcceptBid_Outbid")) {
 			aip->bidResult = auctionError(aip, ae_outbid, NULL);
 			return 1;
+		} else if (!strcmp(pagename, "MakeBidErrorMinBid")) {
+			aip->bidResult = auctionError(aip, ae_bidprice, NULL);
+			return 1;
 		} else if (!strcmp(pagename, "AcceptBid_ReserveNotMet")) {
 			aip->bidResult = auctionError(aip, ae_reservenotmet, NULL);
 			return 1;
