@@ -462,7 +462,8 @@ parseAuction(FILE *fp, auctionInfo *aip, int quantity, const char *user)
 	}
 	if (!line || !(line = getnontag(fp)))
 		return auctionError(aip, ae_noprice, NULL);
-	printLog(stdout, "Currently: %s\n", line);
+	printLog(stdout, "Currently: %s  (your maximum bid: %s)\n", line,
+		 aip->bidPriceStr);
 	aip->price = atof(line + strcspn(line, "0123456789"));
 	if (aip->price < 0.01)
 		return auctionError(aip, ae_convprice, line);
