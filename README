@@ -1,6 +1,6 @@
 For more information, see <http://esniper.sf.net/>.
 
-NOTE: This is an Alpha release.  Major changes to esniper have been made
+NOTE: This is an Beta release.  Major changes to esniper have been made
 to accommodate eBay's switch to SSL login.  Bugs are to be expected.
 
 A MS Visual C++ workspace (esniper.dsw), project (esniper.dsp) and
