@@ -27,6 +27,7 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+require 'language.php';
 
 function html_Gruppenliste($artnr,$db) {
 //Baut eine Auswahlliste für die Gruppen auf einem Artikel zusammen
@@ -34,9 +35,9 @@ function html_Gruppenliste($artnr,$db) {
     $snipe = $db->get_row($sql);
     $temp = "<select name=\"gruppe\" size=\"1\">";
     if ($snipe->gruppe == 0) {
-		$temp .= "<option value=\"0\" selected=\"selected\">keine</option>";
+		$temp .= "<option value=\"0\" selected=\"selected\">".$GLOBALS["tKeine"]."</option>";
     } else {
-		$temp .= "<option value=\"0\">keine</option>";
+		$temp .= "<option value=\"0\">".$GLOBALS["tKeine"]."</option>";
     }
     $sql = "SELECT * FROM gruppen";
     $gruppenliste = $db->get_results($sql);
@@ -71,19 +72,43 @@ function html_GruppenlisteNormal($gruppeID,$db) {
     return($temp);
 }
 
+function html_GruppenlisteNeuerArt($db) {
+//Baut eine Auswahlliste für die Gruppen auf, mit "keine"
+    $temp = "<select name=\"gruppe\" size=\"1\">";
+    if ($snipe->gruppe == 0) {
+		$temp .= "<option value=\"0\" selected=\"selected\">".$GLOBALS["tKeine"]."</option>";
+	} else {
+		$temp .= "<option value=\"0\">".$GLOBALS["tKeine"]."</option>";
+	}
+
+    $sql = "SELECT * FROM gruppen";
+    $gruppenliste = $db->get_results($sql);
+    if (!empty($gruppenliste)) {
+        foreach($gruppenliste as $gruppe) {
+    	    if ($gruppeID == $gruppe->gruppeID) {
+                $temp .= "<option value=\"".$gruppe->gruppeID."\" selected=\"selected\">".$gruppe->name."</option>";
+		    } else {
+				$temp .= "<option value=\"".$gruppe->gruppeID."\">".$gruppe->name."</option>";
+		    }
+		}
+    }
+    $temp .= "</select>";
+    return($temp);
+}
+
 function html_GruppenFilternListe($gruppeID,$db) {
 //Baut eine Auswahlliste für die Gruppen zusammen
     $temp = "<select name=\"filtergruppe\" size=\"1\">";
     if ($gruppeID == -1 || empty($gruppeID)) {
-    	$temp .= "<option value=\"-1\" selected=\"selected\">Alles</option>";
+    	$temp .= "<option value=\"-1\" selected=\"selected\">".$GLOBALS["tAlles"]."</option>";
     } else {
-    	$temp .= "<option value=\"-1\">Alles</option>";
+    	$temp .= "<option value=\"-1\">".$GLOBALS["tAlles"]."</option>";
     }
 
     if ($gruppeID == 0) {
-    	$temp .= "<option value=\"0\" selected=\"selected\">keine</option>";
+    	$temp .= "<option value=\"0\" selected=\"selected\">".$GLOBALS["tKeine"]."</option>";
     } else {
-    	$temp .= "<option value=\"0\">keine</option>";
+    	$temp .= "<option value=\"0\">".$GLOBALS["tKeine"]."</option>";
     }
     $sql = "SELECT * FROM gruppen";
     $gruppenliste = $db->get_results($sql);
@@ -112,19 +137,19 @@ function html_snipestatus($code) {
 //Wandelt den Intergerwert aus der Datenbank (status) in HTML um.
     switch($code) {
 	Case 0:
-	    return("sniping...");
+	    return($GLOBALS["tSnipeStatusArray"][0]);
 	    break;
 	Case 1:
-	    return("Auktion gewonnen");
+	    return($GLOBALS["tSnipeStatusArray"][1]);
 	    break;
 	Case 2:
-	    return("<span style=\"color:#FF0000;\">überboten!!!</span>");
+	    return("<span style=\"color:#FF0000;\">".$GLOBALS["tSnipeStatusArray"][2]."</span>");
 	    break;
 	Case 3:
-	    return("Gruppe hat gewonnen");
+	    return($GLOBALS["tSnipeStatusArray"][3]);
 	    break;
     default:
-		return("keine Ausgabe zugeordnet");
+		return($GLOBALS["tSnipeStatusArray"][4]);
 		break;
     }
 

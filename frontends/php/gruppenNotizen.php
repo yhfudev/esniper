@@ -12,12 +12,11 @@ Ebay Snipe Webinterface
 <link href="main.css" rel="stylesheet" type="text/css">
 </head>
 <body style="font-family:Helvetica,Helv;">
-<p class="ueberschrift">Gruppennotizen</p>
 <?php
 /*
  * Copyright (c) 2005 Nils Rottgardt <nils@rottgardt.org>
  * All rights reserved
- * 
+ *
  * Published under BSD-licence
  *
  * Redistribution and use in source and binary forms, with or without
@@ -43,16 +42,19 @@ Ebay Snipe Webinterface
  */
 require 'utils.php';
 require 'htmlutil.php';
+require 'language.php';
 
 $notizen   = $_GET["notizen"];
 $zutun = $_GET["zutun"];
 $gruppeID = $_GET["gruppe"];
 
+printf("<p class=\"ueberschrift\">".$GLOBALS["ueGruppennotizen"]."</p>");
+
 switch($zutun) {
     Case 1:
         $sql = "UPDATE gruppen SET notizen = \"".$notizen."\" WHERE gruppeID = ".$gruppeID;
         $db->query($sql);
-        printf("Notiz wurde gespeichert.");
+        printf($GLOBALS["tNotizGespeichert"]);
     break;
 }
 
@@ -60,16 +62,17 @@ if (!empty($gruppeID)) {
 	$sql="SELECT notizen FROM gruppen WHERE gruppeID = ".$gruppeID;
 	$dbNotizen = $db->get_var($sql);
 } else {
-	printf("keine Auswahl");
+	printf($GLOBALS["tKeineAuswahl"]);
 }
 
+
+printf("<fieldset>");
+  printf("<legend><b>".$GLOBALS["ueGruppeAnzeigen"]."</b></legend>");
 ?>
-<fieldset>
-  <legend><b>Gruppe anzeigen</b></legend>
 <form action="gruppenNotizen.php" method="get">
 <table>
 <tr>
-    <td>Gruppenauswahl</td>
+    <td><?php printf($GLOBALS["tGruppnAuswahl"]); ?></td>
 </tr>
 <tr>
     <td valign="top" align="left">
@@ -80,7 +83,7 @@ if (!empty($gruppeID)) {
 </tr>
 <tr>
     <td>
-        <input name="anzeigen" type="submit" id="anzeigen" value="anzeigen">
+        <input name="anzeigen" type="submit" value="<?php printf($GLOBALS["bAnzeigen"]); ?>">
     </td>
 </tr>
 </table>
@@ -88,9 +91,9 @@ if (!empty($gruppeID)) {
   <p>
     <form action="gruppenNotizen.php" method="get">
 	    <textarea name="notizen" cols="80" rows="10"><?php printf($dbNotizen);?></textarea><br>
-		<input type="hidden" name="gruppe" value"<?php printf($gruppeID); ?>">
+		<input type="hidden" name="gruppe" value="<?php printf($gruppeID); ?>">
 		<input type="hidden" name="zutun" value=1>
-		<input name="speichern" type="submit" id="speichern" value="speichern">
+		<input name="speichern" type="submit" value="<?php printf($GLOBALS["bSpeichern"]); ?>">
 	</form>
   </p>
   </fieldset>

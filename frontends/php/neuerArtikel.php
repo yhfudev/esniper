@@ -12,12 +12,11 @@ Ebay Snipe Webinterface
 <link href="main.css" rel="stylesheet" type="text/css">
 </head>
 <body style="font-family:Helvetica,Helv;">
-<p class="ueberschrift">neuer Artikel</p>
 <?php
 /*
  * Copyright (c) 2005 Nils Rottgardt <nils@rottgardt.org>
  * All rights reserved
- * 
+ *
  * Published under BSD-licence
  *
  * Redistribution and use in source and binary forms, with or without
@@ -42,10 +41,14 @@ Ebay Snipe Webinterface
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 require 'utils.php';
+require 'htmlutil.php';
+require 'language.php';
 
 $artnr = $_GET["artnr"];
 $bid   = $_GET["bid"];
 $gruppe = $_GET["gruppe"];
+
+printf("<p class=\"ueberschrift\">".$GLOBALS["ueNeuerArtikel"]."</p>");
 
 //Eintrag erstellen
 if ($artnr != "" && $bid != "") {
@@ -54,38 +57,25 @@ if ($artnr != "" && $bid != "") {
 
 
 if ($gruppe != "") {
-    if ($gruppe == "keine") {
-        $gruppeID = 0;
-    } else {
-        $gruppeID = $db->get_var("SELECT gruppeID FROM gruppen WHERE name = \"".$gruppe."\"");
-    }
-    $sql = "UPDATE snipe SET gruppe = ".$gruppeID." WHERE artnr = ".$artnr;
+    $sql = "UPDATE snipe SET gruppe = ".$gruppe." WHERE artnr = ".$artnr;
     $db->query($sql);
 }
 
 
 ?>
 <form  action="neuerArtikel.php" method="get">
-<fieldset><legend><b>Artikeldaten</b></legend>
+<fieldset><legend><b><?php printf($GLOBALS["tArtikelDaten"]); ?></b></legend>
   <table cellpadding="2" cellspacing="3">
     <tr>
-      <td valign="top">Auktionsnummer</td>
+      <td valign="top"><?php printf($GLOBALS["tAuktionsNr"]); ?></td>
       <td valign="top">
         <input type="text" size="10" name="artnr">
       </td>
-      <td valign="top"> Gruppe <select name="gruppe" size="1">
-          <option selected="selected">keine</option>
-          <?php
-		$sql = "SELECT name FROM gruppen";
-		$namenliste = $db->get_results($sql);
-		foreach($namenliste as $name) {
-		    printf("<option>".$name->name."</option>");
-		}
-	    ?>
-        </select> </td>
+      <td valign="top"> Gruppe <?php printf(html_GruppenlisteNeuerArt($db)); ?>
+        </td>
     </tr>
     <tr>
-      <td valign="top">Höchstgebot</td>
+      <td valign="top"><?php printf($GLOBALS["tHoechstgebot"]); ?></td>
       <td valign="top">
 <input type="text" size="3" name="bid"></td>
       <td valign="top">&nbsp;</td>

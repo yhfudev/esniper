@@ -43,15 +43,7 @@ newtime = window.setTimeout("initCounter();", 1000);
 </head>
 <body style="font-family:Helvetica,Helv;" onLoad="erstesAufbauen();initCounter();">
 <p class="ueberschrift"><img src="ebay_logo.gif" align="middle">Ebay Snipe Webinterface</p>
-<IMG SRC="menue.gif" BORDER=0 USEMAP="#menue_Map">
-<MAP NAME="menue_Map">
-<AREA SHAPE="rect" ALT="Reload" COORDS="267,0,340,45" HREF="index.php" TARGET="_self">
-<AREA SHAPE="rect" ALT="Gruppen verwalten" COORDS="137,0,267,45" HREF="gruppenVerwalten.php" TARGET="gruppen">
-<AREA SHAPE="rect" ALT="neuen Artikel eingeben" COORDS="0,0,136,45" HREF="neuerArtikel.php" TARGET="artikel">
-<AREA SHAPE="rect" ALT="gewonnene und verlorene Auktionen löschen" COORDS="360,0,425,45" HREF="index.php?zutun=3" TARGET="_self">
-</MAP>
 <?php
-
 /*
  * Copyright (c) 2005 Nils Rottgardt <nils@rottgardt.org>
  * All rights reserved
@@ -82,6 +74,7 @@ newtime = window.setTimeout("initCounter();", 1000);
 
 require 'utils.php';
 require 'htmlutil.php';
+require 'language.php';
 
 $zutun = $_GET["zutun"];
 $artnr = $_GET["artnr"];
@@ -89,6 +82,17 @@ $bid   = $_GET["bid"];
 $delete = $_GET["delete"];
 $gruppe = $_GET["gruppe"];
 $filtergruppe = $_GET["filtergruppe"];
+
+//Menü map erstellen
+printf("<IMG SRC=\"menue.gif\" BORDER=0 USEMAP=\"#menue_Map\">");
+printf("<MAP NAME=\"menue_Map\">");
+printf("<AREA SHAPE=\"rect\" ALT=\"".$GLOBALS["tMenueAltArray"][0]."\" COORDS=\"267,0,340,45\" HREF=\"index.php\" TARGET=\"_self\">");
+printf("<AREA SHAPE=\"rect\" ALT=\"".$GLOBALS["tMenueAltArray"][1]."\" COORDS=\"137,0,267,45\" HREF=\"gruppenVerwalten.php\" TARGET=\"gruppen\">");
+printf("<AREA SHAPE=\"rect\" ALT=\"".$GLOBALS["tMenueAltArray"][2]."\" COORDS=\"0,0,136,45\" HREF=\"neuerArtikel.php\" TARGET=\"artikel\">");
+printf("<AREA SHAPE=\"rect\" ALT=\"".$GLOBALS["tMenueAltArray"][3]."\" COORDS=\"360,0,425,45\" HREF=\"index.php?zutun=3\" TARGET=\"_self\">");
+printf("</MAP>");
+
+
 
 //Eintrag erstellen
 $auktionenSQL = "SELECT * FROM snipe ORDER BY status,endtime ASC"; //Standard
@@ -116,7 +120,7 @@ switch($zutun) {
     	} else {
     		$auktionenSQL = "SELECT * FROM snipe WHERE gruppe = \"".$filtergruppe."\" ORDER BY status,endtime ASC";
     	}
-    	break;		
+    	break;
 }
 
 $sql = "SELECT count(*) FROM snipe";
@@ -126,17 +130,17 @@ printf("<strong>");
 //Auktion am laufen
 $sql = "SELECT count(*) FROM snipe WHERE status = 0";
 $anzahl = $db->get_var($sql);
-printf("laufend: ". $anzahl ." ");
+printf($GLOBALS["tSnipeListSummaryArray"][0].": ". $anzahl ." ");
 
 //Auktion gewonnen
 $sql = "SELECT count(*) FROM snipe WHERE status = 1";
 $anzahl = $db->get_var($sql);
-printf("gewonnen: ". $anzahl ." ");
+printf($GLOBALS["tSnipeListSummaryArray"][1].": ". $anzahl ." ");
 
 //Auktion überboten
 $sql = "SELECT count(*) FROM snipe WHERE status = 2";
 $anzahl = $db->get_var($sql);
-printf("verloren: ". $anzahl);
+printf($GLOBALS["tSnipeListSummaryArray"][0].": ". $anzahl);
 printf("</strong>");
 
 //Zum filtern der Auktionenliste nach einer Gruppe
@@ -162,9 +166,9 @@ function read_tree ($dir) {
     global $dateien;
     $fp = opendir($dir);
     while($datei = readdir($fp)) {
-	if (substr($datei,-12) == "ebaysnipelog") {
+		if (substr($datei,-12) == "ebaysnipelog") {
     	    $dateien[] = "$datei";
-	}
+		}
     }
     closedir($fp);
 }
@@ -173,17 +177,17 @@ function read_tree ($dir) {
 
 $snipelist = $db->get_results($auktionenSQL);
 if (!empty($snipelist)) {
-    printf ("<tr><td class=\"Inhaltstabzelle\">Artikelnummer </td>");
-    printf ("<td class=\"Inhaltstabzelle\">Snipe-Status</td>");
-    printf ("<td class=\"Inhaltstabzelle\">Bild</td>");
-    printf ("<td class=\"Inhaltstabzelle\">Prozessstatus</td>");
+    printf ("<tr><td class=\"Inhaltstabzelle\">".$GLOBALS["tArtikelNr"]." </td>");
+    printf ("<td class=\"Inhaltstabzelle\">".$GLOBALS["tSnipeStatus"]."</td>");
+    printf ("<td class=\"Inhaltstabzelle\">".$GLOBALS["tBildTableTopic"]."</td>");
+    printf ("<td class=\"Inhaltstabzelle\">".$GLOBALS["tProzessStatus"]."</td>");
     $zaehler = 0;
     foreach($snipelist as $snipe) {
 		$artnr = $snipe->artnr;
 		statusPruefen($artnr,$db);
-		
+
 		$text = getLogData($artnr);
-		if ($text != false) {	
+		if ($text != false) {
 			$text = str_replace("\n","<br>",$text);  //in Textarea nicht benötigt, nimmt auch \n
 		} else {
 			$text = "<span style=\"color:#FF0000;font-weight:bold;\">Fehler - keine Datei zum Datenbankeintrag gefunden!</span>";
@@ -216,12 +220,12 @@ if (!empty($snipelist)) {
 		if (snipeRunCheck($snipe->pid)) {
 			printf ("<td class=\"Inhaltstabzelle\">Running...<br>PID: ".$snipe->pid."</td></tr>");
 		} else {
-			printf ("<td class=\"Inhaltstabzelle\"><span style=\"color:#FF0000;font-weight:bold;\">Kein Prozess!!!<br>PID: ".$snipe->pid."</span></td></tr>");
+			printf ("<td class=\"Inhaltstabzelle\"><span style=\"color:#FF0000;font-weight:bold;\">".$GLOBALS["tNoProcess"]."<br>PID: ".$snipe->pid."</span></td></tr>");
 		}
 
     }
 } else {
-    printf ("<b>Keine Einträge in der Datenbank</b>");
+    printf ("<b>".$GLOBALS["tDbLeer"]."</b>");
 }
 ?>
 </table>

@@ -12,12 +12,11 @@ Ebay Snipe Webinterface
 <link href="main.css" rel="stylesheet" type="text/css">
 </head>
 <body style="font-family:Helvetica,Helv;">
-<p class="ueberschrift">Gruppenverwaltung</p>
 <?php
 /*
  * Copyright (c) 2005 Nils Rottgardt <nils@rottgardt.org>
  * All rights reserved
- * 
+ *
  * Published under BSD-licence
  *
  * Redistribution and use in source and binary forms, with or without
@@ -43,18 +42,22 @@ Ebay Snipe Webinterface
  */
 require 'utils.php';
 require 'htmlutil.php';
+require 'language.php';
 
 $name = $_GET["name"];
 $notizen   = $_GET["notizen"];
 $zutun = $_GET["zutun"];
 $gruppenliste = $_GET["gruppenliste"];
 
+printf("<p class=\"ueberschrift\">".$GLOBALS["ueGruppenverwaltung"]."</p>");
+
+
 switch($zutun) {
     Case 1:
     if ($name != "") {
         $sql = "INSERT INTO gruppen (name,notizen) VALUES (\"$name\",\"$notizen\")";
         $db->query($sql);
-        printf("Gruppe ".$name." wurde erstellt.");
+        printf($name." ".$GLOBALS["tGruppeErstellt"]);
     }
     break;
     Case 2:
@@ -66,7 +69,7 @@ switch($zutun) {
 	$sql = "DELETE FROM gruppen WHERE name = \"".$gruppenliste."\"";
 	$db->query($sql);
     } else {
-	printf("Bitte eine Gruppe auswählen!");
+	printf($GLOBALS["tGruppeWaehlen"]);
     }
     break;
 }
@@ -74,16 +77,16 @@ switch($zutun) {
 
 ?>
 <form  action="gruppenVerwalten.php" method="get">
-<fieldset><legend><b>Gruppe anlegen</b></legend>
+<fieldset><legend><b><?php printf($GLOBALS["ueGruppeAnlegen"]); ?></b></legend>
 <table>
 <tr>
-    <td>Gruppenname</td>
-    <td>Notizen</td>
+    <td><?php printf($GLOBALS["ueGruppenName"]); ?></td>
+    <td><?php printf($GLOBALS["ueGruppenNotizen"]); ?></td>
 </tr>
 <tr>
     <td valign="top" align="left"><input type="text" size="20" name="name"><br>
 	<input type="hidden" name="zutun" value=1>
-	<input type="submit" value="erstellen">
+	<input type="submit" value="<?php printf($GLOBALS["bGruppeErstellen"]); ?>">
     </td>
     <td>
 	<textarea name="notizen" cols="50" rows="10"></textarea>
@@ -94,10 +97,10 @@ switch($zutun) {
 </form>
 
 <form action="gruppenVerwalten.php" method="get">
-<fieldset><legend><b>Gruppe löschen</b></legend>
+<fieldset><legend><b><?php printf($GLOBALS["ueGruppeLoeschen"]); ?></b></legend>
 <table>
 <tr>
-    <td>Gruppenauswahl</td>
+    <td><?php printf($GLOBALS["tGruppnAuswahl"]); ?></td>
 </tr>
 <tr>
     <td valign="top" align="left">
@@ -118,7 +121,7 @@ switch($zutun) {
 <tr>
     <td>
 	<input type="hidden" name="zutun" value=2>
-	<input type="submit" value="löschen">
+	<input type="submit" value="<?php printf($GLOBALS["bGruppeLoeschen"]); ?>">
     </td>
 </tr>
 </table>
