@@ -8,10 +8,10 @@ First, setup environment variables:
 	CVSROOT=:ext:esniper@cvs.esniper.sourceforge.net:/cvsroot/esniper
 	export CVSROOT
 	# change these to whatever is current
-	MAJOR=1
+	MAJOR=2
 	MINOR=3
 	STEP=0
-	PREV=1.2
+	PREV=2.2.0
 	# these don't change
 	CURRENT=$MAJOR.$MINOR.$STEP
 	CURRFILE=esniper-$MAJOR-$MINOR-$STEP
@@ -35,6 +35,7 @@ Create source tar:
 	cd $CURRENT
 	mkdir $CURRFILE
 	cp ../Makefile ../COPYRIGHT ../README ../TODO ../*.[ch] $CURRFILE
+	cp ../sample*.txt $CURRFILE
 	tar cvf - $CURRFILE | gzip >$CURRFILE.tgz
 
 	(note: ensure Makefile is same as in CVS - not Sun version!)
@@ -74,14 +75,22 @@ Build esniper on Sun, and HP and Cygwin, strip and copy to release directory:
 
 Build other versions on sourceforge:
 
+	scp $CURRFILE.tgz esniper@shell.sf.net:
+
 	ssh -l esniper cf.sourceforge.net
 		<enter password>
 
+	On the first system:
+		scp shell.sourceforge.net:$CURRFILE.tgz .
+		gunzip <$CURRFILE.tgz | tar xvf -
+		rm -rf esniper
+		ln -s $CURRFILE esniper
+
+	(note: CURRFILE isn't defined, you must expand it yourself)
+	(note: Cannot rely on CVS being up-to-date on internal sf systems)
+
 	For each build system:
 		makeit
-
-	(note: make certain that all updates have made it to the systems
-	you build on.  cvs seems to take a while to propagate)
 
 Then login to shell.sourceforge.net:
 
@@ -89,6 +98,7 @@ Then login to shell.sourceforge.net:
 		<enter password>
 	mkdir $CURRENT
 	mv esniper-* $CURRENT
+		(note: not quite correct - don't move dir/tgz)
 	cd $CURRENT
 	ftp upload
 		(log in as anonymous)
@@ -97,7 +107,7 @@ Then login to shell.sourceforge.net:
 		prompt
 		mput esniper*
 	vi $PROJECT/htdocs/index.html
-		change tgz file to current release
+		change tgz file to current release (two places)
 
 Go to www.sourceforge.net:
 	- login
