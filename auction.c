@@ -593,7 +593,8 @@ parseBid(FILE *fp, auctionInfo *aip)
 			aip->bidResult = auctionError(aip, ae_reservenotmet, NULL);
 			return 1;
 		} else if (!strcmp(pagename, "MakeBidErrorPassword") ||
-			   !strcmp(pagename, "PageMakeBid")) {
+			   !strcmp(pagename, "PageMakeBid") ||
+			   !strcmp(pagename, "PageMakeBid_signin")) {
 			aip->bidResult = auctionError(aip, ae_badpass, NULL);
 			return 1;
 		} else if (!strcmp(pagename, "MakeBidError")) {
