@@ -48,7 +48,7 @@ static const char blurb[]="Please visit http://esniper.sf.net/ for updates and b
 #if defined(WIN32)
 #	include <io.h>
 #	define access(name, mode) _access((name), (mode))
-#	define sleep(t)	_sleep((t) * 1000)
+#	define sleep(t)	_sleep((t))
 #	define R_OK 0x04
 	extern int getopt(int, char *const *, const char *);
 	extern int opterr, optind, optopt;
@@ -699,14 +699,17 @@ main(int argc, char *argv[])
 
 		if (profiledir && *profiledir) {
 			/* parse $USERPROFILE/My Documents/.esniper */
-			char *cfname = myStrdup3(homedir,"/My Documents/",DEFAULT_CONF_FILE);
+			char *cfname = myStrdup3(profiledir,
+						 "\\My Documents\\",
+						 DEFAULT_CONF_FILE);
 
 			switch (readConfigFile(cfname, optiontab)) {
 			case 1: /* file not found */
 				if (homedir && *homedir) {
 					/* parse $HOME/.esniper */
 					free(cfname);
-					cfname = myStrdup3(homedir,"/",DEFAULT_CONF_FILE);
+					cfname = myStrdup3(homedir, "/",
+							   DEFAULT_CONF_FILE);
 					if (readConfigFile(cfname, optiontab) > 1)
 						options.usage |= USAGE_SUMMARY;
 				}
