@@ -48,5 +48,9 @@ extern void resetCurlStuff(void);
 extern memBuf_t *httpGet(auctionInfo *aip, const char *url, const char *logUrl);
 extern memBuf_t *httpPost(auctionInfo *aip, const char *url, const char *data, const char *logData);
 extern void clearMembuf(memBuf_t *mp);
+#ifdef DEBUG
+#include <stdio.h>
+extern memBuf_t *readFile(FILE *fp);
+#endif
 
 #endif /* HTTP_H_INCLUDED */

@@ -1138,13 +1138,15 @@ watch(auctionInfo *aip)
 void
 testParser(int flag)
 {
+	memBuf_t *mp = readFile(stdin);
+
 	switch (flag) {
 	case 1:
 	    {
 		/* dump non-tag data */
 		char *line;
 
-		while ((line = getnontag(stdin)))
+		while ((line = getnontag(mp)))
 			printf("\"%s\"\n", line);
 		break;
 	    }
@@ -1152,7 +1154,7 @@ testParser(int flag)
 	    {
 		/* run through bid history parser */
 		auctionInfo *aip = newAuctionInfo("1", "2");
-		int ret = parseAuction(stdin, aip, 1, options.username);
+		int ret = parseAuction(mp, aip, 1, options.username, NULL);
 
 		printf("ret = %d\n", ret);
 		printAuctionError(aip, stdout);
@@ -1162,7 +1164,7 @@ testParser(int flag)
 	    {
 		/* run through bid result parser */
 		auctionInfo *aip = newAuctionInfo("1", "2");
-		int ret = parseBid(stdin, aip);
+		int ret = parseBid(mp, aip);
 
 		printf("ret = %d\n", ret);
 		printAuctionError(aip, stdout);

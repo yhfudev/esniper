@@ -62,6 +62,33 @@ httpPost(auctionInfo *aip, const char *url, const char *data, const char *logDat
 	return httpRequest(aip, url, NULL, data, logData, POST);
 }
 
+#ifdef DEBUG
+memBuf_t *
+readFile(FILE *fp)
+{
+	static memBuf_t membuf = { NULL, 0, NULL, 0 };
+	static const int BUFINC = 20 * 1024;
+	size_t i = 0;
+	int c;
+
+	if (membuf.memory)
+		clearMembuf(&membuf);
+
+	membuf.size = BUFINC;
+	membuf.memory = (char *)myMalloc(membuf.size);
+	while ((c = getc(fp)) != EOF) {
+		if (i == membuf.size) {
+			membuf.size += BUFINC;
+			membuf.memory = (char *)myRealloc(membuf.memory, membuf.size);
+		}
+		membuf.memory[i++] = (char)c;
+	}
+	membuf.size = i;
+	membuf.readptr = membuf.memory;
+	return &membuf;
+}
+#endif
+
 static const char UNAVAILABLE[] = "unavailable/";
 static CURL *easyhandle = NULL;
 static int curlInitDone = 0;
