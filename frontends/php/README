@@ -33,6 +33,8 @@ Schritte für die Installation:
    Booten ausgeführt werden.
 6. Schön aus dem Web snipern.
 
+optional: Wenn die Seite aus dem Web erreichbar ist, sollte eine Sicherung mit .htaccess über Apache erfolgen.
+
 
 
 installation steps:
@@ -44,4 +46,6 @@ installation steps:
    !There have to be absolute references on files: e.g. /usr/bin/esniper
 5. Put the reload.php in the crontab to run every hour.
    The reload.php stops unknown esniper processes and starts missings. You could either execute it on booting.
-6. Sniper from the Web. 
+6. Sniper from the Web.
+
+optional: If the frontend is accessable from the Web, you should secure it with .htaccess file.
