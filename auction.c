@@ -56,6 +56,7 @@ static long getseconds(char *timestr);
 static const char *getTableEnd(memBuf_t *mp);
 static char *getTableCell(memBuf_t *mp);
 static char **getTableRow(memBuf_t *mp);
+static void freeTableRow(char **row);
 static const char *getTableStart(memBuf_t *mp);
 static int getInfoTiming(auctionInfo *aip, int quantity, const char *user, time_t *timeToFirstByte);
 static char *getPageName(memBuf_t *mp);
@@ -518,6 +519,8 @@ getTableCell(memBuf_t *mp)
 			++nesting;
 		}
 	}
+	/* error? */
+	return NULL;
 }
 
 /*
@@ -541,6 +544,15 @@ getTableRow(memBuf_t *mp)
 		}
 	} while ((cp));
 	return ret;
+}
+
+/*
+ * Free a TableRow allocated by getTableRow
+ */
+static void
+freeTableRow(char **row) {
+	while (*row)
+		free(*row++);
 }
 
 /*
@@ -1008,9 +1020,11 @@ ebayLogin(auctionInfo *aip)
 static int
 parseBid(memBuf_t *mp, auctionInfo *aip)
 {
-	// The following sometimes have more characters after them, for
-	// example AcceptBid_HighBidder_rebid (you were already the high
-	// bidder and placed another bid).
+	/*
+	 * The following sometimes have more characters after them, for
+	 * example AcceptBid_HighBidder_rebid (you were already the high
+	 * bidder and placed another bid).
+	 */
 	static const char HIGHBID[] = "AcceptBid_HighBidder";
 	static const char OUTBID[] = "AcceptBid_Outbid";
 	static const char RESERVENOTMET[] = "AcceptBid_ReserveNotMet";
@@ -1238,6 +1252,74 @@ watch(auctionInfo *aip)
 
 	return 0;
 } /* watch() */
+
+static const char* MYITEMS_URL = "http://my.ebay.com/ws/eBayISAPI.dll?MyeBay&CurrentPage=MyeBayWatching";
+
+#define MYITEMS_LINE(n) (n % 2)
+#define MAX_TDS 6
+
+void
+fprint_myitems(auctionInfo *aip, FILE *file)
+{
+	memBuf_t *mp = httpGet(aip, MYITEMS_URL, NULL);
+	const char *table;
+	char **row;
+	const char *myitems_description[2][MAX_TDS] = {
+		{0, "Price:\t\t%s\n", "Shipping:\t%s\n", "Bids:\t\t%s\n",
+		 "Seller:\t\t%s\n", "Time:\t\t%s\n\n"},
+		{0, "ItemNr:\t\t%s\n", "Description:\t%s\n", 0, 0, 0}
+	};
+
+	while ((table = getTableStart(mp))) {
+		int rowNum = 1;
+
+		/* search for table containing my itmes */
+		if (!strstr(table, "tableName=\"Watching\""))
+			continue;
+		/* skip first descriptive table row */
+		if ((row = getTableRow(mp)))
+			freeTableRow(row);
+		else
+			return; /* error? */
+		while ((row = getTableRow(mp))) {
+			int myItemsLine = MYITEMS_LINE(rowNum);
+			int columnNum = 0;
+
+			for (; row[columnNum]; ++columnNum) {
+				memBuf_t *mp;
+				char *value = NULL;
+				int freeValue = 0;
+
+				if (columnNum >= MAX_TDS || !myitems_description[myItemsLine][columnNum])
+					continue;
+				mp = strToMemBuf(row[columnNum]);
+				/* special case: ItemNr encoded in ViewItem URL
+				 */
+				if (myItemsLine == 1 && columnNum == 1) {
+					static const char search[] = "item=";
+					char *tmp = strstr(gettag(mp), search);
+
+					if (tmp) {
+						char *quote;
+
+						tmp += sizeof(search) - 1;
+						if ((quote=strchr(tmp, '\"'))) {
+							value = myStrndup(tmp, (size_t)(quote - tmp));
+							freeValue = 1;
+						}
+					}
+				} else
+					value = getnontag(mp);
+				printf(myitems_description[myItemsLine][columnNum], value ? value : "");
+				if (freeValue)
+					free(value);
+				clearMembuf(mp);
+			}
+			rowNum++;
+			freeTableRow(row);
+		}
+	}
+}
 
 #if DEBUG
 /* secret option - test parser */

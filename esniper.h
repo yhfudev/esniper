@@ -42,6 +42,7 @@ typedef struct {
 	int reduce;
 	int debug;
 	int usage;
+	int myitems;
 	int batch;
 	int encrypted;
 	proxy_t proxy;

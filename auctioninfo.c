@@ -237,7 +237,7 @@ static const char *auctionErrorString[] = {
 };
 
 auctionInfo *
-newAuctionInfo(char *auction, char *bidPriceStr)
+newAuctionInfo(const char *auction, const char *bidPriceStr)
 {
 	auctionInfo *aip = (auctionInfo *)myMalloc(sizeof(auctionInfo));
 
@@ -258,7 +258,7 @@ newAuctionInfo(char *auction, char *bidPriceStr)
 	aip->winning = -1;
 	aip->auctionError = ae_none;
 	aip->auctionErrorDetail = NULL;
-   aip->loginTime = 0;
+	aip->loginTime = 0;
 	return aip;
 }
 

@@ -80,6 +80,7 @@ option_t options = {
 	1,                /* reduce quantity */
 	0,                /* debug */
 	0,                /* usage */
+	0,		  /* get my eBay items */
 	0,                /* batch */
 	0,                /* password encrypted? */
 	{ NULL, 0 },      /* proxy host & port */
@@ -530,7 +531,7 @@ static int SetConfigHelp(const void* valueptr, const optionTable_t* tableptr,
 }
 
 static const char usageSummary[] =
-  "usage: %s [-bdhHnPrUv] [-c conf_file] [-l logdir] [-p proxy] [-q quantity]\n"  "       [-s secs|now] [-u user] (auction_file | [auction price ...])\n"
+  "usage: %s [-bdhHnmPrUv] [-c conf_file] [-l logdir] [-p proxy] [-q quantity]\n"  "       [-s secs|now] [-u user] (auction_file | [auction price ...])\n"
   "\n";
 
 /* split in two to prevent gcc portability warning.  maximum length is 509 */
@@ -547,17 +548,19 @@ static const char usageLong1[] =
  "-h: command line options help\n"
  "-H: configuration and auction file help\n"
  "-l: log directory (default: ., or directory of auction file, if specified)\n"
- "-n: do not place bid\n"
- "-p: http proxy (default: http_proxy environment variable, format is\n"
- "    http://host:port/)\n";
+ "-m: get my ebay watched items and exit\n"
+ "-n: do not place bid\n";
 static const char usageLong2[] =
+ "-p: http proxy (default: http_proxy environment variable, format is\n"
+ "    http://host:port/)\n"
  "-P: prompt for password\n"
  "-q: quantity to buy (default is 1)\n"
  "-r: do not reduce quantity on startup if already won item(s)\n"
  "-s: time to place bid which may be \"now\" or seconds before end of auction\n"
  "    (default is %d seconds before end of auction)\n"
  "-u: ebay username\n"
- "-U: prompt for ebay username\n"
+ "-U: prompt for ebay username\n";
+static const char usageLong3[] =
  "-v: print version and exit\n"
  "\n"
  "You must specify an auction file or <auction> <price> pair[s].  Options\n"
@@ -600,6 +603,7 @@ usage(int helplevel)
 	if (helplevel & USAGE_LONG) {
 		fprintf(stderr, usageLong1);
 		fprintf(stderr, usageLong2, DEFAULT_BIDTIME);
+		fprintf(stderr, usageLong3);
 	}
 	if (helplevel & USAGE_CONFIG) {
 		fprintf(stderr, usageConfig1, options.historyHost, options.prebidHost, options.bidHost, DEFAULT_BIDTIME);
@@ -640,6 +644,7 @@ main(int argc, char *argv[])
    {NULL,       "r", (void*)&options.reduce,       OPTION_BOOL_NEG, NULL},
    {"bid",     NULL, (void*)&options.bid,          OPTION_BOOL,     NULL},
    {NULL,       "n", (void*)&options.bid,          OPTION_BOOL_NEG, NULL},
+   {NULL,       "m", (void*)&options.myitems,      OPTION_BOOL,     NULL},
    {"debug",    "d", (void*)&options.debug,        OPTION_BOOL,    &CheckDebug},
    {"curldebug","C", (void*)&options.curldebug,    OPTION_BOOL,     NULL},
    {"batch",    "b", (void*)&options.batch,        OPTION_BOOL,     NULL},
@@ -654,7 +659,7 @@ main(int argc, char *argv[])
    };
 
 	/* all known options */
-	static const char optionstring[]="bc:dhHl:np:Pq:rs:u:Uv"
+	static const char optionstring[]="bc:dhHl:mnp:Pq:rs:u:Uv"
 #if DEBUG
 		"X"
 #endif
@@ -820,6 +825,7 @@ main(int argc, char *argv[])
 				break;
 			/* fall through */
 		case 'b': /* batch */
+		case 'm': /* get my ebay items */
 		case 'n': /* don't bid */
 		case 'P': /* read password */
 		case 'r': /* reduce */
@@ -849,12 +855,13 @@ main(int argc, char *argv[])
 	log(("options.reduce=%d\n", options.reduce));
 	log(("options.debug=%d\n", options.debug));
 	log(("options.usage=%d\n", options.usage));
+	log(("options.myitems=%d\n", options.myitems));
 
 	if (!options.usage) {
 #if DEBUG
 	    if (!XFlag) {
 #endif
-		if (!options.auctfilename && argc < 2) {
+	      if (!options.myitems && (!options.auctfilename && argc < 2)) {
 			printLog(stderr, "Error: no auctions specified.\n");
 			options.usage |= USAGE_SUMMARY;
 		}
@@ -901,7 +908,7 @@ main(int argc, char *argv[])
 			auctions[i] = newAuctionInfo(argv[2*i], argv[2*i+1]);
 	}
 
-	if (numAuctions <= 0)
+	if (!options.myitems && (numAuctions <= 0))
 		exit(usage(USAGE_SUMMARY));
 
 #if !defined(WIN32)
@@ -928,6 +935,17 @@ main(int argc, char *argv[])
 		}
 	}
 
+ 	if (options.myitems) {
+		auctionInfo *dummy = newAuctionInfo("1", "2");
+		if (ebayLogin(dummy)) {
+			printAuctionError(dummy, stderr);
+			exit(1);
+		} else {
+			fprint_myitems(dummy, stdout);
+			exit(0);
+		}
+ 	}
+
 	for (i = 0; i < numAuctions && options.quantity > 0; ++i) {
 		int retryCount, bidRet = 0;
 
@@ -944,14 +962,13 @@ main(int argc, char *argv[])
 		if (numAuctionsOrig > 1)
 			printLog(stdout, "\nNeed to win %d item(s), %d auction(s) remain\n\n", options.quantity, numAuctions - i);
 
-      cleanupCurlStuff();
-      initCurlStuff();
+		cleanupCurlStuff();
+		initCurlStuff();
 
-      if(ebayLogin(auctions[i]))
-      {
-         printAuctionError(auctions[i], stderr);
-         continue;
-      }
+		if (ebayLogin(auctions[i])) {
+			printAuctionError(auctions[i], stderr);
+			continue;
+		}
 
 		/* 0 means "now" */
 		if (options.bidtime == 0) {

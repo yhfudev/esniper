@@ -87,7 +87,7 @@ typedef struct {
 	time_t loginTime; /* time of last login to eBay */
 } auctionInfo;
 
-extern auctionInfo *newAuctionInfo(char *auction, char *bidPriceStr);
+extern auctionInfo *newAuctionInfo(const char *auction, const char *bidPriceStr);
 extern void freeAuction(auctionInfo *aip);
 extern int compareAuctionInfo(const void *p1, const void *p2);
 extern void printAuctionError(auctionInfo *aip, FILE *fp);

@@ -62,7 +62,37 @@ httpPost(auctionInfo *aip, const char *url, const char *data, const char *logDat
 	return httpRequest(aip, url, NULL, data, logData, POST);
 }
 
+/*
+ * Create a membuf from a string.
+ */
+memBuf_t *
+strToMemBuf(const char *s)
+{
+        static memBuf_t m;
+
+        m.timeToFirstByte = time(NULL);
+        m.memory = myStrdup(s);
+        m.readptr = m.memory;
+        m.size = s ? strlen(s) + 1 : 0;
+        return &m;
+}
+
+/*
+ * Clear membuf.
+ */
+void
+clearMembuf(memBuf_t *mp)
+{
+	free(mp->memory);
+	mp->memory = mp->readptr = NULL;
+	mp->size = 0;
+	mp->timeToFirstByte = 0;
+}
+
 #ifdef DEBUG
+/*
+ * Create a membuf from a file.
+ */
 memBuf_t *
 readFile(FILE *fp)
 {
@@ -92,7 +122,7 @@ readFile(FILE *fp)
 static const char UNAVAILABLE[] = "unavailable/";
 static CURL *easyhandle = NULL;
 static int curlInitDone = 0;
-char globalErrorbuf[CURL_ERROR_SIZE];
+static char globalErrorbuf[CURL_ERROR_SIZE];
 
 static memBuf_t *
 httpRequest(auctionInfo *aip, const char *url, const char *logUrl, const char *data, const char *logData, enum requestType rt)
@@ -135,15 +165,6 @@ httpRequestFailed(CURLcode curlrc)
 	log(("%s", curl_easy_strerror(curlrc)));
 	log(("%s", globalErrorbuf));
 	return NULL;
-}
-
-void
-clearMembuf(memBuf_t *mp)
-{
-	free(mp->memory);
-	mp->memory = mp->readptr = NULL;
-	mp->size = 0;
-	mp->timeToFirstByte = 0;
 }
 
 int

@@ -35,6 +35,7 @@ extern int watch(auctionInfo *aip);
 extern int preBid(auctionInfo *aip);
 extern int bid(auctionInfo *aip);
 extern int ebayLogin(auctionInfo *aip);
+extern void fprint_myitems(auctionInfo *aip, FILE *file);
 
 #if DEBUG
 /* secret option */
