@@ -15,11 +15,11 @@ First, setup environment variables:
 	# these don't change
 	CURRENT=$MAJOR.$MINOR.$STEP
 	CURRFILE=esniper-$MAJOR-$MINOR-$STEP
-	CURRTAG=esniper_$MAJOR_$MINOR_$STEP
+	CURRTAG=Version_$MAJOR_$MINOR_$STEP
 
 Tag source:
 
-	cvs tag $CURRTAG
+	cvs tag -F $CURRTAG
 
 Create a directory:
 
@@ -36,6 +36,8 @@ Create source tar:
 	mkdir $CURRFILE
 	cp ../Makefile ../COPYRIGHT ../README ../TODO ../*.[ch] $CURRFILE
 	tar cvf - $CURRFILE | gzip >$CURRFILE.tgz
+
+	(note: ensure Makefile is same as in CVS - not Sun version!)
 
 Edit Changes and Notes (change version # for source file in Notes):
 
@@ -66,7 +68,7 @@ Build esniper on Sun, and HP and Cygwin, strip and copy to release directory:
 		cd incoming
 		bin
 		prompt
-		mput cygwin1.dll esniper*
+		mput cygwin1.dll esniper* ../sample*
 
 Build other versions on sourceforge:
 
@@ -92,11 +94,11 @@ Then login to shell.sourceforge.net:
 	vi $PROJECT/htdocs/index.html
 		change tgz file to current release
 
-Go to sourceforge.net:
+Go to www.sourceforge.net:
 	- login
 	- go to project
-	- click on admin, then edit releases, then add release
-	- type in release number and click add release
+	- click on admin, then file releases, then add release
+	- type in release number and click "create this release"
 	- cut/paste notes and changes, ensure "preserve text" is selected
 	- select files to import
 	- mark each type (one at a time...)
