@@ -616,14 +616,14 @@ main(int argc, char *argv[])
 			if (options.batch) {
 				printLog(stderr, "Error: no username specified.\n");
 				options.usage = 1;
-			} else
+			} else if (!options.usage)
 				parseGetoptValue('U', NULL, optiontab);
 		}
 		if (!options.password) {
 			if (options.batch) {
 				printLog(stderr, "Error: no password specified.\n");
 				options.usage = 1;
-			} else
+			} else if (!options.usage)
 				parseGetoptValue('P', NULL, optiontab);
 		}
 	}
