@@ -1,3 +1,10 @@
+2004-12-16
+	* fixed segfault in http.c
+	* don't expose password in log files
+	* Use bid password (returned in preBid) instead of user password
+	  for bidding.
+	* integrated configure patch
+
 2004-12-15
 	* 2.9.0Beta released
 	* allow use of older versions of libcurl
