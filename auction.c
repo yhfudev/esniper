@@ -932,7 +932,7 @@ parseAuction(memBuf_t *mp, auctionInfo *aip, const char *user, time_t *timeToFir
 	return ret;
 } /* parseAuction() */
 
-static const char GETINFO[] = "http://offer.ebay.com/aw-cgi/eBayISAPI.dll?ViewBids&item=";
+static const char GETINFO[] = "http://offer.ebay.com/ws/eBayISAPI.dll?ViewBids&item=";
 
 /*
  * getInfo(): Get info on auction from bid history page.
