@@ -189,7 +189,7 @@ if (!empty($snipelist)) {
 			$text = "<span style=\"color:#FF0000;font-weight:bold;\">Fehler - keine Datei zum Datenbankeintrag gefunden!</span>";
 		}
 
-		printf("<tr><td class=\"Inhaltstabzelle\"><form action=\"index.php\" method=\"get\">Artikel: <a href=\"http://cgi.ebay.de/ws/eBayISAPI.dll?ViewItem&item=".$artnr."&rd=1\">".$artnr."</a><br>Status: ".html_snipestatus($snipe->status)."<br>Gruppe: ".html_gruppenname($snipe->gruppe,$db)."<br>".html_gruppenliste($snipe->artnr,$db)."<br>");
+		printf("<tr><td class=\"Inhaltstabzelle\"><form action=\"index.php\" method=\"get\">Artikel: <a href=\"http://cgi.ebay.de/ws/eBayISAPI.dll?ViewItem&item=".$artnr."&rd=1\">".$artnr."</a><br>Status: ".html_snipestatus($snipe->status)."<br>Gruppe: <a href=\"./gruppenNotizen.php?gruppe=".$snipe->gruppe."\" target=\"notizen\">".html_gruppenname($snipe->gruppe,$db)."</a><br>".html_gruppenliste($snipe->artnr,$db)."<br>");
 		printf("<input type=\"hidden\" name=\"zutun\" value=2><input type=\"hidden\" name=\"artnr\" value=\"". $artnr  ."\"><input type=\"submit\" value=\"Gruppe zuordnen\"></form>");
 		printf("<form action=\"index.php\" method=\"get\"><input type=\"hidden\" name=\"zutun\" value=1><input type=\"hidden\" name=\"delete\" value=".$artnr."><input type=\"submit\" value=\"löschen\"</form>");
 

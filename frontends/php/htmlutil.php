@@ -53,6 +53,23 @@ function html_Gruppenliste($artnr,$db) {
     return($temp);
 }
 
+function html_GruppenlisteNormal($gruppeID,$db) {
+//Baut eine Auswahlliste für die Gruppen auf, ohne "keine" und "Alle"
+    $temp = "<select name=\"gruppe\" size=\"1\">";
+    $sql = "SELECT * FROM gruppen";
+    $gruppenliste = $db->get_results($sql);
+    if (!empty($gruppenliste)) {
+        foreach($gruppenliste as $gruppe) {
+    	    if ($gruppeID == $gruppe->gruppeID) {
+                $temp .= "<option value=\"".$gruppe->gruppeID."\" selected=\"selected\">".$gruppe->name."</option>";
+		    } else {
+				$temp .= "<option value=\"".$gruppe->gruppeID."\">".$gruppe->name."</option>";
+		    }
+		}
+    }
+    $temp .= "</select>";
+    return($temp);
+}
 
 function html_GruppenFilternListe($gruppeID,$db) {
 //Baut eine Auswahlliste für die Gruppen zusammen
