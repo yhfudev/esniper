@@ -192,14 +192,14 @@ freeAuction(auctionInfo *aip)
 {
 	if (!aip)
 		return;
-	// Not allocated
-	//free(aip->auction);
-	//free(aip->bidPriceStr);
+	/* Not allocated */
+	/*free(aip->auction);*/
+	/*free(aip->bidPriceStr);*/
 	free(aip->host);
 	free(aip->query);
 	free(aip->key);
-	// Not allocated
-	//free(aip->auctionErrorDetail);
+	/* Not allocated */
+	/*free(aip->auctionErrorDetail);*/
 	free(aip);
 }
 
