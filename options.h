@@ -45,7 +45,6 @@ struct optionTable {
    char *optionname;    /* option without '-' */
    void *value;         /* variable to store value */
    int type;            /* data type of expected value or option argument */
-   int set;             /* after parsing !=0 if parameter found */
    /* This function will be called to check and copy value if specified.
       It can get the value by other means than converting the string
       found in config file or on command line. */

@@ -39,8 +39,6 @@
 #include <stdio.h>
 #include <string.h>
 
-static int readAuctions(FILE *fp, auctionInfo ***aip);
-
 /*
  * readAuctionFile(): read a file listing auctions to watch.
  *

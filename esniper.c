@@ -77,15 +77,15 @@ static void usage(const char *progname, int longhelp);
 int main(int argc, char *argv[]);
 
 /* used for option table */
-static int CheckSeconds(const void* valueptr, const optionTable_t* tableptr,
+static int CheckSecs(const void* valueptr, const optionTable_t* tableptr,
                         const char* filename, const char *line);
 static int CheckQuantity(const void* valueptr, const optionTable_t* tableptr,
                          const char* filename, const char *line);
-static int ReadUsername(const void* valueptr, const optionTable_t* tableptr,
+static int ReadUser(const void* valueptr, const optionTable_t* tableptr,
                         const char* filename, const char *line);
-static int ReadPassword(const void* valueptr, const optionTable_t* tableptr,
+static int ReadPass(const void* valueptr, const optionTable_t* tableptr,
                         const char* filename, const char *line);
-static int CheckFilename(const void* valueptr, const optionTable_t* tableptr,
+static int CheckFile(const void* valueptr, const optionTable_t* tableptr,
                          const char* filename, const char *line);
 static int SetHelp(const void* valueptr, const optionTable_t* tableptr,
                    const char* filename, const char *line);
@@ -110,7 +110,8 @@ sigTerm(int sig)
  * Get initial auction info, sort items based on end time.
  */
 static int
-sortAuctions(auctionInfo **auctions, int numAuctions, char *user, int *quantity, const char *progname)
+sortAuctions(auctionInfo **auctions, int numAuctions, char *user,
+	     int *quantity, const char *progname)
 {
 	int i, sawError = 0;
 
@@ -133,7 +134,8 @@ sortAuctions(auctionInfo **auctions, int numAuctions, char *user, int *quantity,
 	if (numAuctions > 1) {
 		printLog(stdout, "Sorting auctions...\n");
 		/* sort by end time */
-		qsort(auctions, numAuctions, sizeof(auctionInfo *), compareAuctionInfo);
+		qsort(auctions, numAuctions, sizeof(auctionInfo *),
+		      compareAuctionInfo);
 	}
 
 	/* get rid of obvious cases */
@@ -180,12 +182,12 @@ cleanup()
 /* specific check functions would reside in main module */
 
 /*
- * CheckSeconds(): convert integer value or "now", check minimum value
+ * CheckSecs(): convert integer value or "now", check minimum value
  *
  * returns: 0 = OK, else error
  */
-static int CheckSeconds(const void* valueptr, const optionTable_t* tableptr,
-                        const char* filename, const char *line)
+static int CheckSecs(const void* valueptr, const optionTable_t* tableptr,
+                     const char* filename, const char *line)
 {
    int intval;
    char *endptr;
@@ -262,7 +264,7 @@ static int CheckQuantity(const void* valueptr, const optionTable_t* tableptr,
 }
 
 /*
- * ReadUsername(): read username from console
+ * ReadUser(): read username from console
  *
  * note: not called by option processing code.  Called directly from main()
  *	if esniper has not been given username.
@@ -270,8 +272,8 @@ static int CheckQuantity(const void* valueptr, const optionTable_t* tableptr,
  * returns: 0 = OK, else error
  */
 static int
-ReadUsername(const void* valueptr, const optionTable_t* tableptr,
-             const char* filename, const char *line)
+ReadUser(const void* valueptr, const optionTable_t* tableptr,
+         const char* filename, const char *line)
 {
 	char *username = prompt("Enter eBay username: ", 0);
 
@@ -280,19 +282,20 @@ ReadUsername(const void* valueptr, const optionTable_t* tableptr,
 		return 1;
 	}
 
-	*(char**)(tableptr->value) = username;
+	free(*(char**)(tableptr->value));
+	*(char**)(tableptr->value) = myStrdup(username);
 	log(("username is %s\n", *(char**)(tableptr->value)));
 	return 0;
 }
 
 /*
- * ReadPassword(): read password from console
+ * ReadPass(): read password from console
  *
  * returns: 0 = OK, else error
  */
 static int
-ReadPassword(const void* valueptr, const optionTable_t* tableptr,
-             const char* filename, const char *line)
+ReadPass(const void* valueptr, const optionTable_t* tableptr,
+         const char* filename, const char *line)
 {
 	char *passwd = prompt("Enter eBay password: ", 1);
 
@@ -304,18 +307,18 @@ ReadPassword(const void* valueptr, const optionTable_t* tableptr,
 
 	clearPassword();
 	/* don't log password! */
-	*(char**)(tableptr->value) = passwd;
+	*(char**)(tableptr->value) = myStrdup(passwd);
 	encryptPassword();
 	return 0;
 }
 
 /*
- * CheckFilename(): accept accessible files only
+ * CheckFile(): accept accessible files only
  *
  * returns: 0 = OK, else error
  */
-static int CheckFilename(const void* valueptr, const optionTable_t* tableptr,
-                         const char* filename, const char *line)
+static int CheckFile(const void* valueptr, const optionTable_t* tableptr,
+                     const char* filename, const char *line)
 {
    if(access((char*)valueptr, R_OK)) {
       if(filename)
@@ -328,11 +331,7 @@ static int CheckFilename(const void* valueptr, const optionTable_t* tableptr,
                   (char*)valueptr, line, strerror(errno));
       return 1;
    }
-   /* free old value if present */
-   if (tableptr->set && *(char**)(tableptr->value))
-      free(*(char**)(tableptr->value));
-
-   /* copy value to target variable */
+   free(*(char**)(tableptr->value));
    *(char**)(tableptr->value) = myStrdup(valueptr);
    return 0;
 }
@@ -343,7 +342,7 @@ static int CheckFilename(const void* valueptr, const optionTable_t* tableptr,
  * returns: 0 = OK
  */
 static int SetHelp(const void* valueptr, const optionTable_t* tableptr,
-                        const char* filename, const char *line)
+                   const char* filename, const char *line)
 {
    /* copy value to target variable */
    *(int*)(tableptr->value) = 2;
@@ -398,31 +397,23 @@ main(int argc, char *argv[])
 
    /* this table describes options and config entries */
    static optionTable_t optiontab[] = {
-   {"username", "u", (void*)&options.user,         OPTION_STRING,   0, NULL},
-   {"password",NULL, (void*)&options.password,     OPTION_STRING,   0, NULL},
-
-   {"seconds",  "s", (void*)&options.bidtime,      OPTION_SPECIAL,  0,
-                                                                &CheckSeconds},
-   {"quantity", "q", (void*)&options.quantity,     OPTION_INT,      0,
-                                                               &CheckQuantity},
-   {NULL,       "p", (void*)&options.password,     OPTION_SPECIAL,  0,
-                                                                &ReadPassword},
-   {NULL,       "U", (void*)&options.user,         OPTION_SPECIAL,  0,
-                                                                &ReadUsername},
-   {NULL,       "c", (void*)&options.conffilename, OPTION_STRING,   0,
-                                                               &CheckFilename},
-   {NULL,       "f", (void*)&options.auctfilename, OPTION_STRING,   0,
-                                                               &CheckFilename},
-   {"reduce",  NULL, (void*)&options.reduce,       OPTION_BOOL,     0, NULL},
-   {NULL,       "r", (void*)&options.reduce,       OPTION_BOOL_NEG, 0, NULL},
-   {NULL,       "n", (void*)&options.bid,          OPTION_BOOL_NEG, 0, NULL},
-   {"bid",     NULL, (void*)&options.bid,          OPTION_BOOL,     0, NULL},
-   {"debug",    "d", (void*)&options.debug,        OPTION_BOOL,     0, NULL},
-   {"batch",    "b", (void*)&options.batch,        OPTION_BOOL,     0, NULL},
-   {NULL,       "?", (void*)&options.usage,        OPTION_BOOL,     0, NULL},
-   {NULL,       "h", (void*)&options.usage,        OPTION_SPECIAL,  0,
-                                                                     &SetHelp},
-   {NULL, NULL, NULL, 0, 0, NULL}
+   {"username", "u", (void*)&options.user,         OPTION_STRING,   NULL},
+   {"password",NULL, (void*)&options.password,     OPTION_STRING,   NULL},
+   {"seconds",  "s", (void*)&options.bidtime,      OPTION_SPECIAL,  &CheckSecs},
+   {"quantity", "q", (void*)&options.quantity,     OPTION_INT,  &CheckQuantity},
+   {NULL,       "p", (void*)&options.password,     OPTION_SPECIAL,  &ReadPass},
+   {NULL,       "U", (void*)&options.user,         OPTION_SPECIAL,  &ReadUser},
+   {NULL,       "c", (void*)&options.conffilename, OPTION_STRING,   &CheckFile},
+   {NULL,       "f", (void*)&options.auctfilename, OPTION_STRING,   &CheckFile},
+   {"reduce",  NULL, (void*)&options.reduce,       OPTION_BOOL,     NULL},
+   {NULL,       "r", (void*)&options.reduce,       OPTION_BOOL_NEG, NULL},
+   {"bid",     NULL, (void*)&options.bid,          OPTION_BOOL,     NULL},
+   {NULL,       "n", (void*)&options.bid,          OPTION_BOOL_NEG, NULL},
+   {"debug",    "d", (void*)&options.debug,        OPTION_BOOL,     NULL},
+   {"batch",    "b", (void*)&options.batch,        OPTION_BOOL,     NULL},
+   {NULL,       "?", (void*)&options.usage,        OPTION_BOOL,     NULL},
+   {NULL,       "h", (void*)&options.usage,        OPTION_SPECIAL,  &SetHelp},
+   {NULL, NULL, NULL, 0, NULL}
    };
 
 	/* all known options */

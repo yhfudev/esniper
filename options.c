@@ -94,30 +94,24 @@ readConfigFile(const char *filename, optionTable_t *table)
 				addchar(buf, bufsize, count, c);
 				c = getc(fp);
 			} while (c != EOF && !isspace(c) && c != '=');
-			term(buf, bufsize, count);
-			name = myStrdup(buf);
+			addchar(buf, bufsize, count, '\0');
+			name = buf;
 
 			if (c != EOF && c != '\n') {
 				do {
-					addchar(buf, bufsize, count, c);
 					c = getc(fp);
 				} while (c == '=' || c == ' ' || c == '\t');
 
 				if (c != EOF && c != '\n') {
-					int valuePos = count;
-
+					value = &buf[count];
 					do {
 						addchar(buf, bufsize, count, c);
 						c = getc(fp);
 					} while (c != EOF && c != '\n');
 					term(buf, bufsize, count);
-					value = myStrdup(&buf[valuePos]);
-				} else
-					term(buf, bufsize, count);
+				}
 			}
 			parseConfigValue(name, value, table, filename, buf);
-			free(name);
-			free(value);
 		}
 
 		/* don't read EOF twice! */
@@ -202,7 +196,6 @@ parseConfigValue(const char *name, const char *value, optionTable_t *table,
                                        : tableptr->optionname);
          exit(1);
       }
-      tableptr->set = 1;
    } else {
       if(filename)
          printLog(stderr, "Unknown configuration entry \"%s\" in file %s\n",
@@ -295,15 +288,12 @@ parseStringValue(const char *name, const char *value, optionTable_t *tableptr,
       return 1;
    }
    if(tableptr->checkfunc) {
-      /* check value with specific check function */
-      if((*tableptr->checkfunc)(value, tableptr, filename, line) != 0) {
+      /* Check value with specific check function.
+       * Check function is responsible for allocating/freeing values */
+      if((*tableptr->checkfunc)(value, tableptr, filename, line) != 0)
          return 1;
-      }
    } else {
-      /* free old value if present */
-      if (tableptr->set && *(char**)(tableptr->value))
-         free(*(char**)(tableptr->value));
-
+      free(*(char**)(tableptr->value));
       *(char**)(tableptr->value) = myStrdup(value);
    }
    log(("string value for %s is \"%s\"\n", name, *(char**)(tableptr->value)));
