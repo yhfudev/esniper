@@ -37,7 +37,7 @@ extern int bid(auctionInfo *aip);
 
 #if DEBUG
 /* secret option */
-extern void testParser(void);
+extern void testParser(int flag);
 #endif
 
 #endif /* AUCTION_H_INCLUDED */

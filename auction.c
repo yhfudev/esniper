@@ -46,8 +46,7 @@ static const char *gettag(FILE *fp);
 static char *getnontag(FILE *fp);
 static long getseconds(char *timestr);
 static int parseAuction(FILE *fp, auctionInfo *aip, int quantity, const char *user);
-static int parseAuctionOld(FILE *fp, auctionInfo *aip, int quantity, const char *user);
-static int parseAuctionNew(FILE *fp, auctionInfo *aip, int quantity, const char *user);
+static int parseAuctionInternal(FILE *fp, auctionInfo *aip, int quantity, const char *user, char **currently, char **winner);
 static int parseBid(FILE *fp, auctionInfo *aip);
 
 /*
@@ -208,6 +207,7 @@ getnontag(FILE *fp)
 		return NULL;
 	}
 	while ((c = getc(fp)) != EOF) {
+		c &= 0x7F;	/* eBay throws in 8th bit to screw things up */
 		switch (c) {
 		case '<':
 			ungetc(c, fp);
@@ -312,7 +312,8 @@ getseconds(char *timestr)
 static int
 parseAuction(FILE *fp, auctionInfo *aip, int quantity, const char *user)
 {
-	char *line;
+	char *line, *currently = NULL, *winner = NULL;
+	int ret;
 
 	resetAuctionError(aip);
 
@@ -321,77 +322,71 @@ parseAuction(FILE *fp, auctionInfo *aip, int quantity, const char *user)
 	 */
 	while ((line = getnontag(fp))) {
 		if (!strcmp(line, "Bid History"))
-			return parseAuctionNew(fp, aip, quantity, user);
-		if (!strcmp(line, "eBay.com Bid History for") ||
-		    !strcmp(line, "eBay.comBid History for") ||
-		    !strcmp(line, "eBay Bid History for") ||
-		    !strcmp(line, "eBayBid History for"))
-			return parseAuctionOld(fp, aip, quantity, user);
+			break;
 		if (!strcmp(line, "Unknown Item"))
 			return auctionError(aip, ae_baditem, NULL);
 	}
-	return auctionError(aip, ae_notitle, NULL);
+	if (!line)
+		return auctionError(aip, ae_notitle, NULL);
+
+	ret = parseAuctionInternal(fp, aip, quantity, user, &currently, &winner);
+	free(currently);
+	free(winner);
+	return ret;
 } /* parseAuction() */
 
-/*
- * parseAuctionNew(): parses new-style bid history page.
- *	Changeover to new style took place gradually around 03/27/2004.
- *
- * returns:
- *	0 OK
- *	1 error (badly formatted page, etc) - sets auctionError
- */
+const char PRIVATE[] = "private auction - bidders' identities protected";
+
 static int
-parseAuctionNew(FILE *fp, auctionInfo *aip, int quantity, const char *user)
+parseAuctionInternal(FILE *fp, auctionInfo *aip, int quantity, const char *user, char **currently, char **winner)
 {
 	char *line;
+	char *title;
+	int reserve = 0;	/* 1 = reserve not met */
 
 	/*
 	 * Auction item
 	 */
-	line = getnontag(fp);
+	while ((line = getnontag(fp))) {
+		if (!strcmp(line, "Item title:")) {
+			line = getnontag(fp);
+			break;
+		}
+	}
 	if (!line)
 		return auctionError(aip, ae_notitle, NULL);
-	printLog(stdout, "Auction %s: %s\n", aip->auction, line);
-
-
-	/*
-	 * current price
-	 */
+	title = myStrdup(line);
 	while ((line = getnontag(fp))) {
-		if (!strcmp("Currently:", line)) {
-			line = getnontag(fp);
+		char *tmp;
+
+		if (line[strlen(line) - 1] == ':')
 			break;
-		}
+		tmp = title;
+		title = myStrdup2(tmp, line);
+		free(tmp);
 	}
-	if (!line)
-		return auctionError(aip, ae_noprice, NULL);
-	printLog(stdout, "Currently: %s  (your maximum bid: %s)\n", line,
-		 aip->bidPriceStr);
-	aip->price = atof(priceFixup(line));
-	if (aip->price < 0.01)
-		return auctionError(aip, ae_convprice, line);
-
+	printLog(stdout, "Auction %s: %s\n", aip->auction, title);
+	free(title);
 
 	/*
-	 * Number of bids
+	 * Quantity/Current price/Time remaining
 	 */
-	while ((line = getnontag(fp))) {
-		if (!strcmp("# of bids:", line)) {
+	for (; line; line = getnontag(fp)) {
+		if (!strcmp("Quantity:", line)) {
 			line = getnontag(fp);
-			break;
-		}
-	}
-	if (!line || (aip->bids = atoi(line)) < 0)
-		return auctionError(aip, ae_nonumbid, NULL);
-	printLog(stdout, "Bids: %d\n", aip->bids);
-
-
-	/*
-	 * Time remaining
-	 */
-	while ((line = getnontag(fp))) {
-		if (!strcmp("Time left:", line)) {
+			if (!line || (aip->quantity = atoi(line)) < 1)
+				return auctionError(aip, ae_noquantity, NULL);
+			log(("quantity: %d", aip->quantity));
+		} else if (!strcmp("Currently:", line)) {
+			line = getnontag(fp);
+			if (!line)
+				return auctionError(aip, ae_noprice, NULL);
+			*currently = myStrdup(line);
+			log(("Currently: %s  (your maximum bid: %s)\n", line, aip->bidPriceStr));
+			aip->price = atof(priceFixup(line));
+			if (aip->price < 0.01)
+				return auctionError(aip, ae_convprice, line);
+		} else if (!strcmp("Time left:", line)) {
 			line = getnontag(fp);
 			break;
 		}
@@ -403,315 +398,174 @@ parseAuctionNew(FILE *fp, auctionInfo *aip, int quantity, const char *user)
 	printLog(stdout, "Time remaining: %s (%ld seconds)\n",
 		line, aip->remain);
 
-
-	/*
-	 * Quantity
-	 */
-	while ((line = getnontag(fp))) {
-		if (!strcmp("Quantity:", line)) {
-			line = getnontag(fp);
-			break;
-		}
-	}
-	if (!line || (aip->quantity = atoi(line)) < 1)
-		return auctionError(aip, ae_noquantity, NULL);
-	log(("quanity: %d", aip->quantity));
+	if (!(line = getnontag(fp)))
+		return auctionError(aip, ae_nohighbid, NULL);
+	if (!strcmp("Reserve not met", line))
+		reserve = 1;
 
 
 	/*
-	 * High bidder
+	 * Determine high bidder
 	 *
 	 * Format of high bidder table is:
 	 *
 	 *	Single item auction:
 	 *	    Header line:
-	 *		"Date of Bid"
-	 *		"Bid Amount"
 	 *		"User ID"
+	 *		"Bid Amount"
+	 *		"Date of bid"
 	 *	    For each bid:
-	 *			<date>
-	 *			<amount, or -- if auction still on>
 	 *			<user>
 	 *			"("
 	 *			<feedback #>
 	 *			")"
+	 *			<amount>
+	 *			<date>
 	 *
 	 *	    If the auction is private, the user names are:
-	 *		"private auction -- bidders' identities protected"
+	 *		"private auction - bidders' identities protected"
 	 *
 	 *	Dutch auction:
 	 *	    Header line:
-	 *		"Date of Bid"
-	 *		"Bid Amount"
-	 *		"Quantity"
 	 *		"User ID"
+	 *		"Bid Amount"
+	 *		"Quantity wanted"
+	 *		"Quantity winning"
+	 *		"Date of Bid"
 	 *	    For each bid:
-	 *			<date>
-	 *			<amount>
-	 *			<quantity>
 	 *			<user>
 	 *			"("
 	 *			<feedback #>
 	 *			")"
+	 *			<amount>
+	 *			<quantity wanted>
+	 *			<quantity winning>
+	 *			<date>
 	 *
 	 *	    Dutch auctions cannot be private.
+	 *
+	 *	If there are no bids, the text "No bids have been placed."
+	 *	will be the first entry in the table.
 	 */
-	if (aip->bids == 0) {
-		puts("High bidder: --");
-	} else if (aip->quantity == 1) {
-		/* single auction with bids */
-		const char *winner = NULL;
-
-		while((line = getnontag(fp))) {
-			if (!strcmp("Date of Bid", line)) {
-				getnontag(fp);	/* "Bid Amount" */
-				getnontag(fp);	/* "User ID" */
-				getnontag(fp);	/* date */
-				getnontag(fp);	/* amount */
-				line = getnontag(fp);	/* user */
-				break;
+	/* header line */
+	while ((line = getnontag(fp))) {
+		if (!strcmp("User ID", line)) {
+			getnontag(fp);	/* Bid Amount */
+			if (aip->quantity > 1) {
+				getnontag(fp);	/* Quantity wanted */
+				getnontag(fp);	/* Quantity winning */
 			}
+			getnontag(fp);	/* Date of Bid */
+			break;
 		}
-		if (!line)
-			return auctionError(aip, ae_nohighbid, NULL);
-		if (!strcmp(line, "private auction -- bidders' identities protected")) {
-			if (aip->price <= aip->bidPrice &&
-			    (aip->bidResult == 0 ||
-			     (aip->bidResult == -1 &&
-			      aip->remain < options.bidtime)))
-				winner = user;
-			else
-				winner = "[private]";
-		} else
-			winner = line;
-		if (strcasecmp(winner, user)) {
-			printLog(stdout, "High bidder: %s (NOT %s)\n", winner, user);
-			if (!aip->remain)
-				aip->won = 0;
-		} else {
-			printLog(stdout, "High bidder: %s!!!\n", winner);
-			if (!aip->remain)
-				aip->won = 1;
-		}
-	} else {
-		/* dutch with bids */
-		int bids = aip->bids;
-		int numItems = aip->quantity;
-		int match = 0;
+	}
+	if (!(line = getnontag(fp)))
+		return auctionError(aip, ae_nohighbid, NULL);
+	if (!strcmp("No bids have been placed.", line)) {
+		aip->bids = 0;
+		/* can't determine starting bid on history page */
+		aip->price = 0;
+		puts("# of bids: 0");
+		puts("Currently: --");
+		printf("High bidder: -- (not %s)\n", user);
+	} else if (aip->quantity == 1) {	/* single auction with bids */
+		int private = 0;
 
-		while((line = getnontag(fp))) {
-			if (!strcmp("Date of Bid", line)) {
-				getnontag(fp);	/* "Bid Amount" */
-				getnontag(fp);	/* "Quantity" */
-				line = getnontag(fp);	/* "User ID" */
-				break;
-			}
-		}
-		if (!line)
-			return auctionError(aip, ae_nohighbid, NULL);
-		while (bids && numItems > 0) {
-			int bidQuant;
-
-			getnontag(fp);	/* date */
-			getnontag(fp);	/* amount */
-			line = getnontag(fp);	/* quantity */
-			if (!line || !(bidQuant = atoi(line)))
-				return auctionError(aip, ae_nohighbid, NULL);
-			numItems -= bidQuant;
-			--bids;
-			line = getnontag(fp);	/* user */
-			if ((match = !strcasecmp(user, line))) {
-				if (numItems >= 0) {
-					if (!aip->remain)
-						aip->won = bidQuant;
-					printLog(stdout, "High bidder: %s!!!\n", user);
-				} else {
-					if (!aip->remain)
-						aip->won = bidQuant + numItems;
-					printLog(stdout, "High bidder: %s!!! (%d out of %d items)\n", user, bidQuant + numItems, bidQuant);
-				}
-				break;
-			}
+		if (!strcmp(line, PRIVATE))
+			private = 1;
+		else
+			*winner = myStrdup(line);
+		aip->bids = 1;
+		if (!private) {
 			getnontag(fp);	/* "(" */
-			getnontag(fp);	/* feedback # */
-			line = getnontag(fp);	/* ")" */
-			if (!line)
-				return auctionError(aip, ae_nohighbid, NULL);
+			getnontag(fp);	/* <feedback> */
+			getnontag(fp);	/* ")" */
 		}
-		if (!match) {
-			printLog(stdout, "High bidder: various dutch bidders (NOT %s)\n", user);
-			if (!aip->remain)
-				aip->won = 0;
+		*currently = myStrdup(getnontag(fp));	/* bid amount */
+		aip->price = atof(priceFixup(line));
+		if (aip->price < 0.01)
+			return auctionError(aip, ae_convprice, line);
+		if (private) {
+			*winner = (aip->price <= aip->bidPrice &&
+				   (aip->bidResult == 0 ||
+				    (aip->bidResult == -1 &&
+				     aip->remain < options.bidtime))) ?
+					myStrdup(user) : myStrdup("[private]");
 		}
-	}
-
-	return 0;
-} /* parseAuctionNew() */
-
-/*
- * parseAuctionOld(): parses old-style bid history page.
- *	Changeover to new style took place gradually around 03/27/2004.
- *
- * returns:
- *	0 OK
- *	1 error (badly formatted page, etc) - sets auctionError
- */
-static int
-parseAuctionOld(FILE *fp, auctionInfo *aip, int quantity, const char *user)
-{
-	char *line, *s1;
-
-	/*
-	 * Auction item
-	 */
-	line = getnontag(fp);
-	if (!line || !(s1=strstr(line, " (Item #")))
-		return auctionError(aip, ae_notitle, NULL);
-	*s1 = '\0';
-	printLog(stdout, "Auction %s: %s\n", aip->auction, line);
-
-
-	/*
-	 * current price
-	 */
-	while ((line = getnontag(fp))) {
-		if (!strcmp("Currently", line))
-			break;
-	}
-	if (!line || !(line = getnontag(fp)))
-		return auctionError(aip, ae_noprice, NULL);
-	printLog(stdout, "Currently: %s  (your maximum bid: %s)\n", line,
-		 aip->bidPriceStr);
-	aip->price = atof(priceFixup(line));
-	if (aip->price < 0.01)
-		return auctionError(aip, ae_convprice, line);
-
-
-	/*
-	 * Quantity
-	 */
-	while ((line = getnontag(fp))) {
-		if (!strcmp("Quantity", line))
-			break;
-	}
-	if (!line || !(line = getnontag(fp)) ||
-	    (aip->quantity = atoi(line)) < 1)
-		return auctionError(aip, ae_noquantity, NULL);
-	log(("quanity: %d", aip->quantity));
-
-
-	/*
-	 * Number of bids
-	 */
-	while ((line = getnontag(fp))) {
-		if (!strcmp("# of bids", line))
-			break;
-	}
-	if (!line || !(line = getnontag(fp)) || (aip->bids = atoi(line)) < 0)
-		return auctionError(aip, ae_nonumbid, NULL);
-	printLog(stdout, "Bids: %d\n", aip->bids);
-
-
-	/*
-	 * Time remaining
-	 */
-	while ((line = getnontag(fp))) {
-		if (!strcmp("Time left", line))
-			break;
-	}
-	if (!line || !(line = getnontag(fp)))
-		return auctionError(aip, ae_notime, NULL);
-	if ((aip->remain = getseconds(line)) < 0)
-		return auctionError(aip, ae_badtime, line);
-	printLog(stdout, "Time remaining: %s (%ld seconds)\n",
-		line, aip->remain);
-
-
-	/*
-	 * High bidder
-	 */
-	if (aip->bids == 0) {
-		puts("High bidder: --");
-	} else if (aip->quantity == 1) {
-		/* single auction with bids */
-		const char *winner = NULL;
-
-		while((line = getnontag(fp))) {
-			if (!strcmp("Date of Bid", line))
-				break;
+		getnontag(fp); /* date */
+		/* count number of bids */
+		for (;;) {
+			if (private) {
+				line = getnontag(fp); /* UserID */
+				if (!line || strcmp(line, PRIVATE))
+					break;
+			} else {
+				getnontag(fp); /* UserID */
+				line = getnontag(fp); /* "(" */
+				if (!line || strcmp("(", line))
+					break;
+				getnontag(fp); /* <feedback> */
+				getnontag(fp); /* ")" */
+			}
+			++aip->bids;
+			getnontag(fp); /* bid amount */
+			getnontag(fp); /* date */
 		}
-		if (!line || !(line = getnontag(fp)))
-			return auctionError(aip, ae_nohighbid, NULL);
-		if (strstr(line, "private auction")) {
-			if (aip->price <= aip->bidPrice &&
-			    (aip->bidResult == 0 ||
-			     (aip->bidResult == -1 &&
-			      aip->remain < options.bidtime)))
-				winner = user;
-			else
-				winner = "[private]";
-		} else
-			winner = line;
-		if (strcasecmp(winner, user)) {
-			printLog(stdout, "High bidder: %s (NOT %s)\n", winner, user);
+		printf("Currently: %s\n", *currently);
+		printf("# of bids: %d\n", aip->bids);
+		if (strcasecmp(*winner, user)) {
+			printLog(stdout, "High bidder: %s (NOT %s)\n", *winner, user);
 			if (!aip->remain)
 				aip->won = 0;
 		} else {
-			printLog(stdout, "High bidder: %s!!!\n", winner);
+			printLog(stdout, "High bidder: %s!!!\n", *winner);
 			if (!aip->remain)
 				aip->won = 1;
 		}
-	} else {
-		/* dutch with bids */
-		int bids = aip->bids;
-		int numItems = aip->quantity;
-		int match = 0;
+	} else {	/* dutch with bids */
+		int gotMatch = 0, wanted = 0, winning = 0;
 
-		while((line = getnontag(fp))) {
-			if (!strcmp("Date of Bid", line))
-				break;
-		}
-		if (!line)
-			return auctionError(aip, ae_nohighbid, NULL);
-		while (bids && numItems > 0) {
-			int bidQuant;
+		printf("Currently: %s\n", *currently);
 
-			if (!(line = getnontag(fp)))	/* user */
-				return auctionError(aip, ae_nohighbid, NULL);
-			match = !strcasecmp(user, line);
-			if (!(line = getnontag(fp)) ||	/* reputation ( */
-			    !(line = getnontag(fp)) ||	/* reputation number */
-			    !(line = getnontag(fp)) ||	/* reputation ) */
-			    !(line = getnontag(fp)) ||	/* bid */
-			    !(line = getnontag(fp)) ||	/* numItems */
-			    !(bidQuant = atoi(line)))
-				return auctionError(aip, ae_nohighbid, NULL);
-			numItems -= bidQuant;
-			--bids;
-			if (match) {
-				if (numItems >= 0) {
-					if (!aip->remain)
-						aip->won = bidQuant;
-					printLog(stdout, "High bidder: %s!!!\n", user);
-				} else {
-					if (!aip->remain)
-						aip->won = bidQuant + numItems;
-					printLog(stdout, "High bidder: %s!!! (%d out of %d items)\n", user, bidQuant + numItems, bidQuant);
-				}
-				break;
+		aip->bids = 0;
+		/* find your bid, count number of bids */
+		do {
+			if (!gotMatch) {
+				free(*winner);
+				*winner = myStrdup(line);
 			}
-			if (!(line = getnontag(fp)))	/* date */
-				return auctionError(aip, ae_nohighbid, NULL);
-		}
-		if (!match) {
+			line = getnontag(fp); /* "(" */
+			if (strcmp("(", line))
+				break;
+			++aip->bids;
+			getnontag(fp); /* <feedback> */
+			getnontag(fp); /* ")" */
+			getnontag(fp); /* <price> */
+			if (!strcasecmp(*winner, user)) {
+				gotMatch = 1;
+				wanted = atoi(getnontag(fp)); /* <quantity wanted> */
+				winning = atoi(getnontag(fp)); /* <quantity winning> */
+			} else {
+				getnontag(fp); /* <quantity wanted> */
+				getnontag(fp); /* <quantity winning> */
+			}
+			getnontag(fp); /* <date> */
+			line = getnontag(fp); /* <date> */
+		} while (line);
+		printf("# of bids: %d\n", aip->bids);
+		if (!aip->remain)
+			aip->won = winning;
+		if (winning > 0) {
+			if (winning == wanted)
+				printLog(stdout, "High bidder: %s!!!\n", user);
+			else
+				printLog(stdout, "High bidder: %s!!! (%d out of %d items)\n", user, winning, wanted);
+		} else
 			printLog(stdout, "High bidder: various dutch bidders (NOT %s)\n", user);
-			if (!aip->remain)
-				aip->won = 0;
-		}
 	}
 
 	return 0;
-} /* parseAuctionOld() */
+} /* parseAuctionInternal() */
 
 static const char GETINFO[] = "aw-cgi/eBayISAPI.dll?ViewBids&item=";
 
@@ -1035,23 +889,38 @@ watch(auctionInfo *aip)
 #if DEBUG
 /* secret option - test parser */
 void
-testParser(void)
+testParser(int flag)
 {
-	/* run through bid parser */
-	/*
-	auctionInfo *aip = newAuctionInfo("1", "2");
-	int ret = parseBid(stdin, aip);
+	switch (flag) {
+	case 1:
+	    {
+		/* dump non-tag data */
+		char *line;
 
-	printf("ret = %d\n", ret);
-	printAuctionError(aip, stdout);
-	*/
+		while ((line = getnontag(stdin)))
+			printf("\"%s\"\n", line);
+		break;
+	    }
+	case 2:
+	    {
+		/* run through bid history parser */
+		auctionInfo *aip = newAuctionInfo("1", "2");
+		int ret = parseAuction(stdin, aip, 1, options.username);
 
-	/* dump non-tag data */
-	/*
-	char *line;
+		printf("ret = %d\n", ret);
+		printAuctionError(aip, stdout);
+		break;
+	    }
+	case 3:
+	    {
+		/* run through bid result parser */
+		auctionInfo *aip = newAuctionInfo("1", "2");
+		int ret = parseBid(stdin, aip);
 
-	while ((line = getnontag(stdin)))
-		printf("\"%s\"\n", line);
-	*/
+		printf("ret = %d\n", ret);
+		printAuctionError(aip, stdout);
+		break;
+	    }
+	}
 }
 #endif

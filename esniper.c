@@ -37,7 +37,7 @@
 #include "options.h"
 #include "util.h"
 
-static const char version[] = "esniper version 2.7.0";
+static const char version[] = "esniper version 2.8.0";
 static const char blurb[] = "Please visit http://esniper.sf.net/ for updates and bug reports.";
 
 #include <errno.h>
@@ -62,11 +62,7 @@ static const char blurb[] = "Please visit http://esniper.sf.net/ for updates and
 /* default bid time */
 #define DEFAULT_BIDTIME 10
 
-/*
- * Temporarily changed default to ebay.ca, due to 08/23/2004 changes
- * at ebay.com.
- */
-#define DEFAULT_HISTORY_HOST "offer.ebay.ca"
+#define DEFAULT_HISTORY_HOST "offer.ebay.com"
 #define DEFAULT_PREBID_HOST "offer.ebay.com"
 #define DEFAULT_BID_HOST "offer.ebay.com"
 
@@ -607,6 +603,9 @@ main(int argc, char *argv[])
 	int ret = 1;	/* assume failure, change if successful */
 	auctionInfo **auctions = NULL;
 	int c, i, numAuctions = 0, numAuctionsOrig = 0;
+#if DEBUG
+	int XFlag = 0;
+#endif
 
    /* this table describes options and config entries */
    static optionTable_t optiontab[] = {
@@ -682,8 +681,8 @@ main(int argc, char *argv[])
 			break;
 #if DEBUG
 		case 'X': /* secret option - for testing page parsing */
-			testParser();
-			exit(0);
+			++XFlag;
+			break;
 #endif
 		case 'v': /* version */
 			fprintf(stderr, "%s\n%s\n", version, blurb);
@@ -837,6 +836,9 @@ main(int argc, char *argv[])
 	log(("options.usage=%d\n", options.usage));
 
 	if (!options.usage) {
+#if DEBUG
+	    if (!XFlag) {
+#endif
 		if (!options.auctfilename && argc < 2) {
 			printLog(stderr, "Error: no auctions specified.\n");
 			options.usage |= USAGE_SUMMARY;
@@ -845,6 +847,9 @@ main(int argc, char *argv[])
 			printLog(stderr, "Error: auctions and prices must be specified in pairs.\n");
 			options.usage |= USAGE_SUMMARY;
 		}
+#if DEBUG
+	    }
+#endif
 		if (!options.username) {
 			if (options.batch) {
 				printLog(stderr, "Error: no username specified.\n");
@@ -860,6 +865,13 @@ main(int argc, char *argv[])
 				parseGetoptValue('P', NULL, optiontab);
 		}
 	}
+
+#if DEBUG
+	if (XFlag) {
+		testParser(XFlag);
+		exit(0);
+	}
+#endif
 
 	if (options.usage)
 		exit(usage(options.usage));

@@ -39,7 +39,6 @@ enum auctionErrorCode {
 	ae_noprice,
 	ae_convprice,
 	ae_noquantity,
-	ae_nonumbid,
 	ae_notime,
 	ae_badtime,
 	ae_nohighbid,

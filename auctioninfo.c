@@ -57,7 +57,6 @@ static const char *auctionErrorString[] = {
 	"Auction %s: Current price not found\n",
 	"Auction %s: Cannot convert price \"%s\"\n",
 	"Auction %s: Quantity not found\n",
-	"Auction %s: Number of bids not found\n",
 	"Auction %s: Time remaining not found\n",
 	"Auction %s: Unknown time interval \"%s\"\n",
 	"Auction %s: High bidder not found\n",
@@ -89,7 +88,7 @@ newAuctionInfo(char *auction, char *bidPriceStr)
 	aip->host = NULL;
 	aip->query = NULL;
 	aip->key = NULL;
-	aip->quantity = 0;
+	aip->quantity = 1;
 	aip->bids = 0;
 	aip->price = 0;
 	aip->bidResult = -1;
