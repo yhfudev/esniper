@@ -5,5 +5,6 @@ systems, just type "make", then "make install" (perhaps as root).  If you
 have a problem, you might want to uncomment the LIBS line in the Makefile
 and try again.
 
-A MS Visual C++ workspace (esniper.dsw) and project (esniper.dsp) are 
-available for building the native Windows version.
+A MS Visual C++ workspace (esniper.dsw), project (esniper.dsp) and
+makefile (esniper.mak) are available for building the native Windows
+version.
