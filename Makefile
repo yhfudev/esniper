@@ -53,5 +53,8 @@ install: esniper
 check:
 	gcc -c $(CFLAGS) $(CHECKFLAGS) $(SRC)
 
+esniper_man.html: esniper.1
+	man2html esniper.1 >esniper_man.html
+
 clean:
 	rm -f esniper $(OBJ) esniper.log.* core
