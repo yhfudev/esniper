@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002, 2003, Scott Nicol <esniper@sourceforge.net>
+ * Copyright (c) 2002, 2003, 2004 Scott Nicol <esniper@users.sf.net>
  * All rights reserved
  *
  * Redistribution and use in source and binary forms, with or without
@@ -684,25 +684,43 @@ main(int argc, char *argv[])
 		if (readConfigFile(options.conffilename, optiontab) > 1)
 			options.usage |= USAGE_SUMMARY;
 	} else {
-#if defined(WIN32)
-		char *homedir = getenv("USERPROFILE");
-#else
-		char *homedir = getenv("HOME");
-#endif
-
 		/* TODO: on UNIX use getpwuid() to find the home dir? */
+		char *homedir = getenv("HOME");
+#if defined(WIN32)
+		char *profiledir = getenv("USERPROFILE");
+
+		if (profiledir && *profiledir) {
+			/* parse $USERPROFILE/My Documents/.esniper */
+			char *cfname = myStrdup3(homedir,"/My Documents/",DEFAULT_CONF_FILE);
+
+			switch (readConfigFile(cfname, optiontab)) {
+			case 1: /* file not found */
+				if (homedir && *homedir) {
+					/* parse $HOME/.esniper */
+					free(cfname);
+					cfname = myStrdup3(homedir,"/",DEFAULT_CONF_FILE);
+					if (readConfigFile(cfname, optiontab) > 1)
+						options.usage |= USAGE_SUMMARY;
+				}
+				break;
+			case 0: /* OK */
+				break;
+			default: /* other error */
+				options.usage |= USAGE_SUMMARY;
+			}
+			free(cfname);
+		} else
+			printLog(stderr, "Warning: environment variable USERPROFILE not set. Cannot parse $USERPROFILE/My Documents/%s.\n", DEFAULT_CONF_FILE);
+#else
 		if (homedir && *homedir) {
 			/* parse $HOME/.esniper */
-#if defined(WIN32)
-			char *cfname = myStrdup3(homedir,"/My Documents/",DEFAULT_CONF_FILE);
-#else
 			char *cfname = myStrdup3(homedir,"/",DEFAULT_CONF_FILE);
-#endif
 			if (readConfigFile(cfname, optiontab) > 1)
 				options.usage |= USAGE_SUMMARY;
 			free(cfname);
 		} else
 			printLog(stderr, "Warning: environment variable HOME not set. Cannot parse $HOME/%s.\n", DEFAULT_CONF_FILE);
+#endif
 
 		if (options.auctfilename) {
 			/* parse .esniper in auction file's directory */
