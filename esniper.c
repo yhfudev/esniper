@@ -97,8 +97,10 @@ static int CheckConfigFile(const void* valueptr, const optionTable_t* tableptr,
                            const char* filename, const char *line);
 static int CheckProxy(const void* valueptr, const optionTable_t* tableptr,
                      const char* filename, const char *line);
-static int SetHelp(const void* valueptr, const optionTable_t* tableptr,
-                   const char* filename, const char *line);
+static int SetLongHelp(const void* valueptr, const optionTable_t* tableptr,
+                       const char* filename, const char *line);
+static int SetConfigHelp(const void* valueptr, const optionTable_t* tableptr,
+                         const char* filename, const char *line);
 
 /* called by CheckAuctionFile, CheckConfigFile */
 static int CheckFile(const void* valueptr, const optionTable_t* tableptr,
@@ -412,15 +414,28 @@ static int CheckProxy(const void* valueptr, const optionTable_t* tableptr,
 }
 
 /*
- * SetHelp(): set usage to more than 1 to activate long help
+ * SetLongHelp(): set usage to 2 to activate long help
  *
  * returns: 0 = OK
  */
-static int SetHelp(const void* valueptr, const optionTable_t* tableptr,
-                   const char* filename, const char *line)
+static int SetLongHelp(const void* valueptr, const optionTable_t* tableptr,
+                       const char* filename, const char *line)
 {
    /* copy value to target variable */
    *(int*)(tableptr->value) = 2;
+   return 0;
+}
+
+/*
+ * SetConfigHelp(): set usage to 3 to activate config file help
+ *
+ * returns: 0 = OK
+ */
+static int SetConfigHelp(const void* valueptr, const optionTable_t* tableptr,
+                         const char* filename, const char *line)
+{
+   /* copy value to target variable */
+   *(int*)(tableptr->value) = 3;
    return 0;
 }
 
@@ -433,30 +448,66 @@ static const char usageLong[] =
  "where:\n"
  "-b: batch mode, don't prompt for password or username if not specified\n"
  "-d: write debug output to file\n"
- "-l: log directory\n"
+ "-h: command line options help\n"
+ "-H: config and auction file help\n"
+ "-l: log directory (default: ., or directory of auction file, if specified)\n"
  "-n: do not place bid\n"
- "-p: http proxy\n"
+ "-p: http proxy (default: http_proxy environment variable, format is\n"
+ "    http://host:port/)\n"
  "-P: prompt for password\n"
  "-r: do not reduce quantity on startup if already won item(s)\n"
- "-U: prompt for username\n"
- "-v: print version and exit\n"
  "-u: ebay username\n"
+ "-U: prompt for ebay username\n"
+ "-v: print version and exit\n"
  "-s: time to place bid which may be \"now\" or seconds before end of auction\n"
  "    (default is %d seconds before end of auction)\n"
  "-q: quantity to buy (default is 1)\n"
- "-c: read config from specified file instead of \".esniper\"\n"
+ "-c: config file (default is \"$HOME/.esniper\" and, if auction file is\n"
+ "    specified, .esniper in auction file's directory)\n"
  "\n"
  "You must specify either an auction file or <auction> <price> pair[s].\n"
  "Options on the command line override settings in config and auction files.\n";
 
+static const char usageConfig[] =
+ "Config variables (values shown are default):\n"
+ "  Boolean: (valid values: true,y,yes,on,1,enabled  false,n,no,off,0,disabled)\n"
+ "    batch = false\n"
+ "    bid = true\n"
+ "    debug = false\n"
+ "    reduce = true\n"
+ "  String:\n"
+ "    logdir = .\n"
+ "    password =\n"
+ "    proxy = <http_proxy environment variable, format is http://host:port/>\n"
+ "    username =\n"
+ "  Numeric: (seconds may also be \"now\")\n"
+ "    quantity = 1\n"
+ "    seconds = %d\n"
+ "\n"
+ "A config file consists of variable settings, blank lines, and comment lines.\n"
+ "Comment lines begin with #\n"
+ "\n"
+ "An auction file is similar to a config file, but it also has one or more\n"
+ "auction lines.  An auction line contains an auction number, optionally followed\n"
+ "by a bid price.  If no bid price is given, the auction number uses the bid\n"
+ "price of the first prior auction line that contains a bid price.\n";
+
 static void
-usage(int longhelp)
+usage(int helplevel)
 {
-	fprintf(stderr, usageSummary, progname);
-	if (longhelp)
-		fprintf(stderr, usageLong, DEFAULT_BIDTIME);
-	else
+	switch (helplevel) {
+	case 1:
+		fprintf(stderr, usageSummary, progname);
 		fprintf(stderr, "use \"%s -h\" for more help.\n", progname);
+		break;
+	case 2:
+		fprintf(stderr, usageSummary, progname);
+		fprintf(stderr, usageLong, DEFAULT_BIDTIME);
+		break;
+	case 3:
+		fprintf(stderr, usageConfig, DEFAULT_BIDTIME);
+		break;
+	}
 	fprintf(stderr,"\n%s\n", blurb);
 }
 
@@ -486,12 +537,13 @@ main(int argc, char *argv[])
    {"batch",    "b", (void*)&options.batch,        OPTION_BOOL,     NULL},
    {"logdir",   "l", (void*)&options.logdir,       OPTION_STRING,   NULL},
    {NULL,       "?", (void*)&options.usage,        OPTION_BOOL,     NULL},
-   {NULL,       "h", (void*)&options.usage,        OPTION_STRING,   &SetHelp},
+   {NULL,       "h", (void*)&options.usage,        OPTION_STRING,   &SetLongHelp},
+   {NULL,       "H", (void*)&options.usage,        OPTION_STRING,   &SetConfigHelp},
    {NULL, NULL, NULL, 0, NULL}
    };
 
 	/* all known options */
-	static const char optionstring[]="bc:dhl:np:Pq:rs:u:UvX";
+	static const char optionstring[]="bc:dhHl:np:Pq:rs:u:UvX";
 
 	atexit(cleanup);
 	progname = basename(argv[0]);
@@ -511,7 +563,8 @@ main(int argc, char *argv[])
 			 * command line -d overrides settings in config files
 			 */
 		case 'd': /* debug */
-		case 'h': /* long help */
+		case 'h': /* command-line options help */
+		case 'H': /* config and auction file help */
 		case '?': /* unknown -> help */
 			parseGetoptValue(c, NULL, optiontab);
 			break;
@@ -536,7 +589,7 @@ main(int argc, char *argv[])
 	}
 
 	if (options.usage) {
-		usage(options.usage > 1);
+		usage(options.usage);
 		exit(1);
 	}
 
