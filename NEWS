@@ -1,0 +1,3 @@
+Changes from esniper 2.8.1 to 2.9.0Alpha:
+=========================================
+* http handling code rewritten using libcurl [bomm]

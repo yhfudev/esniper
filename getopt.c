@@ -16,6 +16,7 @@
  * don't need to use this file!
  */
 
+#include "getopt.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -33,7 +34,7 @@ getopt(int argc, char *const *argv, const char *opts)
 	register int c;
 	register char *cp;
 
-	if(sp == 1)
+	if(sp == 1) {
 		if(optind >= argc ||
 		   argv[optind][0] != '-' || argv[optind][1] == '\0')
 			return(EOF);
@@ -41,6 +42,7 @@ getopt(int argc, char *const *argv, const char *opts)
 			optind++;
 			return(EOF);
 		}
+	}
 	optopt = c = argv[optind][sp];
 	if(c == ':' || (cp=strchr(opts, c)) == NULL) {
 		ERR(": illegal option -- ", c);
