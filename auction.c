@@ -476,7 +476,7 @@ parseAuctionNew(FILE *fp, auctionInfo *aip, int quantity, const char *user)
 		}
 		if (!line)
 			return auctionError(aip, ae_nohighbid, NULL);
-		if (strcmp(line, "private auction -- bidders' identities protected")) {
+		if (!strcmp(line, "private auction -- bidders' identities protected")) {
 			if (aip->bidResult == 0 && aip->price <= aip->bidPrice)
 				winner = user;
 			else
@@ -519,7 +519,7 @@ parseAuctionNew(FILE *fp, auctionInfo *aip, int quantity, const char *user)
 			numItems -= bidQuant;
 			--bids;
 			line = getnontag(fp);	/* user */
-			if (!(match = strcasecmp(user, line))) {
+			if ((match = !strcasecmp(user, line))) {
 				if (numItems >= 0) {
 					if (!aip->remain)
 						aip->won = bidQuant;
