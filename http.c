@@ -26,24 +26,34 @@
 
 #include "http.h"
 #include "esniper.h"
-#if defined(WIN32) /* TODO */
-#       include <winsock.h>
-#else
-#       include <unistd.h>
-#       include <netinet/in.h>
-#       include <sys/socket.h>
-#endif
-#if defined(_XOPEN_SOURCE_EXTENDED)
-#	include <arpa/inet.h>
-#endif
 #include <ctype.h>
 #include <errno.h>
 #include <limits.h>
-#include <netdb.h>
-#include <signal.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
-#include <strings.h>	/* AIX 4.2 strcasecmp() */
+#include <sys/types.h>
+#include <time.h>
+#if defined(WIN32)
+#	include <winsock.h>
+#	include <io.h>
+#	include <fcntl.h>
+#	define sleep(t) _sleep((t))
+#	define strcasecmp(s1, s2) stricmp((s1), (s2))
+#	define strncasecmp(s1, s2, n) strnicmp((s1), (s2), (n))
+#else
+#	include <signal.h>
+#	include <unistd.h>
+#	include <netdb.h>
+#	include <netinet/in.h>
+#	include <sys/socket.h>
+#	if defined(_XOPEN_SOURCE_EXTENDED)
+#		include <arpa/inet.h>
+#	endif
+#	if defined(__aix)
+#		include <strings.h>	/* AIX 4.2 strcasecmp() */
+#	endif
+#endif
 
 enum requestType {GET, POST};
 
@@ -52,6 +62,20 @@ static int getRedirect(FILE *fp, char **host, char **query, char **cookie);
 static int getStatus(FILE *fp);
 static FILE *httpRequest(auctionInfo *, const char *host, const char *url, const char *cookies, const char *data, const char *logData, int saveRedirect, enum requestType);
 static FILE *checkStatus(auctionInfo *aip, FILE *fp, const char *cookies, const char *data, const char *logData, int saveRedirect, enum requestType rt);
+static int closeFdSocket(int fd);
+
+#if defined(WIN32)
+typedef struct fdToSock {
+	int fd;
+	SOCKET sock;
+	struct fdToSock *next;
+} fdToSock;
+static fdToSock *fdToSockHead = NULL;
+
+static void storeSocket(int fd, SOCKET sock);
+static SOCKET getSocket(int fd);
+static const char *winsockStrerror(int err);
+#endif
 
 /*
  * Open a connection to the host.  Return valid FILE * if successful, NULL
@@ -60,13 +84,18 @@ static FILE *checkStatus(auctionInfo *aip, FILE *fp, const char *cookies, const 
 static FILE *
 verboseConnect(proxy_t *proxy, const char *host, unsigned int retryTime, int retryCount)
 {
-	int saveErrno, sockfd = -1, rc = -1, count;
+	int sockfd = -1, rc = -1, count;
 	struct sockaddr_in servAddr;
 	struct hostent *entry = NULL;
-	static struct sigaction alarmAction;
 	static int firstTime = 1;
 	const char *connectHost;
 	int connectPort;
+#if defined(WIN32)
+	SOCKET winSocket;
+#else
+	static struct sigaction alarmAction;
+	int saveErrno;
+#endif
 
 	/* use proxy? */
 	if (proxy->host) {
@@ -77,11 +106,41 @@ verboseConnect(proxy_t *proxy, const char *host, unsigned int retryTime, int ret
 		connectPort = 80;
 	}
 
-	if (firstTime)
+	if (firstTime) {
+#if defined(WIN32)
+		WSADATA wsaData;
+		int sockopt = SO_SYNCHRONOUS_NONALERT;
+
+		if (WSAStartup(MAKEWORD(1, 1), &wsaData) != NO_ERROR) {
+			printLog(stderr, "Error %d during WSAStartup: %s\n",
+				 WSAGetLastError(),
+				 winsockStrerror(WSAGetLastError()));
+			exit(1);
+		}
+		if (setsockopt(INVALID_SOCKET, SOL_SOCKET, SO_OPENTYPE,
+				(char *)&sockopt,sizeof(sockopt)) < 0) {
+			printLog(stderr, "Error %d during setsockopt: %s\n",
+				 errno, strerror(errno));
+			exit(1);
+		}
+#else
 		sigaction(SIGALRM, NULL, &alarmAction);
+#endif
+		firstTime = 0;
+	}
 	for (count = 0; count < 10; count++) {
 		if (!(entry = gethostbyname(connectHost))) {
-			log(("gethostbyname errno %d\n", h_errno));
+			if (options.debug) {
+#if defined(WIN32)
+				int err = WSAGetLastError();
+				const char *errmsg = winsockStrerror(err);
+#else
+				int err = h_errno;
+				const char *errmsg = strerror(h_errno);
+#endif
+				log(("gethostbyname errno %d: %s\n",
+				     err, errmsg));
+			}
 			sleep(1);
 		} else
 			break;
@@ -100,13 +159,50 @@ verboseConnect(proxy_t *proxy, const char *host, unsigned int retryTime, int ret
 	memcpy(&servAddr.sin_addr.s_addr, entry->h_addr, (size_t)4);
 	servAddr.sin_port = htons((unsigned short)connectPort);
 
-	log(("connecting to %s:%d", connectHost, connectPort));
+	log(("Creating socket"));
+
+#if defined(WIN32)
+	winSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+
+	if (winSocket == INVALID_SOCKET) {
+		printLog(stderr, "Socket error %d: %s\n", WSAGetLastError(),
+			 winsockStrerror(WSAGetLastError()));
+		return NULL;
+	}
+	/*
+	 * Note: _open_osfhandle of a socket doesn't work in Windows
+	 *	95 and 98 (and probably not Me).  It does work in NT,
+	 *	2000, and XP.  If you want to use esniper and you have
+	 *	95/98/Me, you must use the cygwin version.
+	 *
+	 * I'm not sure if _O_RDONLY is needed.
+	 */
+	sockfd = _open_osfhandle(winSocket, _O_RDONLY | _O_APPEND);
+	storeSocket(sockfd, winSocket);
+#else
+	sockfd = socket(AF_INET, SOCK_STREAM, 0);
+#endif
+	if (sockfd == -1) {
+		printLog(stderr, "Socket error %d: %s\n", errno,
+			strerror(errno));
+		return NULL;
+	}
+
+	log(("Connecting to %s:%d", connectHost, connectPort));
 	while (retryCount-- > 0) {
-		if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-			printLog(stderr, "Socket error %d: %s\n", errno,
-				strerror(errno));
-			return NULL;
-		}
+#if defined(WIN32)
+		/*
+		 * Use default connect timeout (about a minute...).  Can't
+		 * use SIGALRM on Win32 because it doesn't exist.  There are
+		 * a few workarounds, all involving doing the connect in its
+		 * own thread and setting a timer.  If the timer goes off
+		 * before the connect completes, kill the connect thread.
+		 * You can use either SetTimer() or CreateWaitableTimers().
+		 * See http://tangentsoft.net/wskfaq/newbie.html#timeout
+		 * for a more complete description.
+		 */
+		rc = connect(winSocket, (struct sockaddr *)&servAddr, (int)sizeof(struct sockaddr_in));
+#else
 		alarmAction.sa_flags &= ~SA_RESTART;
 		sigaction(SIGALRM, &alarmAction, NULL);
 		alarm(retryTime);
@@ -115,16 +211,71 @@ verboseConnect(proxy_t *proxy, const char *host, unsigned int retryTime, int ret
 		alarm(0);
 		alarmAction.sa_flags |= SA_RESTART;
 		sigaction(SIGALRM, &alarmAction, NULL);
+#endif
 		if (!rc)
 			break;
-		log(("connect errno %d", saveErrno));
-		close(sockfd);
-		sockfd = -1;
+#if defined(WIN32)
+		log(("Connect errno %d: %s", WSAGetLastError(),
+		     winsockStrerror(WSAGetLastError())));
+#else
+		log(("Connect errno %d: %s", saveErrno, strerror(saveErrno)));
+#endif
 	}
 	if (!rc) {
 		log((" OK "));
+		return fdopen(sockfd, "a+");
 	}
-	return (sockfd >= 0) ? fdopen(sockfd, "a+") : 0;
+	closeFdSocket(sockfd);
+	return NULL;
+}
+
+int
+closeSocket(FILE *fp)
+{
+	int ret;
+
+	runout(fp);
+	ret = closeFdSocket(fileno(fp));
+	fclose(fp);
+	return ret;
+}
+
+static int
+closeFdSocket(int fd)
+{
+	char buf[1024];
+	int ret;
+
+#if defined(WIN32)
+	SOCKET sock = getSocket(fd);
+
+	if (sock != INVALID_SOCKET) {
+		shutdown(sock, 1);
+		while ((ret = recv(sock, buf, 1024, 0)) != 0) {
+			if (ret == -1 && WSAGetLastError() != WSAEINTR)
+				break;
+		}
+		while ((ret = closesocket(sock)) == -1) {
+			if (WSAGetLastError() != WSAEINTR)
+				break;
+		}
+	}
+	while ((ret = _close(fd)) == -1) {
+		if (errno != EINTR)
+			break;
+	}
+#else
+	shutdown(fd, 1);
+	while ((ret = recv(fd, buf, 1024, 0)) != 0) {
+		if (ret == -1 && errno != EINTR)
+			break;
+	}
+	while ((ret = close(fd)) == -1) {
+		if (errno != EINTR)
+			break;
+	}
+#endif
+	return ret;
 }
 
 /* get redirection info.  Return 0 on success */
@@ -365,8 +516,7 @@ checkStatus(auctionInfo *aip, FILE *fp, const char *cookies, const char *data, c
 
 		log(("checkStatus(): Redirect! %d\n", status));
 		redirectStatus = getRedirect(fp, &newHost, &newQuery, &newCookies);
-		runout(fp);
-		fclose(fp);
+		closeSocket(fp);
 		if (redirectStatus)
 			auctionError(aip, ae_badredirect, NULL);
 		else {
@@ -399,10 +549,102 @@ checkStatus(auctionInfo *aip, FILE *fp, const char *cookies, const char *data, c
 		log(("checkStatus(): Bad status! %d\n", status));
 		sprintf(badStat, "%d", status);
 		auctionError(aip, ae_badstatus, myStrdup(badStat));
-		runout(fp);
-		fclose(fp);
+		closeSocket(fp);
 		ret = NULL;
 	    }
 	}
 	return ret;
 }
+
+#if defined(WIN32)
+static void
+storeSocket(int fd, SOCKET sock)
+{
+	struct fdToSock *fs = (fdToSock *)myMalloc(sizeof(fdToSock));
+
+	fs->fd = fd;
+	fs->sock = sock;
+	fs->next = fdToSockHead;
+	fdToSockHead = fs;
+}
+
+static SOCKET
+getSocket(int fd)
+{
+	fdToSock *fs, *prev = NULL;
+	SOCKET ret = INVALID_SOCKET;
+
+	for (fs = fdToSockHead; fs; prev = fs, fs = fs->next) {
+		if (fs->fd == fd) {
+			if (prev)
+				prev->next = fs->next;
+			else
+				fdToSockHead = fs->next;
+			ret = fs->sock;
+			free(fs);
+			break;
+		}
+	}
+	return ret;
+}
+
+static const char *
+winsockStrerror(int err)
+{
+	switch (err) {
+	case 0: /* fall through */
+	case WSABASEERR: return "No Error";
+	case WSAEINTR: return "Interrupted system call";
+	case WSAEBADF: return "Bad file number";
+	case WSAEACCES: return "Permission denied";
+	case WSAEFAULT: return "Bad address";
+	case WSAEINVAL: return "Invalid argument";
+	case WSAEMFILE: return "Too many open files";
+	case WSAEWOULDBLOCK: return "Operation would block";
+	case WSAEINPROGRESS: return "Operation now in progress";
+	case WSAEALREADY: return "Operation already in progres";
+	case WSAENOTSOCK: return "Socket operation on non-socket";
+	case WSAEDESTADDRREQ: return "Destination address required";
+	case WSAEMSGSIZE: return "Message too long";
+	case WSAEPROTOTYPE: return "Protocol wrong type for socket";
+	case WSAENOPROTOOPT: return "Bad protocol option";
+	case WSAEPROTONOSUPPORT: return "Protocol not supported";
+	case WSAESOCKTNOSUPPORT: return "Socket type not supported";
+	case WSAEOPNOTSUPP: return "Operation not supported on socket";
+	case WSAEPFNOSUPPORT: return "Protocol family not supported";
+	case WSAEAFNOSUPPORT: return "Address family not supported by protocol family";
+	case WSAEADDRINUSE: return "Address already in use";
+	case WSAEADDRNOTAVAIL: return "Can't assign requested address";
+	case WSAENETDOWN: return "Network is down";
+	case WSAENETUNREACH: return "Network is unreachable";
+	case WSAENETRESET: return "Net dropped connection or reset";
+	case WSAECONNABORTED: return "Software caused connection abort";
+	case WSAECONNRESET: return "Connection reset by peer";
+	case WSAENOBUFS: return "No buffer space available";
+	case WSAEISCONN: return "Socket is already connected";
+	case WSAENOTCONN: return "Socket is not connected";
+	case WSAESHUTDOWN: return "Can't send after socket shutdown";
+	case WSAETOOMANYREFS: return "Too many references, can't splice";
+	case WSAETIMEDOUT: return "Connection timed out";
+	case WSAECONNREFUSED: return "Connection refused";
+	case WSAELOOP: return "Too many levels of symbolic links";
+	case WSAENAMETOOLONG: return "File name too long";
+	case WSAEHOSTDOWN: return "Host is down";
+	case WSAEHOSTUNREACH: return "No Route to Host";
+	case WSAENOTEMPTY: return "Directory not empty";
+	case WSAEPROCLIM: return "Too many processes";
+	case WSAEUSERS: return "Too many users";
+	case WSAEDQUOT: return "Disc Quota Exceeded";
+	case WSAESTALE: return "Stale NFS file handle";
+	case WSAEREMOTE: return "Too many levels of remote in path";
+	case WSASYSNOTREADY: return "Network SubSystem is unavailable";
+	case WSAVERNOTSUPPORTED: return "WINSOCK DLL Version out of range";
+	case WSANOTINITIALISED: return "Successful WSASTARTUP not yet performed";
+	case WSAHOST_NOT_FOUND: return "Host not found";
+	case WSATRY_AGAIN: return "Non-Authoritative Host not found";
+	case WSANO_RECOVERY: return "Non-Recoverable errors: FORMERR, REFUSED, NOTIMP";
+	case WSANO_DATA: return "Valid name, no data record of requested type";
+	}
+	return "Unknown error";
+}
+#endif

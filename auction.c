@@ -31,7 +31,13 @@
 #include <limits.h>
 #include <stdio.h>
 #include <string.h>
-#if !defined(WIN32)
+#include <sys/types.h>
+#include <time.h>
+#if defined(WIN32)
+#	include <stdlib.h>
+#	define strcasecmp(s1, s2) stricmp((s1), (s2))
+#	define sleep(t) _sleep((t))
+#else
 #	include <unistd.h>
 #endif
 
@@ -726,8 +732,7 @@ getInfo(auctionInfo *aip, int quantity, const char *user)
 		return 1;
 
 	ret = parseAuction(fp, aip, quantity, user);
-	runout(fp);
-	fclose(fp);
+	closeSocket(fp);
 	return ret;
 }
 
@@ -776,8 +781,7 @@ preBid(auctionInfo *aip)
 
 		log(("\n\ntranslated key is: %s\n\n", aip->key));
 	}
-	runout(fp);
-	fclose(fp);
+	closeSocket(fp);
 	return ret;
 }
 
@@ -886,8 +890,7 @@ bid(option_t options, auctionInfo *aip)
 		ret = 1;
 	else {
 		ret = parseBid(fp, aip);
-		runout(fp);
-		fclose(fp);
+		closeSocket(fp);
 	}
 	free(data);
 	free(logData);
@@ -1014,7 +1017,7 @@ watch(auctionInfo *aip, option_t options)
 		sleep(sleepTime);
 		printf("\n");
 
-		if (sleepTime == remain)
+		if ((long)sleepTime == remain)
 			break;
 	}
 

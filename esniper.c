@@ -37,17 +37,25 @@
 #include "options.h"
 #include "util.h"
 
-static const char version[]="esniper version 2.5.1";
+static const char version[]="esniper version 2.5.2";
 static const char blurb[]="Please visit http://esniper.sourceforge.net/ for updates and bug reports.";
 
-#if !defined(WIN32)
-#       include <unistd.h>
-#endif
 #include <errno.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#if defined(WIN32)
+#	include <io.h>
+#	define access(name, mode) _access((name), (mode))
+#	define sleep(t)	_sleep((t))
+#	define R_OK 0x04
+	extern int getopt(int, char *const *, const char *);
+	extern int opterr, optind, optopt;
+	extern char *optarg;
+#else
+#       include <unistd.h>
+#endif
 
 option_t options = {
 	NULL,             /* user */
@@ -73,7 +81,9 @@ const char BID_HOSTNAME[] = "offer.ebay.com";
 static const char *progname = NULL;
 
 /* support functions */
+#if !defined(WIN32)
 static void sigAlarm(int sig);
+#endif
 static void sigTerm(int sig);
 static int sortAuctions(auctionInfo **auctions, int numAuctions, char *user,
                         int *quantity);
@@ -112,12 +122,14 @@ static int CheckFile(const void* valueptr, const optionTable_t* tableptr,
                      const char *fileType);
 
 
+#if !defined(WIN32)
 static void
 sigAlarm(int sig)
 {
 	signal(SIGALRM, sigAlarm);
 	log((" SIGALRM"));
 }
+#endif
 
 static void
 sigTerm(int sig)
@@ -507,7 +519,11 @@ static const char usageLong1[] =
  "-r: do not reduce quantity on startup if already won item(s)\n"
  "-U: prompt for ebay username\n"
  "-v: print version and exit\n"
+#if defined(WIN32)
+ "-c: config file (default is \"My Documents/.esniper\" and, if auction file is\n"
+#else
  "-c: config file (default is \"$HOME/.esniper\" and, if auction file is\n"
+#endif
  "    specified, .esniper in auction file's directory)\n";
 static const char usageLong2[] =
  "-l: log directory (default: ., or directory of auction file, if specified)\n"
@@ -668,13 +684,20 @@ main(int argc, char *argv[])
 		if (readConfigFile(options.conffilename, optiontab) > 1)
 			options.usage |= USAGE_SUMMARY;
 	} else {
+#if defined(WIN32)
+		char *homedir = getenv("USERPROFILE");
+#else
 		char *homedir = getenv("HOME");
+#endif
 
-		/* TODO: on UNIX we could use getpwuid() to find out home directory */
+		/* TODO: on UNIX use getpwuid() to find the home dir? */
 		if (homedir && *homedir) {
 			/* parse $HOME/.esniper */
+#if defined(WIN32)
+			char *cfname = myStrdup3(homedir,"/My Documents/",DEFAULT_CONF_FILE);
+#else
 			char *cfname = myStrdup3(homedir,"/",DEFAULT_CONF_FILE);
-
+#endif
 			if (readConfigFile(cfname, optiontab) > 1)
 				options.usage |= USAGE_SUMMARY;
 			free(cfname);
@@ -798,8 +821,10 @@ main(int argc, char *argv[])
 	if (numAuctions <= 0)
 		exit(usage(USAGE_SUMMARY));
 
+#if !defined(WIN32)
 	signal(SIGALRM, sigAlarm);
 	signal(SIGHUP, SIG_IGN);
+#endif
 	signal(SIGTERM, sigTerm);
 
 	numAuctionsOrig = numAuctions;

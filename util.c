@@ -32,10 +32,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/time.h>
-#include <time.h>
+#include <sys/timeb.h>
 #include <sys/types.h>
-#if !defined(WIN32)
+#include <time.h>
+#if defined(WIN32)
+#	include <windows.h>
+#	include <io.h>
+#	define strncasecmp(s1, s2, len) strnicmp((s1), (s2), (len))
+#else
 #	include <termios.h>
 #	include <unistd.h>
 #endif
@@ -176,17 +180,15 @@ logOpen(const char *progname, const auctionInfo *aip, const char *logdir)
 void
 vlog(const char *fmt, va_list arglist)
 {
-	struct timeval tv;
-	time_t t;
+	struct timeb tb;
 	char timebuf[80];	/* more than big enough */
 
 	if (!logfile)
 		return;
 
-	gettimeofday(&tv, NULL);
-	t = (time_t)(tv.tv_sec);
-	strftime(timebuf, sizeof(timebuf), "\n\n*** %Y-%m-%d %H:%M:%S", localtime(&t));
-	fprintf(logfile, "%s.%06ld ", timebuf, (long)tv.tv_usec);
+	ftime(&tb);
+	strftime(timebuf, sizeof(timebuf), "\n\n*** %Y-%m-%d %H:%M:%S", localtime(&(tb.time)));
+	fprintf(logfile, "%s.%06ld ", timebuf, (long)tb.millitm);
 	vfprintf(logfile, fmt, arglist);
 	fflush(logfile);
 }
@@ -347,7 +349,15 @@ prompt(const char *p, int noecho)
 	char *buf = NULL;
 	size_t size = 0, count = 0;
 	int c;
-	struct termios save, new;
+#if defined(WIN32)
+	HANDLE in = GetStdHandle(STD_INPUT_HANDLE);
+	DWORD save, tmp;
+
+	if (in == INVALID_HANDLE_VALUE || GetFileType (in) != FILE_TYPE_CHAR)
+		noecho = 0;
+#else
+	struct termios save, tmp;
+#endif
 
 	if (!isatty(fileno(stdin))) {
 		printLog(stderr, "Cannot prompt, stdin is not a terminal\n");
@@ -356,12 +366,17 @@ prompt(const char *p, int noecho)
 
 	fputs(p, stdout);
 
-	if (noecho) {
-		/* echo off */
+	if (noecho) {	/* echo off */
+#if defined(WIN32)
+		GetConsoleMode(in, &save);
+		tmp = save & (~ENABLE_ECHO_INPUT);
+		SetConsoleMode(in, tmp);
+#else
 		tcgetattr(fileno(stdin), &save);
-		memcpy(&new, &save, sizeof(struct termios));
-		new.c_lflag &= (~ECHO);
-		tcsetattr(fileno(stdin), TCSANOW, &new);
+		memcpy(&tmp, &save, sizeof(struct termios));
+		tmp.c_lflag &= (~ECHO);
+		tcsetattr(fileno(stdin), TCSANOW, &tmp);
+#endif
 	}
 
 	/* read value */
@@ -369,9 +384,12 @@ prompt(const char *p, int noecho)
 		addcharinc(buf, size, count, c, (size_t)20);
 	terminc(buf, size, count, (size_t)20);
 
-	if (noecho) {
-		/* echo on */
+	if (noecho) {	/* echo on */
+#if defined(WIN32)
+		SetConsoleMode(in, save);
+#else
 		tcsetattr(fileno(stdin), TCSANOW, &save);
+#endif
 		putchar('\n');
 	}
 
@@ -510,7 +528,11 @@ static void
 seedPasswordRandom(void)
 {
 	if (needSeed) {
+#if defined(WIN32)
+		srand(time(0));
+#else
 		srandom((unsigned int)(getpid() * time(0)));
+#endif
 		needSeed = 0;
 	}
 }
@@ -545,8 +567,12 @@ setPassword(char *password)
 	free(passwordPad);
 	passwordLen = strlen(password) + 1;
 	passwordPad = (char *)myMalloc(passwordLen);
-	for (i = 0; i < passwordLen; ++i)
+	for (i = 0; i < (int)passwordLen; ++i)
+#if defined(WIN32)
+		passwordPad[i] = (char)rand();
+#else
 		passwordPad[i] = (char)random();
+#endif
 	toLowerString(password);
 	cryptPassword(password);
 	free(options.password);
@@ -558,7 +584,7 @@ cryptPassword(char *password)
 {
 	int i;
 
-	for (i = 0; i < passwordLen; ++i)
+	for (i = 0; i < (int)passwordLen; ++i)
 		password[i] ^= passwordPad[i];
 }
 
