@@ -138,7 +138,7 @@ getPageInfo(memBuf_t *mp)
 
 	log(("getPageInfo():\n"));
 	while (needMore && (line = gettag(mp))) {
-		char *tmp, *pagename, *quote;
+		char *tmp;
 
 		if (strncmp(line, "!--", 3))
 			continue;

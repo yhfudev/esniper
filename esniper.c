@@ -131,12 +131,12 @@ static int CheckFile(const void* valueptr, const optionTable_t* tableptr,
                      const char *fileType);
 
 
-const char *getVersion()
+const char *getVersion(void)
 {
 	return version;
 }
 
-const char *getProgname()
+const char *getProgname(void)
 {
 	return progname ? progname : "esniper";
 }
@@ -700,7 +700,7 @@ main(int argc, char *argv[])
 			break;
 #endif
 		case 'v': /* version */
-			fprintf(stderr, "%s version %s\n%s\n", getProgname(), getVersion, blurb);
+			fprintf(stderr, "%s version %s\n%s\n", getProgname(), getVersion(), blurb);
 			exit(0);
 			break;
 		default:
