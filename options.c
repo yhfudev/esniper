@@ -121,7 +121,8 @@ readConfigFile(const char *filename, optionTable_t *table)
 					term(buf, bufsize, count);
 				}
 			}
-			parseConfigValue(name, value, table, filename, buf);
+			if (parseConfigValue(name, value, table, filename, buf))
+				ret = 2;
 		}
 
 		/* don't read EOF twice! */
@@ -171,9 +172,8 @@ parseConfigValue(const char *name, const char *value,
 	const char *tablename;
 	int ret = 0;
 
-	if (strcmp(name, "password")) {
+	if (strcmp(name, "password"))
 		log(("parsing name %s value %s\n", name, nullStr(value)));
-	}
 
 	/* lookup name in table */
 	for (tableptr=table; tableptr->value; tableptr++) {

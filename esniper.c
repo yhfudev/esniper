@@ -147,7 +147,7 @@ getProgname(void)
 static void
 sigAlarm(int sig)
 {
-	signal(SIGALRM, sigAlarm);
+	signal(sig, sigAlarm);
 	log((" SIGALRM"));
 }
 #endif
@@ -155,7 +155,7 @@ sigAlarm(int sig)
 static void
 sigTerm(int sig)
 {
-	signal(SIGTERM, SIG_DFL);
+	signal(sig, SIG_DFL);
 	log(("SIGTERM...\n"));
 	raise(sig);
 }
@@ -179,7 +179,7 @@ sortAuctions(auctionInfo **auctions, int numAuctions, char *user, int *quantity)
 		for (j = 0; j < 3; ++j) {
 			if (j > 0)
 				printLog(stderr, "Retrying...\n");
-			if (!getInfo(auctions[i], *quantity, user))
+			if (!getInfo(auctions[i], user))
 				break;
 			printAuctionError(auctions[i], stderr);
 			if (auctions[i]->auctionError == ae_unavailable) {
@@ -203,15 +203,14 @@ sortAuctions(auctionInfo **auctions, int numAuctions, char *user, int *quantity)
 
 		if (aip->won > 0)
 			*quantity -= aip->won;
-		else if (aip->auctionError != ae_none)
-			;
-		else if (aip->endTime <= time(NULL))
+		else if (aip->auctionError != ae_none ||
+			 aip->endTime <= time(NULL))
 			;
 		else if (!isValidBidPrice(aip))
-			auctionError(aip, ae_bidprice, NULL);
+			(void)auctionError(aip, ae_bidprice, NULL);
 		else if (i > 0 && auctions[i-1] &&
 			 !strcmp(aip->auction, auctions[i-1]->auction))
-			auctionError(aip, ae_duplicate, NULL);
+			(void)auctionError(aip, ae_duplicate, NULL);
 		else
 			continue;
 		printAuctionError(aip, stderr);
@@ -864,15 +863,19 @@ main(int argc, char *argv[])
 			if (options.batch) {
 				printLog(stderr, "Error: no username specified.\n");
 				options.usage |= USAGE_SUMMARY;
-			} else if (!options.usage)
-				parseGetoptValue('U', NULL, optiontab);
+			} else if (!options.usage &&
+				   parseGetoptValue('U', NULL, optiontab)) {
+					options.usage |= USAGE_SUMMARY;
+			}
 		}
 		if (!options.password) {
 			if (options.batch) {
 				printLog(stderr, "Error: no password specified.\n");
 				options.usage |= USAGE_SUMMARY;
-			} else if (!options.usage)
-				parseGetoptValue('P', NULL, optiontab);
+			} else if (!options.usage &&
+				   parseGetoptValue('P', NULL, optiontab)) {
+					options.usage |= USAGE_SUMMARY;
+			}
 		}
 	}
 
@@ -929,7 +932,7 @@ main(int argc, char *argv[])
 			printAuctionError(dummy, stderr);
 			exit(1);
 		} else {
-			fprint_myitems(dummy, stdout);
+			fprint_myitems();
 			exit(0);
 		}
  	}
@@ -951,7 +954,8 @@ main(int argc, char *argv[])
 			printLog(stdout, "\nNeed to win %d item(s), %d auction(s) remain\n\n", options.quantity, numAuctions - i);
 
 		cleanupCurlStuff();
-		initCurlStuff();
+		if (initCurlStuff())
+			return 1;
 
 		if (ebayLogin(auctions[i])) {
 			printAuctionError(auctions[i], stderr);
@@ -973,7 +977,7 @@ main(int argc, char *argv[])
 
 		/* ran out of time! */
 		if (auctions[i]->endTime <= time(NULL)) {
-			auctionError(auctions[i], ae_ended, NULL);
+			(void)auctionError(auctions[i], ae_ended, NULL);
 			printAuctionError(auctions[i], stderr);
 			continue;
 		}
@@ -1017,7 +1021,7 @@ main(int argc, char *argv[])
 
 		printLog(stdout, "\nAuction %s: Post-bid info:\n",
 			 auctions[i]->auction);
-		if (getInfo(auctions[i], options.quantity, options.username))
+		if (getInfo(auctions[i], options.username))
 			printAuctionError(auctions[i], stderr);
 
 		if (auctions[i]->won == -1) {
@@ -1034,5 +1038,5 @@ main(int argc, char *argv[])
 		}
 	}
 
-	exit(ret);
+	return ret;
 }

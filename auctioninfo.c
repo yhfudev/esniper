@@ -314,8 +314,8 @@ printAuctionError(auctionInfo *aip, FILE *fp)
 	enum auctionErrorCode err = aip->auctionError;
 
 	if (err == 0)
-		;
-	else if (err < 0 || err >= ae_unknown)
+		return;
+	if (err < 0 || err >= ae_unknown)
 		printLog(fp, auctionErrorString[ae_unknown], aip->auction, err);
 	else
 		printLog(fp, auctionErrorString[err], aip->auction,

@@ -38,14 +38,14 @@ typedef struct {
 
 extern int memEof(memBuf_t *mp);
 extern int memGetc(memBuf_t *mp);
-extern void memUngetc(int c, memBuf_t *mp);
+extern void memUngetc(memBuf_t *mp);
 extern time_t getTimeToFirstByte(memBuf_t *mp);
 
 extern int initCurlStuff(void);
 extern void cleanupCurlStuff(void);
 
-extern memBuf_t *httpGet(auctionInfo *aip, const char *url, const char *logUrl);
-extern memBuf_t *httpPost(auctionInfo *aip, const char *url, const char *data, const char *logData);
+extern memBuf_t *httpGet(const char *url, const char *logUrl);
+extern memBuf_t *httpPost(const char *url, const char *data, const char *logData);
 extern void clearMembuf(memBuf_t *mp);
 extern memBuf_t *strToMemBuf(const char *s);
 

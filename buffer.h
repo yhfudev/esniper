@@ -29,6 +29,12 @@
 
 #include <stdlib.h>
 
+#ifdef __lint
+extern int NEVER;
+#else
+#define NEVER 0
+#endif
+
 /*
  * Buffer handling code
  *
@@ -42,28 +48,28 @@
 		if (count >= bufsize)\
 			buf = resize(buf, &bufsize, (size_t)1024);\
 		buf[count++] = c;\
-	} while (0)
+	} while (NEVER)
 
 #define term(buf, bufsize, count) \
 	do {\
 		if (count >= bufsize)\
 			buf = resize(buf, &bufsize, (size_t)1024);\
 		buf[count] = '\0';\
-	} while (0)
+	} while (NEVER)
 
 #define addcharinc(buf, bufsize, count, c, inc) \
 	do {\
 		if (count >= bufsize)\
 			buf = resize(buf, &bufsize, inc);\
 		buf[count++] = c;\
-	} while (0)
+	} while (NEVER)
 
 #define terminc(buf, bufsize, count, inc) \
 	do {\
 		if (count >= bufsize)\
 			buf = resize(buf, &bufsize, inc);\
 		buf[count] = '\0';\
-	} while (0)
+	} while (NEVER)
 
 extern char *resize(char *buf, size_t *size, size_t inc);
 

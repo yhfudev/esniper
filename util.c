@@ -45,6 +45,7 @@
 #	include <unistd.h>
 #endif
 
+static void vlog(const char *fmt, va_list arglist);
 static void toLowerString(char *s);
 static void seedPasswordRandom(void);
 static void cryptPassword(char *password);
@@ -179,7 +180,7 @@ logOpen(const auctionInfo *aip, const char *logdir)
 /*
  * va_list version of log
  */
-void
+static void
 vlog(const char *fmt, va_list arglist)
 {
 #if defined(WIN32)
@@ -328,36 +329,6 @@ getUntil(memBuf_t *mp, int until)
 	if (options.debug)
 		logChar(EOF);
 	return NULL;
-}
-
-/* read one complete line, discarding \r and \n */
-char *
-getLine(memBuf_t *mp)
-{
-	char *line = getUntil(mp, '\n');
-
-	if (line) {
-		int len = strlen(line);
-
-		if (line[len - 1] == '\r')
-			line[len - 1] = '\0';
-	}
-	return line;
-}
-
-/* Runout remainder of file, logging its contents */
-void
-runout(memBuf_t *mp)
-{
-	if (options.debug) {
-		int c, count;
-
-		dlog("\n\nrunout()\n\n");
-		for (count = 0, c = memGetc(mp); c != EOF; ++count, c = memGetc(mp))
-			logChar(c);
-		logChar(EOF);
-		dlog("%d bytes", count);
-	}
 }
 
 /*
@@ -572,7 +543,7 @@ parseProxy(const char *value, proxy_t *proxy)
 char *
 priceFixup(char *price, auctionInfo *aip)
 {
-	int len = strlen(price), i, j, start = 0, end, count = 0, last = 0;
+	int len = strlen(price), i, j, start = 0, end, count = 0;
 
 	if (aip && !aip->currency) {
 		char tmp;
@@ -588,11 +559,10 @@ priceFixup(char *price, auctionInfo *aip)
 		;
 	for (i = start; i < len; ++i) {
 		if (isdigit((int)price[i]))
-			;
-		else if (price[i] == ',' || price[i] == '.') {
+			continue;
+		else if (price[i] == ',' || price[i] == '.')
 			++count;
-			last = i;
-		} else
+		else
 			break;
 	}
 	end = i;

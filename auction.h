@@ -30,12 +30,12 @@
 #include "auctioninfo.h"
 #include "esniper.h"
 
-extern int getInfo(auctionInfo *aip, int quantity, const char *user);
+extern int getInfo(auctionInfo *aip, const char *user);
 extern int watch(auctionInfo *aip);
 extern int preBid(auctionInfo *aip);
 extern int bid(auctionInfo *aip);
 extern int ebayLogin(auctionInfo *aip);
-extern void fprint_myitems(auctionInfo *aip, FILE *file);
+extern void fprint_myitems(void);
 
 #if DEBUG
 /* secret option */

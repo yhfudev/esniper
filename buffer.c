@@ -27,6 +27,10 @@
 #include "buffer.h"
 #include "util.h"
 
+#ifdef __lint
+int NEVER = 0;
+#endif
+
 /*
  * Resize a buffer.  Used by addchar and term macros.  See buffer.h for info.
  */

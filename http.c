@@ -39,7 +39,7 @@
 
 enum requestType {GET, POST};
 
-static memBuf_t *httpRequest(auctionInfo *, const char *url, const char *logUrl, const char *data, const char *logData, enum requestType);
+static memBuf_t *httpRequest(const char *url, const char *logUrl, const char *data, const char *logData, enum requestType);
 static memBuf_t *httpRequestFailed(CURLcode curlrc);
 static size_t WriteMemoryCallback(void *ptr, size_t size, size_t nmemb, void *data);
 static int initCurlStuffFailed(CURLcode curlrc);
@@ -50,16 +50,16 @@ static const char *curl_easy_strerror(CURLcode error);
 
 /* returns open socket, or NULL on error */
 memBuf_t *
-httpGet(auctionInfo *aip, const char *url, const char *logUrl)
+httpGet(const char *url, const char *logUrl)
 {
-	return httpRequest(aip, url, logUrl, "", NULL, GET);
+	return httpRequest(url, logUrl, "", NULL, GET);
 }
 
 /* returns open socket, or NULL on error */
 memBuf_t *
-httpPost(auctionInfo *aip, const char *url, const char *data, const char *logData)
+httpPost(const char *url, const char *data, const char *logData)
 {
-	return httpRequest(aip, url, NULL, data, logData, POST);
+	return httpRequest(url, NULL, data, logData, POST);
 }
 
 /*
@@ -119,13 +119,12 @@ readFile(FILE *fp)
 }
 #endif
 
-static const char UNAVAILABLE[] = "unavailable/";
 static CURL *easyhandle = NULL;
 static int curlInitDone = 0;
 static char globalErrorbuf[CURL_ERROR_SIZE];
 
 static memBuf_t *
-httpRequest(auctionInfo *aip, const char *url, const char *logUrl, const char *data, const char *logData, enum requestType rt)
+httpRequest(const char *url, const char *logUrl, const char *data, const char *logData, enum requestType rt)
 {
 	const char *nonNullData = data ? data : "";
 	static memBuf_t membuf = { NULL, 0, NULL, 0 };
@@ -167,6 +166,9 @@ httpRequestFailed(CURLcode curlrc)
 	return NULL;
 }
 
+/*
+ * Returns 0 on success, non-0 otherwise.
+ */
 int
 initCurlStuff(void)
 {
@@ -182,35 +184,35 @@ initCurlStuff(void)
 
 	/* buffer for error messages */
 	if ((curlrc = curl_easy_setopt(easyhandle, CURLOPT_ERRORBUFFER, globalErrorbuf)))
-		initCurlStuffFailed(curlrc);
+		return initCurlStuffFailed(curlrc);
 
 	/* debug output, show what libcurl does */
 	if (options.curldebug &&
 	    (curlrc = curl_easy_setopt(easyhandle, CURLOPT_VERBOSE, 1)))
-		initCurlStuffFailed(curlrc);
+		return initCurlStuffFailed(curlrc);
 
 	/* follow all redirects */
 	if ((curlrc = curl_easy_setopt(easyhandle, CURLOPT_FOLLOWLOCATION, 1)))
-		initCurlStuffFailed(curlrc);
+		return initCurlStuffFailed(curlrc);
 
 	/* send all data to this function */
 	if ((curlrc = curl_easy_setopt(easyhandle, CURLOPT_WRITEFUNCTION, WriteMemoryCallback)))
-		initCurlStuffFailed(curlrc);
+		return initCurlStuffFailed(curlrc);
 
 	/* some servers don't like requests that are made without a user-agent
 	 * field, so we provide one */
 	if ((curlrc = curl_easy_setopt(easyhandle, CURLOPT_USERAGENT, "Mozilla/4.7 [en] (X11; U; Linux 2.2.12 i686)")))
-		initCurlStuffFailed(curlrc);
+		return initCurlStuffFailed(curlrc);
 
 	slist = curl_slist_append(slist, "Accept: text/*");
 	slist = curl_slist_append(slist, "Accept-Language: en");
 	slist = curl_slist_append(slist, "Accept-Charset: iso-8859-1,*,utf-8");
 	slist = curl_slist_append(slist, "Cache-Control: no-cache");
 	if ((curlrc = curl_easy_setopt(easyhandle, CURLOPT_HTTPHEADER, slist)))
-		initCurlStuffFailed(curlrc);
+		return initCurlStuffFailed(curlrc);
 
 	if ((curlrc = curl_easy_setopt(easyhandle, CURLOPT_COOKIEFILE, DEVNULL)))
-		initCurlStuffFailed(curlrc);
+		return initCurlStuffFailed(curlrc);
 
 	curlInitDone = 1;
 	return 0;
@@ -262,7 +264,7 @@ memGetc(memBuf_t *mp)
 }
 
 void
-memUngetc(int c, memBuf_t *mp)
+memUngetc(memBuf_t *mp)
 {
 	if (mp->readptr > mp->memory)
 		mp->readptr--;
