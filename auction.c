@@ -349,7 +349,6 @@ getnontag(memBuf_t *mp)
 		return NULL;
 	}
 	while ((c = memGetc(mp)) != EOF) {
-		c &= 0x7F;	/* eBay throws in 8th bit to screw things up */
 		switch (c) {
 		case '<':
 			memUngetc(c, mp);
