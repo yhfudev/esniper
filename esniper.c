@@ -31,6 +31,9 @@
  * For updates, bug reports, etc, please go to esniper.sourceforge.net.
  */
 
+static const char version[]="esniper version 1.0";
+static const char blurb[]="Please visit http://esniper.sourceforge.net/ for updates and bug reports";
+
 #include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -666,7 +669,7 @@ main(int argc, char *argv[])
 	const char *progname = basename(argv[0]);
 	int c;
 
-	while ((c = getopt(argc, argv, "dn")) != EOF) {
+	while ((c = getopt(argc, argv, "dnv")) != EOF) {
 		switch (c) {
 		case 'd':
 			debug = 1;
@@ -674,6 +677,9 @@ main(int argc, char *argv[])
 		case 'n':
 			bid = 0;
 			break;
+		case 'v':
+			fprintf(stderr, "%s\n%s\n", version, blurb);
+			exit(0);
 		case '?':
 			usage = 1;
 		}
@@ -688,11 +694,14 @@ main(int argc, char *argv[])
 			"where:\n"
 			"-d: write debug output to file\n"
 			"-n: do not place bid\n"
+			"-v: print version and exit\n"
 			"\n"
 			"Bid is placed %d seconds before the end of auction unless some other time or\n"
-			"\"now\" is specified.\n",
-			progname, DEFAULT_BIDTIME);
-		return(1);
+			"\"now\" is specified.\n"
+			"\n"
+			"%s\n",
+			progname, DEFAULT_BIDTIME, blurb);
+		exit(1);
 	}
 
 	/* init variables */
@@ -804,7 +813,7 @@ main(int argc, char *argv[])
 
 	if (!key) {
 		printLog(stderr, "Problem with bid.  No bid placed.\n");
-		return(1);
+		exit(1);
 	}
 
 	log(("*** BIDDING!!! item %s amount %s quantity %s user %s password %s\n", item, amount, quantity, user, password));
@@ -820,5 +829,5 @@ main(int argc, char *argv[])
 	printLog(stdout, "\nPost-bid info:\n");
 	getItemInfo(item, amount, user);
 
-	return(0);
+	exit(0);
 }
