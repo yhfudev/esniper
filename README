@@ -1,4 +1,4 @@
-For more information, see <http://esniper.sourceforge.net/>.
+For more information, see <http://esniper.sf.net/>.
 
 This project is so simple, I didn't even bother to use autoconf.  For most
 systems, just type "make", then "make install" (perhaps as root).  If you

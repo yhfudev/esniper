@@ -28,7 +28,7 @@
  * This program will "snipe" an auction on eBay, automatically placing
  * your bid a few seconds before the auction ends.
  *
- * For updates, bug reports, etc, please go to esniper.sourceforge.net.
+ * For updates, bug reports, etc, please go to http://esniper.sf.net/.
  */
 
 #include "auctionfile.h"
