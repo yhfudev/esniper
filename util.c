@@ -267,6 +267,11 @@ prompt(const char *p, int noecho)
 	int c;
 	struct termios save, new;
 
+	if (!isatty(fileno(stdin))) {
+		printLog(stderr, "Cannot prompt, stdin is not a terminal\n");
+		return NULL;
+	}
+
 	fputs(p, stdout);
 
 	if (noecho) {

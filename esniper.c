@@ -552,12 +552,10 @@ main(int argc, char *argv[])
 		}
 	}
 
-	if (!options.usage) {
-		if (!options.user)
-			ReadUsername(NULL, &optiontab[0], NULL, "u");
-		if (!options.password)
-			ReadPassword(NULL, &optiontab[1], NULL, "p");
-	}
+	if (!options.usage && !options.user)
+		options.usage = ReadUsername(NULL, &optiontab[0], NULL, "u");
+	if (!options.usage && !options.password)
+		options.usage = ReadPassword(NULL, &optiontab[1], NULL, "p");
 
 	if (options.usage) {
 		usage(progname, options.usage > 1);
