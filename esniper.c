@@ -211,6 +211,7 @@ printLog(FILE *fp, const char *fmt, ...)
 	va_start(arglist, fmt);
 	vfprintf(fp, fmt, arglist);
 	va_end(arglist);
+	fflush(fp);
 }
 
 /*
@@ -604,7 +605,7 @@ getseconds(char *timestr)
 		else if (!strncmp(timestr, day, sizeof(day) - 1))
 			accum += num * 86400;
 		else {
-			printf("Error: unknown time interval \"%s\"\n",timestr);
+			printLog(stdout, "Error: unknown time interval \"%s\"\n", timestr);
 			return -1;
 		}
 		while (*timestr && !isdigit((int)*timestr))
@@ -1135,7 +1136,7 @@ watchItem(char *item, char *quantity, char *amount, char *user, long bidtime, it
 			int i;
 			time_t keyLatency;
 
-			printf("\n");
+			printLog(stdout, "\n");
 			for (i = 0; i < 5; ++i) {
 				if (!preBidItem(item, amount, iip))
 					break;
@@ -1165,19 +1166,19 @@ watchItem(char *item, char *quantity, char *amount, char *user, long bidtime, it
 		else			/* knock off one day */
 			sleepTime = 86400;
 
-		printf("%s: ", timestamp());
+		printLog(stdout, "%s: ", timestamp());
 		if (sleepTime >= 86400)
-			printf("Sleeping for a day\n");
+			printLog(stdout, "Sleeping for a day\n");
 		else if (sleepTime >= 3600)
-			printf("Sleeping for %d hours %d minutes\n",
+			printLog(stdout, "Sleeping for %d hours %d minutes\n",
 				sleepTime/3600, (sleepTime % 3600) / 60);
 		else if (sleepTime >= 60)
-			printf("Sleeping for %d minutes %d seconds\n",
+			printLog(stdout, "Sleeping for %d minutes %d seconds\n",
 				sleepTime/60, sleepTime % 60);
 		else
-			printf("Sleeping for %ld seconds\n", sleepTime);
+			printLog(stdout, "Sleeping for %ld seconds\n", sleepTime);
 		sleep(sleepTime);
-		putchar('\n');
+		printLog(stdout, "\n");
 
 		if (sleepTime == remain)
 			break;
