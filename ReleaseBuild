@@ -32,7 +32,7 @@ Copy Changes and Notes from the previous build:
 Create source tar:
 
 	cd $CURRENT
-	mkdir $CURRFILE
+	mkdir $CURRFILE $CURRFILE/frontends
 	cp ../aclocal.m4 ../auction.c ../auctionfile.c $CURRFILE
 	cp ../auctionfile.h ../auction.h ../auctioninfo.c $CURRFILE
 	cp ../auctioninfo.h ../AUTHORS ../buffer.c ../buffer.h $CURRFILE
@@ -44,6 +44,7 @@ Create source tar:
 	cp ../Makefile.in ../misc.mk ../missing ../NEWS ../options.c $CURRFILE
 	cp ../options.h ../README ../sample_auction.txt $CURRFILE
 	cp ../sample_config.txt ../TODO ../util.c ../util.h $CURRFILE
+	cp ../frontends/README ../frontends/snipe $CURRFILE/frontends
 	tar cvf - $CURRFILE | gzip >$CURRFILE.tgz
 
 Edit Changes and Notes (change version # for source file in Notes):
