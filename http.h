@@ -27,7 +27,6 @@
 #ifndef HTTP_H_INCLUDED
 #define HTTP_H_INCLUDED
 
-#include <stdio.h>
 #include "auctioninfo.h"
 
 typedef struct {
