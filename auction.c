@@ -724,8 +724,12 @@ parseAuction(memBuf_t *mp, auctionInfo *aip, const char *user, time_t start, tim
 	printLog(stdout, "Time remaining: %s (%ld seconds)\n", line, remain);
 	free(line); /* allocated in "Time left:" getNonTagFromString() */
 	aip->endTime = start + remain;
-	/* no \n needed -- ctime returns a string with \n at the end */
-	printLog(stdout, "End time: %s", ctime(&(aip->endTime)));
+	/* formated time/date output */
+	static char timestr[21];
+		struct tm *tmPtr;
+		tmPtr = localtime(&(aip->endTime));
+		strftime(timestr , 20, "%d/%m/%Y %T", tmPtr);
+	printLog(stdout, "End time: %s\n", timestr);
 
 	if (!(line = getNonTag(mp)))
 		return auctionError(aip, ae_nohighbid, NULL);
