@@ -1174,6 +1174,8 @@ parseBid(memBuf_t *mp, auctionInfo *aip)
 			return aip->bidResult = auctionError(aip, ae_outbid, NULL);
 		if (!strncmp(pagename, RESERVENOTMET, sizeof(RESERVENOTMET)-1))
 			return aip->bidResult = auctionError(aip, ae_reservenotmet, NULL);
+		if (!strcmp(pagename, "MakeBidErrorBuyerBlockPref"))
+			return aip->bidResult = auctionError(aip, ae_buyerblockpref, NULL);
 		if (!strcmp(pagename, "MakeBidErrorMinBid"))
 			return aip->bidResult = auctionError(aip, ae_bidprice, NULL);
 		if (!strcmp(pagename, "MakeBidErrorPassword") ||

@@ -232,6 +232,7 @@ static const char *auctionErrorString[] = {
 	"Auction %s: Too many errors, quitting\n",
 	"Auction %s: eBay temporarily unavailable\n",
 	"Auction %s: Login failed\n",
+	"Auction %s: Seller has blocked your userid\n",
 	/* ae_unknown must be last error */
 	"Auction %s: Unknown error code %d\n",
 };
