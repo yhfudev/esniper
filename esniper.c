@@ -612,6 +612,14 @@ getseconds(char *timestr)
 	return accum;
 }
 
+/*
+ * parseItem(): parses bid history page
+ *
+ * returns:
+ *	0 OK
+ *	1 non-fatal error (badly formatted page, etc)
+ *	2 fatal error (price too high, quantity requested not available, etc)
+ */
 static int
 parseItem(FILE *fp, char *item, char *quantity, char *amount, char *user, itemInfo *iip)
 {
@@ -650,7 +658,7 @@ parseItem(FILE *fp, char *item, char *quantity, char *amount, char *user, itemIn
 		return 1;
 	} else if (iip->price > atof(amount)) {
 		printLog(stderr, "Current price above your limit.\n");
-		return 1;
+		return 2;
 	}
 
 
@@ -665,6 +673,9 @@ parseItem(FILE *fp, char *item, char *quantity, char *amount, char *user, itemIn
 	    (iip->quantity = atoi(line)) < 1) {
 		printLog(stderr, "Quantity not found\n");
 		return 1;
+	} else if (iip->quantity < atoi(quantity)) {
+		printLog(stderr, "Quantity requested not available.\n");
+		return 2;
 	}
 
 
@@ -768,13 +779,17 @@ parseItem(FILE *fp, char *item, char *quantity, char *amount, char *user, itemIn
 
 
 	return 0;
-}
+} /* parseItem() */
 
 static const char QUERY_FMT[] = "aw-cgi/eBayISAPI.dll?ViewBids&item=%s";
 
 /*
- * Get item information, return time remaining in auction if successful, -1
- * otherwise
+ * getItemInfo(): Get info on item from bid history page.
+ *
+ * returns:
+ *	0 OK
+ *	1 non-fatal error (badly formatted page, etc)
+ *	2 fatal error (price too high, quantity requested not available, etc)
  */
 static int
 getItemInfo(char *item, char *quantity, char *amount, char *user, itemInfo *iip)
@@ -1052,6 +1067,13 @@ sigTerm(int sig)
 	raise(sig);
 }
 
+/*
+ * watchItem(): watch item until it is time to bid
+ *
+ * returns:
+ *	0 OK
+ *	1 Error
+ */
 static int
 watchItem(char *item, char *quantity, char *amount, char *user, long bidtime, int bid, itemInfo *iip)
 {
@@ -1066,7 +1088,12 @@ watchItem(char *item, char *quantity, char *amount, char *user, long bidtime, in
 		time_t latency = time(NULL) - start;
 		long secs;
 
-		if (ret) {
+		if (ret >= 2) {
+			/*
+			 * Fatal error!
+			 */
+			return 1;
+		} else if (ret == 1) {
 			/*
 			 * error!
 			 *
@@ -1102,12 +1129,12 @@ watchItem(char *item, char *quantity, char *amount, char *user, long bidtime, in
 
 				printf("\n");
 				for (i = 0; i < 5; ++i) {
-					if (preBidItem(item, amount, iip))
+					if (!preBidItem(item, amount, iip))
 						break;
 				}
 				if (i == 5) {
 					printLog(stderr, "Cannot get bid key\n");
-					exit(1);
+					return 1;
 				}
 			}
 			/* laggy connection at end of auction? */
@@ -1138,7 +1165,7 @@ watchItem(char *item, char *quantity, char *amount, char *user, long bidtime, in
 	}
 
 	return 0;
-}
+} /* watchItem() */
 
 int
 main(int argc, char *argv[])
