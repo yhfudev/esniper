@@ -9,17 +9,23 @@ INSTALL=install
 # Change this if you want esniper installed elsewhere
 INSTALL_DIR=/usr/local/bin
 
+SRC = auction.c auctionfile.c auctioninfo.c buffer.c esniper.c options.c util.c
+OBJ = auction.o auctionfile.o auctioninfo.o buffer.o esniper.o options.o util.o
+HDR = auction.h auctionfile.h auctioninfo.h buffer.h esniper.h options.h util.h
+
 all: esniper
 
-esniper: esniper.o
-	$(CC) -O -o esniper esniper.o $(LIBS)
+esniper: $(OBJ)
+	$(CC) -O -o esniper $(OBJ) $(LIBS)
+
+$(OBJ): $(HDR)
 
 install: esniper
 	$(INSTALL) -s esniper $(INSTALL_DIR)
 
 # Simple portability check - look for no warnings
-check: esniper.c
-	gcc -c -pedantic -Wall esniper.c
+check:
+	gcc -c -pedantic -Wall $(SRC)
 
 clean:
-	rm -f esniper esniper.o esniper.log.* core
+	rm -f esniper $(OBJ) esniper.log.* core

@@ -1,0 +1,108 @@
+How to build a release:
+
+From checked-out source directory...
+
+First, setup environment variables:
+
+	CVS_RSH=ssh; export CVS_RSH
+	CVSROOT=:ext:esniper@cvs.esniper.sourceforge.net:/cvsroot/esniper
+	export CVSROOT
+	# change these to whatever is current
+	MAJOR=1
+	MINOR=3
+	STEP=0
+	PREV=1.2
+	# these don't change
+	CURRENT=$MAJOR.$MINOR.$STEP
+	CURRFILE=esniper-$MAJOR-$MINOR-$STEP
+	CURRTAG=esniper_$MAJOR_$MINOR_$STEP
+
+Tag source:
+
+	cvs tag $CURRTAG
+
+Create a directory:
+
+	mkdir $CURRENT
+
+Move cygwin1.dll and copy Changes and Notes from the previous build:
+
+	mv $PREV/cygwin1.dll $CURRENT
+	cp $PREV/Changes $PREV/Notes $CURRENT
+
+Create source tar:
+
+	cd $CURRENT
+	mkdir $CURRFILE
+	cp ../Makefile ../COPYRIGHT ../README ../TODO ../*.[ch] $CURRFILE
+	tar cvf - $CURRFILE | gzip >$CURRFILE.tgz
+
+Edit Changes and Notes (change version # for source file in Notes):
+
+	vi Changes Notes
+
+Build esniper on Sun, and HP and Cygwin, strip and copy to release directory:
+
+	Sun:
+		make
+		strip esniper
+		mv esniper $CURRENT/esniper-solaris-sparc
+
+	HP:
+		cd esniper
+		rcp sparky:esniper/\*.[ch] .
+		make
+		strip esniper
+		rcp esniper sparky:esniper/$CURRENT/esniper-hpux-hp
+
+	Cygwin:
+		cd esniper
+		rcp sparky:esniper/\*.[ch] .
+		make
+		strip esniper.exe
+		rcp esniper.exe sparky:esniper/$CURRENT
+
+	ftp upload.sourceforge.net -> anonymous
+		cd incoming
+		bin
+		prompt
+		mput cygwin1.dll esniper*
+
+Build other versions on sourceforge:
+
+	ssh -l esniper cf.sourceforge.net
+		<enter password>
+
+	For each build system:
+		makeit
+
+Then login to shell.sourceforge.net:
+
+	ssh -l esniper shell.sourceforge.net
+		<enter password>
+	mkdir $CURRENT
+	mv esniper-* $CURRENT
+	cd $CURRENT
+	ftp upload
+		(log in as anonymous)
+		cd incoming
+		bin
+		prompt
+		mput esniper*
+	vi $PROJECT/htdocs/index.html
+		change tgz file to current release
+
+Go to sourceforge.net:
+	- login
+	- go to project
+	- click on admin, then edit releases, then add release
+	- type in release number and click add release
+	- cut/paste notes and changes, ensure "preserve text" is selected
+	- select files to import
+	- mark each type (one at a time...)
+	- click "send notice"
+
+Send email to esniper-announce@lists.sourceforge.net to announce the
+new version.
+
+And you're done...

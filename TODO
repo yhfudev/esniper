@@ -1,0 +1,14 @@
+Proxy support
+- squid, etc
+
+Languages (German, French, ...)
+- output only.  Handling input in multiple languages (i.e. reading from
+  ebay.de, ebay.ca, etc) is too much work.  You would need to either add
+  an auction.c for each site supported, or create a meta-language describing
+  how to parse each page.  Plus eBay likes to change their output without
+  notice!
+
+Native port to Windows
+- a little tricky, because esniper uses sockets as if they were files.  Unix
+  supports this, Windows doesn't.  Would require, at the least, rewrite of
+  auction.c.
