@@ -36,6 +36,6 @@ extern int preBid(auctionInfo *aip);
 extern int bid(option_t options, auctionInfo *aip);
 
 /* secret option */
-extern void testParser(int argc, char *argv[]);
+extern void testParser(void);
 
 #endif /* AUCTION_H_INCLUDED */

@@ -1007,33 +1007,10 @@ watch(auctionInfo *aip, option_t options)
 
 /* secret option - test parser */
 void
-testParser(int argc, char *argv[])
+testParser(void)
 {
-	for (; argc; --argc, ++argv) {
-		FILE *fp = fopen(*argv, "r");
-		char *line;
-		FILE *fpw;
-		char *wname;
+	char *line;
 
-		if (!fp) {
-			fprintf(stderr, "Cannot open %s: %s\n", *argv,
-				strerror(errno));
-			continue;
-		}
-		wname = basename(*argv);
-		wname = (char *)myMalloc(strlen(wname) + 4 + 1);
-		sprintf(wname, "%s.out", basename(*argv));
-
-		if (!(fpw = fopen(wname, "w"))) {
-			fprintf(stderr, "Cannot open %s: %s\n", wname,
-				strerror(errno));
-			fclose(fp);
-			continue;
-		}
-		while ((line = getnontag(fp)))
-			fprintf(fpw, "\"%s\"\n", line);
-		fclose(fp);
-		fclose(fpw);
-	}
-	exit(0);
+	while ((line = getnontag(stdin)))
+		printf("\"%s\"\n", line);
 }

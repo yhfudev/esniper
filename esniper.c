@@ -573,9 +573,8 @@ main(int argc, char *argv[])
 			parseGetoptValue(c, optarg, optiontab);
 			break;
 		case 'X': /* secret option - for testing page parsing */
-			testParser(argc, argv);
+			testParser();
 			exit(0);
-			break;
 		case 'v': /* version */
 			fprintf(stderr, "%s\n%s\n", version, blurb);
 			exit(0);
