@@ -202,8 +202,12 @@ function getLogData($artnr) {
 
 function getHighestBid($logData) {
 //Filtert das höchste Gebot aus den Logs
-	preg_match_all("/Currently: [0-9]+\.?[0-9]+/",$logData,$aktGebote,PREG_PATTERN_ORDER);
-    return(substr($aktGebote[0][count($aktGebote[0])-1],11));
+	$status = preg_match_all("/Currently: [0-9]+\.?[0-9]*/",$logData,$aktGebote,PREG_PATTERN_ORDER);
+	if ($status == 0) {
+		return(0);
+	} else {
+    	return(substr($aktGebote[0][count($aktGebote[0])-1],11));
+    }
 }
 
 
