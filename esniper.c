@@ -1136,7 +1136,7 @@ watchItem(char *item, char *quantity, char *amount, char *user, long bidtime, it
 			int i;
 			time_t keyLatency;
 
-			printLog(stdout, "\n");
+			printf("\n");
 			for (i = 0; i < 5; ++i) {
 				if (!preBidItem(item, amount, iip))
 					break;
@@ -1166,7 +1166,7 @@ watchItem(char *item, char *quantity, char *amount, char *user, long bidtime, it
 		else			/* knock off one day */
 			sleepTime = 86400;
 
-		printLog(stdout, "%s: ", timestamp());
+		printf("%s: ", timestamp());
 		if (sleepTime >= 86400)
 			printLog(stdout, "Sleeping for a day\n");
 		else if (sleepTime >= 3600)
@@ -1178,7 +1178,7 @@ watchItem(char *item, char *quantity, char *amount, char *user, long bidtime, it
 		else
 			printLog(stdout, "Sleeping for %ld seconds\n", sleepTime);
 		sleep(sleepTime);
-		printLog(stdout, "\n");
+		printf("\n");
 
 		if (sleepTime == remain)
 			break;
