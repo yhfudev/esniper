@@ -1112,7 +1112,7 @@ timestamp()
 	time_t t = time(0);
 	struct tm *tmp = localtime(&t);
 
-	strftime(buf, 80, "%a %b %e %T", tmp);
+	strftime(buf, 80, "%x %X", tmp);
 	return buf;
 }
 
