@@ -2,7 +2,7 @@
 /*
  * Copyright (c) 2005 Nils Rottgardt <nils@rottgardt.org>
  * All rights reserved
- * 
+ *
  * Published under BSD-licence
  *
  * Redistribution and use in source and binary forms, with or without
@@ -26,6 +26,8 @@
  * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+
+
 function html_Gruppenliste($artnr,$db) {
 //Baut eine Auswahlliste für die Gruppen zusammen
     $sql = "SELECT gruppe FROM snipe WHERE artnr = ".$artnr;
@@ -58,9 +60,10 @@ function html_gruppenname($gruppeID,$db) {
 }
 
 function html_snipestatus($code) {
+//Wandelt den Intergerwert aus der Datenbank (status) in HTML um.
     switch($code) {
 	Case 0:
-	    return("snipeing...");
+	    return("sniping...");
 	    break;
 	Case 1:
 	    return("Auktion gewonnen");
@@ -79,6 +82,7 @@ function html_snipestatus($code) {
 }
 
 function html_countdown($artnr,$zaehler, $datestr) {
+//Fügt für einen Artikel die HTML und JavaScript Daten für den Counter ein.
 	$temp = "<script language=\"JavaScript\" type=\"text/javascript\">";
 	$temp .= "artliste[".$zaehler."] = new Array();";
 	$temp .= "artliste[".$zaehler."][0] =".$artnr.";";
