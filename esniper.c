@@ -31,7 +31,7 @@
  * For updates, bug reports, etc, please go to esniper.sourceforge.net.
  */
 
-static const char version[]="esniper version 1.5";
+static const char version[]="esniper version 1.6";
 static const char blurb[]="Please visit http://esniper.sourceforge.net/ for updates and bug reports";
 
 #if defined(unix) || defined (__unix) || defined (__MACH__)
@@ -647,7 +647,8 @@ parseItem(FILE *fp, char *item, char *quantity, char *amount, char *user, itemIn
 	 * Auction title
 	 */
 	while ((line = getnontag(fp))) {
-		if (!strcmp(line, "eBay Bid History for"))
+		if (!strcmp(line, "eBay Bid History for") ||
+		    !strcmp(line, "eBayBid History for"))
 			break;
 	}
 	if (!line || !(line=getnontag(fp)) || !(s1=strstr(line, " (Item #"))) {
