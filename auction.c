@@ -902,23 +902,28 @@ ebayLogin(auctionInfo *aip)
 static int
 parseBid(memBuf_t *mp, auctionInfo *aip)
 {
+	// The following sometimes have more characters after them, for
+	// example AcceptBid_HighBidder_rebid (you were already the high
+	// bidder and placed another bid).
+	static const char HIGHBID[] = "AcceptBid_HighBidder";
+	static const char OUTBID[] = "AcceptBid_Outbid";
+	static const char RESERVENOTMET[] = "AcceptBid_ReserveNotMet";
+	static const char MAKEBID[] = "PageMakeBid";
 	char *pagename;
 
 	aip->bidResult = -1;
 	if ((pagename = getPageName(mp))) {
 		log(("parseBid(): pagename = %s\n", pagename));
-		if (!strcmp(pagename, "AcceptBid_HighBidder"))
+		if (!strncmp(pagename, HIGHBID, sizeof(HIGHBID) - 1))
 			return aip->bidResult = 0;
-		if (!strcmp(pagename, "AcceptBid_Outbid") ||
-		    !strcmp(pagename, "AcceptBid_Outbid_rebid"))
+		if (!strncmp(pagename, OUTBID, sizeof(OUTBID) - 1))
 			return aip->bidResult = auctionError(aip, ae_outbid, NULL);
+		if (!strncmp(pagename, RESERVENOTMET, sizeof(RESERVENOTMET)-1))
+			return aip->bidResult = auctionError(aip, ae_reservenotmet, NULL);
 		if (!strcmp(pagename, "MakeBidErrorMinBid"))
 			return aip->bidResult = auctionError(aip, ae_bidprice, NULL);
-		if (!strcmp(pagename, "AcceptBid_ReserveNotMet"))
-			return aip->bidResult = auctionError(aip, ae_reservenotmet, NULL);
 		if (!strcmp(pagename, "MakeBidErrorPassword") ||
-		    !strcmp(pagename, "PageMakeBid") ||
-		    !strcmp(pagename, "PageMakeBid_signin"))
+		    !strncmp(pagename, MAKEBID, sizeof(MAKEBID) - 1))
 			return aip->bidResult = auctionError(aip, ae_badpass, NULL);
 		if (!strcmp(pagename, "MakeBidError"))
 			return aip->bidResult = auctionError(aip, ae_ended, NULL);
