@@ -34,7 +34,8 @@ Create source tar:
 	cd $CURRENT
 	mkdir $CURRFILE
 	cp ../Makefile ../COPYRIGHT ../README ../TODO ../*.[ch] $CURRFILE
-	cp ../sample*.txt $CURRFILE
+	cp ../sample*.txt ../esniper.ds* ../esniper.mak $CURRFILE
+	cp ../esniper.1 ../esniper_man.html $CURRFILE
 	tar cvf - $CURRFILE | gzip >$CURRFILE.tgz
 
 	(note: ensure Makefile is same as in CVS - not Sun version!)
@@ -52,17 +53,25 @@ Build esniper on Sun, and HP and Cygwin, strip and copy to release directory:
 
 	Linux:
 		cd esniper
-		rcp sparky:esniper/\*.[ch] .
-		make
+		rcp sparky:esniper/\*.[ch] sparky:esniper/Makefile .
+		# ensure Makefile has Sun dependencies turned off
+		make clean all
 		strip esniper
 		rcp esniper sparky:esniper/$CURRENT/esniper-linux-x86
 
 	Cygwin:
 		cd esniper
-		rcp sparky:esniper/\*.[ch] .
-		make
+		rcp sparky:esniper/\*.[ch] sparky:esniper/Makefile .
+		# ensure Makefile has Sun dependencies turned off
+		make clean all
 		strip esniper.exe
-		rcp esniper.exe sparky:esniper/$CURRENT
+		rcp esniper.exe sparky:esniper/$CURRENT/esniper-cygwin.exe
+
+	Windows:
+		cd esniper
+		rcp sparky:esniper/*.[ch] sparky:esniper/esniper.mak .
+		nmake /f esniper.mak
+		rcp -b Release/esniper.exe sparky:esniper/$CURRENT/esniper.exe
 
 	ftp upload.sourceforge.net -> anonymous
 		cd incoming
