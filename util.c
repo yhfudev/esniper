@@ -32,14 +32,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/timeb.h>
 #include <sys/types.h>
 #include <time.h>
 #if defined(WIN32)
 #	include <windows.h>
 #	include <io.h>
+#	include <sys/timeb.h>
 #	define strncasecmp(s1, s2, len) strnicmp((s1), (s2), (len))
 #else
+#	include <sys/time.h>
 #	include <termios.h>
 #	include <unistd.h>
 #endif
@@ -180,15 +181,28 @@ logOpen(const char *progname, const auctionInfo *aip, const char *logdir)
 void
 vlog(const char *fmt, va_list arglist)
 {
+#if defined(WIN32)
 	struct timeb tb;
+#else
+	struct timeval tv;
+#endif
 	char timebuf[80];	/* more than big enough */
+	time_t t;
 
 	if (!logfile)
 		return;
 
+#if defined(WIN32)
 	ftime(&tb);
-	strftime(timebuf, sizeof(timebuf), "\n\n*** %Y-%m-%d %H:%M:%S", localtime(&(tb.time)));
-	fprintf(logfile, "%s.%06ld ", timebuf, (long)tb.millitm);
+	t = (time_t)(tb.time);
+	strftime(timebuf, sizeof(timebuf), "\n\n*** %Y-%m-%d %H:%M:%S", localtime(&t));
+	fprintf(logfile, "%s.%03d ", timebuf, tb.millitm);
+#else
+	gettimeofday(&tv, NULL);
+	t = (time_t)(tv.tv_sec);
+	strftime(timebuf, sizeof(timebuf), "\n\n*** %Y-%m-%d %H:%M:%S", localtime(&t));
+	fprintf(logfile, "%s.%06ld ", timebuf, (long)tv.tv_usec);
+#endif
 	vfprintf(logfile, fmt, arglist);
 	fflush(logfile);
 }
