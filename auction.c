@@ -27,21 +27,10 @@
 #include "auction.h"
 #include "buffer.h"
 #include "http.h"
-#if defined(WIN32) /* TODO */
-#       include <winsock.h>
-#else
-#       include <unistd.h>
-#       include <netinet/in.h>
-#       include <sys/socket.h>
-#endif
-#if defined(_XOPEN_SOURCE_EXTENDED)
-#	include <arpa/inet.h>
-#endif
 #include <ctype.h>
 #include <limits.h>
 #include <stdio.h>
 #include <string.h>
-#include <time.h>
 
 static int match(FILE *fp, const char *str);
 static const char *gettag(FILE *fp);

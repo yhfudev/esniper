@@ -25,10 +25,7 @@
  */
 
 #include "http.h"
-#include "buffer.h"
 #include "esniper.h"
-#include "options.h"
-#include "util.h"
 #if defined(WIN32) /* TODO */
 #       include <winsock.h>
 #else
