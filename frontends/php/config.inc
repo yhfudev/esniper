@@ -4,4 +4,5 @@ define("EZSQL_DB_PASSWORD", "esniper");
 define("EZSQL_DB_NAME", "esniper");
 define("EZSQL_DB_HOST", "linux.home");
 define("PATH_TO_ESNIPER", "");
+define("PATH_TO_ESNIPERCONFIG", "/opt/esniper/config");
 ?>

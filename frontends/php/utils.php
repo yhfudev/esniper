@@ -20,8 +20,7 @@ function startEsniper($artnr) {
     $fnl="/tmp/".$artnr.".ebaysnipelog";
     touch($fnl);
     chmod($fnl, 0666);
-    $pid =
-    exec("./esniperstart.sh $fn $fnl PATH_TO_ESNIPER> /dev/null & echo \$!", $results,$status);
+    $pid = exec("./esniperstart.sh $fn $fnl PATH_TO_ESNIPER  PATH_TO_ESNIPERCONFIG > /dev/null & echo \$!", $results,$status);
     return($pid);
 }
 
