@@ -30,6 +30,6 @@
 require 'utils.php';
 updateEndtime($db);
 updateHighestBid($db);
-collectGarbage($db);
+printf(collectGarbage($db));
 printf(snipeGenerate($db));
 ?>

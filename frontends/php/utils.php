@@ -82,7 +82,7 @@ function ueberbotenStatus($text) {
 	//True meldet, dass überboten wurde.
     ereg("bid: [0-9]+\.?[0-9]+",$text,$meineGebote);
     $bidMinimum = ereg("Bid price less than minimum bid price",$text);
-    if (substr($meineGebote[count($meineGebote)-1],5) - getHighestBid($text) > 0 || $bidMinimum != false) {
+    if (substr($meineGebote[count($meineGebote)-1],5) - getHighestBid($text) <= 0 || $bidMinimum != false) {
 		return(true);
     } else {
 		return(false);
@@ -146,7 +146,9 @@ function killSniper($artnr,$db) {
 
 function getPids() {
     $output = shell_exec("pidof -x esniperstart.sh");
-    $pids = split(" ",rtrim($output));
+    if ($output != "\n") {
+    	$pids = split(" ",rtrim($output));
+    }
     return($pids);
 }
 
@@ -160,9 +162,13 @@ function getEsniperPid($shpid) {
 }
 
 
-function snipeRunCheck($pid) {
+function snipeRunCheck($pid) {   
     $pids = getPids();
-    return(in_array($pid,$pids));
+    if (!empty($pids)) {    	
+    	return(in_array($pid,$pids));
+    } else {
+    	return(false);
+    }
 }
 
 
@@ -187,6 +193,8 @@ function getLogData($artnr) {
 	}
 	return($text);
 }
+
+
 
 
 function getHighestBid($logData) {
@@ -228,30 +236,32 @@ function snipeGenerate($db) {
     $msg = "";
     $sql = "SELECT * FROM snipe WHERE status = 0";
     $snipelist = $db->get_results($sql);
-    foreach($snipelist as $snipe) {
-		if (!snipeRunCheck($snipe->pid)) {
-		//Prozess läuft nicht
-			snipeEinstellen($snipe->artnr,$snipe->bid,$db);
-			$msg = $msg ."Snipe für ".$snipe->artnr." gestartet.\n";
-		} else {
-			$msg = $msg ."Snipe für ".$snipe->artnr." läuft bereits.\n";
-		}
+    if (!empty($snipelist)) {
+    	foreach($snipelist as $snipe) {
+			if (!snipeRunCheck($snipe->pid)) {
+			//Prozess läuft nicht
+				snipeEinstellen($snipe->artnr,$snipe->bid,$db);
+				$msg = $msg ."Snipe für ".$snipe->artnr." gestartet.\n";
+			} else {
+				$msg = $msg ."Snipe für ".$snipe->artnr." läuft bereits.\n";
+			}
+    	}
     }
     return($msg);
 }
 
 function collectGarbage($db) {
-	$msg = "";
+	//$msg = "";
     //Pids abschiessen, welche nicht laufen dürfen
     $sql = "SELECT pid FROM snipe WHERE status = 0";
-    $snipePids = $db->get_col($sql);
-    $sql = "SELECT artnr FROM snipe WHERE status = 0";
-    $snipeArtnr = $db->get_col($sql);
+    $snipePids = $db->get_col($sql);    
     $pids = getPids();
-    foreach($pids as $pid) {
-		if (!in_Array($pid,$snipePids)) {
-			$msg = $msg ."Prozess ".$pid." wurde beendet";
-			exec("kill -15 ".getEsniperPid($pid));
+    if (!empty($pids)) {
+		foreach($pids as $pid) {
+			if (!in_Array($pid,$snipePids)) {
+				$msg = $msg ."Prozess ".$pid." wurde beendet";
+				exec("kill -15 ".getEsniperPid($pid));
+			}
 		}
     }
 
@@ -259,14 +269,20 @@ function collectGarbage($db) {
     $sql = "SELECT artnr FROM snipe";
     $snipeArtnr = $db->get_col($sql);
     $dateien = fileList(TMP_FOLDER);
-    foreach($dateien as $datei) {
-		if (!in_Array(substr($datei,0,10),$snipeArtnr)) {
-		    exec("rm ".TMP_FOLDER."/".$datei);
-		}
+    if (!empty($dateien)) {
+	    foreach($dateien as $datei) {
+			if (!in_Array(substr($datei,0,10),$snipeArtnr)) {
+			    exec("rm ".TMP_FOLDER."/".$datei);
+			}
+	    }
     }
-    foreach($snipeArtnr as $artnr) {
-		statusPruefen($artnr,$db);
+    
+    if (!empty($snipeArtnr)) {
+    	foreach($snipeArtnr as $artnr) {
+			statusPruefen($artnr,$db);
+    	}
     }
+    
     return($msg);
 }
 ?>
