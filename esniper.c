@@ -38,8 +38,6 @@
 #include "util.h"
 
 static const char *progname = NULL;
-static const char version[] = "2.9.0 beta";
-
 static const char blurb[] = "Please visit http://esniper.sf.net/ for updates and bug reports.";
 static const char DEFAULT_CONF_FILE[] = ".esniper";
 
@@ -133,7 +131,7 @@ static int CheckFile(const void *valueptr, const optionTable_t *tableptr,
 const char *
 getVersion(void)
 {
-	return version;
+	return VERSION;
 }
 
 const char *
