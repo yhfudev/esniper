@@ -404,7 +404,7 @@ parseAuctionInternal(FILE *fp, auctionInfo *aip, int quantity, const char *user,
 				return auctionError(aip, ae_noprice, NULL);
 			*currently = myStrdup(line);
 			log(("Currently: %s  (your maximum bid: %s)\n", line, aip->bidPriceStr));
-			aip->price = atof(priceFixup(line));
+			aip->price = atof(priceFixup(line, aip));
 			if (aip->price < 0.01)
 				return auctionError(aip, ae_convprice, line);
 		} else if (!strcmp("Time left:", line)) {
@@ -503,7 +503,7 @@ parseAuctionInternal(FILE *fp, auctionInfo *aip, int quantity, const char *user,
 			getnontag(fp);	/* ")" */
 		}
 		*currently = myStrdup(getnontag(fp));	/* bid amount */
-		aip->price = atof(priceFixup(line));
+		aip->price = atof(priceFixup(line, aip));
 		if (aip->price < 0.01)
 			return auctionError(aip, ae_convprice, line);
 		if (private) {

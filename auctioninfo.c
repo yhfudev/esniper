@@ -28,6 +28,8 @@
 #include "util.h"
 #include <stdlib.h>
 
+static double *getIncrements(const auctionInfo *aip);
+
 /*
  * Bidding increments
  *
@@ -35,9 +37,25 @@
  * For example, 1.00, 0.05 means that under $1.00 the increment is $0.05.
  *
  * Increments obtained from:
- *	http://pages.ebay.com/help/basics/g-bid-increment.html
+ *	http://pages.ebay.com/help/buy/bid-increments.html
+ * (and similar pages on international sites)
  */
-static double increments[] = {
+
+/*
+ * Auction items not available from ebay.com:
+ *
+ * Argentina: http://www.mercadolibre.com.ar/
+ * Brazil: http://www.mercadolivre.com.br/
+ * India: http://www.baazee.com/ (seller can set increments)
+ * Korea: http://www.auction.co.kr/
+ * Mexico: http://www.mercadolibre.com.mx/
+ */
+
+/*
+ * Australia: http://pages.ebay.com.au/help/buy/bid-increments.html
+ * AU
+ */
+static double AUIncrements[] = {
 	1.00, 0.05,
 	5.00, 0.25,
 	25.00, 0.50,
@@ -48,6 +66,146 @@ static double increments[] = {
 	2500.00, 25.00,
 	5000.00, 50.00,
 	-1.00, 100.00
+};
+
+/*
+ * Austria: http://pages.ebay.at/help/buy/bid-increments.html
+ * Belgium: http://pages.befr.ebay.be/help/buy/bid-increments.html
+ * France: http://pages.ebay.fr/help/buy/bid-increments.html
+ * Germany: http://pages.ebay.de/help/buy/bid-increments.html
+ * Italy: http://pages.ebay.it/help/buy/bid-increments.html
+ * Netherlands: http://pages.ebay.nl/help/buy/bid-increments.html
+ * Spain: http://pages.es.ebay.com/help/buy/bid-increments.html
+ * EUR
+ */
+static double EURIncrements[] = {
+	50.00, 0.50,
+	500.00, 1.00,
+	1000.00, 5.00,
+	5000.00, 10.00,
+	-1.00, 50.00
+};
+
+/*
+ * Canada: http://pages.ebay.ca/help/buy/bid-increments.html
+ * C
+ */
+static double CADIncrements[] = {
+	1.00, 0.05,
+	5.00, 0.25,
+	25.00, 0.50,
+	100.00, 1.00,
+	-1.00, 2.50
+};
+
+/*
+ * China: http://pages.ebay.com.cn/help/buy/bid-increments.html
+ * RMB
+ */
+static double RMBIncrements[] = {
+	1.01, 0.05,
+	5.01, 0.20,
+	15.01, 0.50,
+	60.01, 1.00,
+	150.01, 2.00,
+	300.01, 5.00,
+	600.01, 10.00,
+	1500.01, 20.00,
+	3000.01, 50.00,
+	-1.00, 100.00
+};
+
+/*
+ * Hong Kong: http://www.ebay.com.hk/
+ * HKD
+ *
+ * Note: Cannot find bid-increments page.  Will use 0.01 to be safe.
+ */
+static double HKDIncrements[] = {
+	-1.00, 0.01
+};
+
+/*
+ * Singapore: http://www.ebay.com.sg/
+ * SGD
+ *
+ * Note: Cannot find bid-increments page.  Will use 0.01 to be safe.
+ *       From looking at auctions, it appears to be similar to US
+ *       increments.
+ */
+static double SGDIncrements[] = {
+	-1.00, 0.01
+};
+
+/*
+ * Switzerland: http://pages.ebay.ch/help/buy/bid-increments.html
+ * CHF
+ */
+static double CHFIncrements[] = {
+	50.00, 0.50,
+	500.00, 1.00,
+	1000.00, 5.00,
+	5000.00, 10.00,
+	-1.00, 50.00
+};
+
+/*
+ * Taiwan: http://pages.tw.ebay.com/help/buy/bid-increments.html
+ * NT
+ */
+static double NTIncrements[] = {
+	501.00, 15.00,
+	2501.00, 30.00,
+	5001.00, 50.00,
+	25001.00, 100.00,
+	-1.00, 200.00
+};
+
+/*
+ * Ireland: http://pages.ebay.co.uk/help/buy/bid-increments.html
+ * Sweden: http://pages.ebay.co.uk/help/buy/bid-increments.html
+ * UK: http://pages.ebay.co.uk/help/buy/bid-increments.html
+ * Note: Sweden & Ireland use GBP or EUR.  English help pages redirect
+ *	to UK site.
+ * GBP
+ */
+static double GBPIncrements[] = {
+	1.01, 0.05,
+	5.01, 0.20,
+	15.01, 0.50,
+	60.01, 1.00,
+	150.01, 2.00,
+	300.01, 5.00,
+	600.01, 10.00,
+	1500.01, 20.00,
+	3000.01, 50.00,
+	-1.00, 100.00
+};
+
+/*
+ * New Zealand: http://pages.ebay.com/help/buy/bid-increments.html
+ * US: http://pages.ebay.com/help/buy/bid-increments.html
+ * Note: New Zealand site uses US or NT.
+ * US
+ */
+static double USIncrements[] = {
+	1.00, 0.05,
+	5.00, 0.25,
+	25.00, 0.50,
+	100.00, 1.00,
+	250.00, 2.50,
+	500.00, 5.00,
+	1000.00, 10.00,
+	2500.00, 25.00,
+	5000.00, 50.00,
+	-1.00, 100.00
+};
+
+/*
+ * Unknown currency.  Increment 0.01, just to be on the safe side.
+ */
+static double defaultIncrements[] = {
+	-1.00, 0.01
 };
 
 static const char *auctionErrorString[] = {
@@ -82,7 +240,7 @@ newAuctionInfo(char *auction, char *bidPriceStr)
 	auctionInfo *aip = (auctionInfo *)myMalloc(sizeof(auctionInfo));
 
 	aip->auction = myStrdup(auction);
-	aip->bidPriceStr = priceFixup(myStrdup(bidPriceStr));
+	aip->bidPriceStr = priceFixup(myStrdup(bidPriceStr), NULL);
 	aip->bidPrice = atof(aip->bidPriceStr);
 	aip->remain = 0;
 	aip->host = NULL;
@@ -91,6 +249,7 @@ newAuctionInfo(char *auction, char *bidPriceStr)
 	aip->quantity = 1;
 	aip->bids = 0;
 	aip->price = 0;
+	aip->currency = NULL;
 	aip->bidResult = -1;
 	aip->won = -1;
 	aip->auctionError = ae_none;
@@ -108,6 +267,7 @@ freeAuction(auctionInfo *aip)
 	free(aip->host);
 	free(aip->query);
 	free(aip->key);
+	free(aip->currency);
 	free(aip->auctionErrorDetail);
 	free(aip);
 }
@@ -184,6 +344,7 @@ isValidBidPrice(const auctionInfo *aip)
 
 	if (aip->bids) {
 		int i;
+		double *increments = getIncrements(aip);
 
 		for (i = 0; increments[i] > 0; i += 2) {
 			if (aip->price < increments[i])
@@ -192,4 +353,52 @@ isValidBidPrice(const auctionInfo *aip)
 		increment = increments[i+1];
 	}
 	return aip->bidPrice >= (aip->price + increment);
+}
+
+static double *
+getIncrements(const auctionInfo *aip)
+{
+	if (!aip->currency)
+		return USIncrements;
+	switch (aip->currency[0]) {
+	case 'A':
+		if (!strcmp(aip->currency, "AU"))
+			return AUIncrements;
+		break;
+	case 'C':
+		if (!strcmp(aip->currency, "C"))
+			return CADIncrements;
+		if (!strcmp(aip->currency, "CHF"))
+			return CHFIncrements;
+		break;
+	case 'E':
+		if (!strcmp(aip->currency, "EUR"))
+			return EURIncrements;
+		break;
+	case 'G':
+		if (!strcmp(aip->currency, "GBP"))
+			return GBPIncrements;
+		break;
+	case 'H':
+		if (!strcmp(aip->currency, "HKD"))
+			return HKDIncrements;
+		break;
+	case 'N':
+		if (!strcmp(aip->currency, "NT"))
+			return NTIncrements;
+		break;
+	case 'R':
+		if (!strcmp(aip->currency, "RMB"))
+			return RMBIncrements;
+		break;
+	case 'S':
+		if (!strcmp(aip->currency, "SGD"))
+			return SGDIncrements;
+		break;
+	case 'U':
+		if (!strcmp(aip->currency, "US"))
+			return USIncrements;
+		break;
+	}
+	return defaultIncrements;
 }

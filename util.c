@@ -529,14 +529,22 @@ parseProxy(const char *value, proxy_t *proxy)
  * characters, convert ',' (non-english decimal) to '.'.
  */
 char *
-priceFixup(char *price)
+priceFixup(char *price, auctionInfo *aip)
 {
-	int len = strlen(price), i, j, start, end, count = 0, last = 0;
+	int len = strlen(price), i, j, start = 0, end, count = 0, last = 0;
 
-	for (start = 0; start < len; ++start) {
-		if (isdigit((int)price[start]))
-			break;
+	if (aip && !aip->currency) {
+		char tmp;
+
+		for (; start < len && isalpha((int)price[start]); ++start)
+			;
+		tmp = price[start];
+		price[start] = '\0';
+		aip->currency = myStrdup(price);
+		price[start] = tmp;
 	}
+	for (; start < len && !isdigit((int)price[start]); ++start)
+		;
 	for (i = start; i < len; ++i) {
 		if (isdigit((int)price[i]))
 			;
