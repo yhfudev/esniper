@@ -1037,6 +1037,9 @@ main(int argc, char *argv[])
 			ret = 0;
 		}
 	}
+	for (i = 0; i < numAuctions && options.quantity > 0; ++i)
+		freeAuction(auctions[i]);
+	free(auctions);
 
 	cleanupCurlStuff();
 

@@ -1,0 +1,4 @@
+--tool=memcheck
+--memcheck:leak-check=yes
+--memcheck:num-callers=10
+--suppressions=esniper.supp

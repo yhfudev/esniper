@@ -1057,6 +1057,7 @@ ebayLogin(auctionInfo *aip)
 	char *url, *logUrl;
 	pageInfo_t *pp;
 	int ret = 0;
+	char *password;
 
 	mp = httpGet(LOGIN_1_URL, NULL);
 	if (!mp)
@@ -1065,10 +1066,12 @@ ebayLogin(auctionInfo *aip)
 	clearMembuf(mp);
 
 	urlLen = sizeof(LOGIN_2_URL) + strlen(options.username);
-	url = malloc(urlLen + strlen(getPassword()));
+	password = getPassword();
+	url = malloc(urlLen + strlen(password));
 	logUrl = malloc(urlLen + 5);
 
-	sprintf(url, LOGIN_2_URL, options.username, getPassword());
+	sprintf(url, LOGIN_2_URL, options.username, password);
+	freePassword(password);
 	sprintf(logUrl, LOGIN_2_URL, options.username, "*****");
 
 	mp = httpGet(url, logUrl);

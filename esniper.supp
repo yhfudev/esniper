@@ -1,0 +1,494 @@
+# Suppressions for valgrind.  See .valgrindrc for default options used.
+
+#
+# esniper suppressions
+#
+
+# I think valgrind is confused.  mp->size appears to be initialized
+# in httpRequest(), but it complains about it.
+{
+   WriteMemoryCallback jump 2
+   Memcheck:Cond
+   fun:memcpy
+   fun:WriteMemoryCallback
+}
+{
+   WriteMemoryCallback jump 3
+   Memcheck:Cond
+   fun:realloc
+   fun:myRealloc
+   fun:WriteMemoryCallback
+}
+{
+   WriteMemoryCallback uninit 1
+   Memcheck:Value4
+   fun:WriteMemoryCallback
+}
+{
+   WriteMemoryCallback uninit 2
+   Memcheck:Value4
+   fun:memcpy
+   fun:WriteMemoryCallback
+}
+
+# Buffer seems OK to me.
+{
+   getTag log
+   Memcheck:Param
+   write(buf)
+   fun:write
+   fun:new_do_write
+   fun:_IO_do_write@@GLIBC_2.1
+   fun:_IO_file_sync@@GLIBC_2.1
+   fun: _IO_fflush_internal
+   fun:vlog
+   fun:dlog
+   fun:getTag
+}
+
+
+#
+# Libc suppressions
+#
+
+
+#
+# LibCurl suppressions
+#
+
+{
+   Curl_SSLConnect leak
+   Memcheck:Leak
+   fun:calloc
+   fun:kssl_ctx_new
+   fun:SSL_new
+   fun:Curl_SSLConnect
+}
+
+{
+   Curl_hash_alloc leak
+   Memcheck:Leak
+   fun:malloc
+   fun:Curl_hash_alloc
+}
+
+{
+   Curl_http jump
+   Memcheck:Cond
+   fun:*
+   fun:Curl_http
+}
+{
+   Curl_http param
+   Memcheck:Param
+   socketcall.send(msg)
+   fun:send
+   fun:add_buffer_send
+   fun:Curl_http
+}
+{
+   Curl_http uninit
+   Memcheck:Value4
+   fun:*
+   fun:Curl_http
+}
+
+{
+   Curl_http_done jump
+   Memcheck:Cond
+   fun:Curl_http_done
+}
+
+{
+   curl_mvaprintf jump
+   Memcheck:Cond
+   fun:*
+   fun:curl_mvaprintf
+}
+
+{
+   Curl_parsedate jump
+   Memcheck:Cond
+   fun:Curl_parsedate
+}
+{
+   Curl_parsedate jump 2
+   Memcheck:Cond
+   fun:*
+   fun:Curl_parsedate
+}
+{
+   Curl_parsedate jump 3
+   Memcheck:Cond
+   fun:*
+   fun:*
+   fun:Curl_parsedate
+}
+{
+   Curl_parsedate jump 4
+   Memcheck:Cond
+   fun:*
+   fun:*
+   fun:*
+   fun:Curl_parsedate
+}
+{
+   Curl_parsedate jump 5
+   Memcheck:Cond
+   fun:*
+   fun:*
+   fun:*
+   fun:*
+   fun:Curl_parsedate
+}
+{
+   Curl_parsedate uninit 1
+   Memcheck:Value4
+   fun:Curl_parsedate
+}
+{
+   Curl_parsedate uninit 2
+   Memcheck:Value4
+   fun:*
+   fun:Curl_parsedate
+}
+{
+   Curl_parsedate uninit 3
+   Memcheck:Value4
+   fun:*
+   fun:*
+   fun:Curl_parsedate
+}
+{
+   Curl_parsedate uninit 6
+   Memcheck:Value4
+   fun:*
+   fun:*
+   fun:*
+   fun:*
+   fun:*
+   fun:Curl_parsedate
+}
+
+{
+   Curl_perform jump
+   Memcheck:Cond
+   fun:Curl_perform
+}
+
+{
+   Curl_pgrsUpdate jump
+   Memcheck:Cond
+   fun:Curl_pgrsUpdate
+}
+{
+   Curl_pgrsUpdate uninit
+   Memcheck:Value8
+   fun:Curl_pgrsUpdate
+}
+
+{
+   Curl_readwrite jump
+   Memcheck:Cond
+   fun:Curl_readwrite
+}
+{
+   Curl_readwrite jump 2
+   Memcheck:Cond
+   fun:*
+   fun:Curl_readwrite
+}
+{
+   Curl_readwrite uninit
+   Memcheck:Value4
+   fun:*
+   fun:Curl_readwrite
+}
+
+{
+   curl_slist_append leak
+   Memcheck:Leak
+   fun:malloc
+   fun:curl_slist_append
+}
+
+
+#
+# SSL related suppressions
+#
+
+{
+   AES_decrypt uninit
+   Memcheck:Value4
+   fun:AES_decrypt
+   #obj:/lib/libcrypto.so.0.9.7a
+}
+
+{
+   AES_encrypt uninit
+   Memcheck:Value4
+   fun:AES_encrypt
+   #obj:/lib/libcrypto.so.0.9.7a
+}
+
+{
+   AES_set_decrypt_key uninit
+   Memcheck:Value4
+   fun:AES_set_decrypt_key
+   #obj:/lib/libcrypto.so.0.9.7a
+}
+
+{
+   AES_set_encrypt_key uninit
+   Memcheck:Value4
+   fun:AES_set_encrypt_key
+   #obj:/lib/libcrypto.so.0.9.7a
+}
+
+{
+   BIO_write param
+   Memcheck:Param
+   write(buf)
+   fun:write
+   fun:BIO_write
+   #obj:/lib/libssl.so.0.9.7a
+}
+
+{
+   BN_bin2bn jump
+   Memcheck:Cond
+   fun:BN_bin2bn
+   #obj:/lib/libcrypto.so.0.9.7a
+}
+
+{
+   BN_from_montgomery jump
+   Memcheck:Cond
+   fun:BN_from_montgomery
+   #obj:/lib/libcrypto.so.0.9.7a
+}
+
+{
+   BN_mod_exp_mont jump
+   Memcheck:Cond
+   fun:BN_mod_exp_mont
+   #obj:/lib/libcrypto.so.0.9.7a
+}
+
+{
+   BN_mul jump
+   Memcheck:Cond
+   fun:BN_mul
+   #obj:/lib/libcrypto.so.0.9.7a
+}
+
+{
+   BN_num_bits_word jump
+   Memcheck:Cond
+   fun:BN_num_bits_word
+   #obj:/lib/libcrypto.so.0.9.7a
+}
+
+{
+   BN_num_bits_word uninit
+   Memcheck:Value4
+   fun:BN_num_bits_word
+   #obj:/lib/libcrypto.so.0.9.7a
+}
+
+{
+   BN_sqr jump
+   Memcheck:Cond
+   fun:BN_sqr
+   #obj:/lib/libcrypto.so.0.9.7a
+}
+
+{
+   BN_ucmp jump
+   Memcheck:Cond
+   fun:BN_ucmp
+   #obj:/lib/libcrypto.so.0.9.7a
+}
+
+{
+   BN_usub jump
+   Memcheck:Cond
+   fun:BN_usub
+   #obj:/lib/libcrypto.so.0.9.7a
+}
+
+{
+   MD5_Final jump
+   Memcheck:Cond
+   fun:MD5_Final
+   #obj:/lib/libcrypto.so.0.9.7a
+}
+
+{
+   MD5_Final uninit
+   Memcheck:Value4
+   fun:MD5_Final
+   #obj:/lib/libcrypto.so.0.9.7a
+}
+
+{
+   MD5_Update jump
+   Memcheck:Cond
+   fun:MD5_Update
+   #obj:/lib/libcrypto.so.0.9.7a
+}
+
+{
+   MD5_Update uninit
+   Memcheck:Value4
+   fun:MD5_Update
+   #obj:/lib/libcrypto.so.0.9.7a
+}
+
+{
+   SHA1_Final jump
+   Memcheck:Cond
+   fun:SHA1_Final
+   #obj:/lib/libcrypto.so.0.9.7a
+}
+
+{
+   SHA1_Final uninit
+   Memcheck:Value4
+   fun:SHA1_Final
+   #obj:/lib/libcrypto.so.0.9.7a
+}
+
+{
+   SHA1_Update jump
+   Memcheck:Cond
+   fun:SHA1_Update
+   #obj:/lib/libcrypto.so.0.9.7a
+}
+
+{
+   SHA1_Update uninit
+   Memcheck:Value4
+   fun:SHA1_Update
+   #obj:/lib/libcrypto.so.0.9.7a
+}
+
+{
+   RSA jump
+   Memcheck:Cond
+   obj:/lib/libcrypto.so.0.9.7a
+   fun:RSA_public_encrypt
+}
+
+{
+   RSA_padding_add_PKCS1_type_2 jump
+   Memcheck:Cond
+   fun:RSA_padding_add_PKCS1_type_2
+   #obj:/lib/libcrypto.so.0.9.7a
+}
+
+{
+   bn_cmp_words jump
+   Memcheck:Cond
+   fun:bn_cmp_words
+   #obj:/lib/libcrypto.so.0.9.7a
+}
+
+{
+   bn_mul_recursive jump
+   Memcheck:Cond
+   fun:bn_mul_recursive
+   #obj:/lib/libcrypto.so.0.9.7a
+}
+
+{
+   bn_mul_recursive uninit
+   Memcheck:Value4
+   fun:bn_mul_recursive
+   #obj:/lib/libcrypto.so.0.9.7a
+}
+
+{
+   bn_sqr_recursive jump
+   Memcheck:Cond
+   fun:bn_sqr_recursive
+   #obj:/lib/libcrypto.so.0.9.7a
+}
+
+{
+   ssl3_get_finished jump
+   Memcheck:Cond
+   fun:ssl3_get_finished
+}
+
+{
+   ssl3_get_finished uninit
+   Memcheck:Value4
+   fun:ssl3_get_finished
+}
+
+{
+   ssl3_get_message jump 1
+   Memcheck:Cond
+   fun:ssl3_get_message
+}
+
+{
+   ssl3_get_message jump 2
+   Memcheck:Cond
+   fun:*
+   fun:ssl3_get_message
+}
+
+{
+   ssl3_get_message uninit 1
+   Memcheck:Value4
+   fun:ssl3_get_message
+}
+
+{
+   ssl3_get_message uninit 2
+   Memcheck:Value4
+   fun:*
+   fun:ssl3_get_message
+}
+
+{
+   ssl3_read_bytes jump 1
+   Memcheck:Cond
+   fun:ssl3_read_bytes
+}
+
+{
+   ssl3_read_bytes jump 2
+   Memcheck:Cond
+   fun:*
+   fun:ssl3_read_bytes
+}
+
+{
+   ssl3_read_bytes uninit 1
+   Memcheck:Value4
+   fun:ssl3_read_bytes
+}
+
+{
+   ssl3_read_bytes uninit 2
+   Memcheck:Value4
+   fun:*
+   fun:ssl3_read_bytes
+}
+
+{
+   tls1_enc jump
+   Memcheck:Cond
+   fun:tls1_enc
+   #obj:/lib/libssl.so.0.9.7a
+}
+
+{
+   tls1_enc uninit
+   Memcheck:Value4
+   fun:tls1_enc
+   #obj:/lib/libssl.so.0.9.7a
+}
