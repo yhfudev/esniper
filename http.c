@@ -74,6 +74,8 @@ static fdToSock *fdToSockHead = NULL;
 
 static void storeSocket(int fd, SOCKET sock);
 static SOCKET getSocket(int fd);
+static int isNT();
+static int openOsfhandleHack(SOCKET sock, int flags);
 static const char *winsockStrerror(int err);
 #endif
 
@@ -175,9 +177,9 @@ verboseConnect(proxy_t *proxy, const char *host, unsigned int retryTime, int ret
 	 *	2000, and XP.  If you want to use esniper and you have
 	 *	95/98/Me, you must use the cygwin version.
 	 *
-	 * I'm not sure if _O_RDONLY is needed.
+	 * I'm not sure if _O_RDWR is needed.
 	 */
-	sockfd = _open_osfhandle(winSocket, _O_RDONLY | _O_APPEND);
+	sockfd = openOsfhandleHack(winSocket, _O_RDWR | _O_APPEND);
 	storeSocket(sockfd, winSocket);
 #else
 	sockfd = socket(AF_INET, SOCK_STREAM, 0);
@@ -586,6 +588,41 @@ getSocket(int fd)
 		}
 	}
 	return ret;
+}
+
+/*
+ * Return 1 is Windows OS is NT, 0 otherwise (95, etc)
+ */
+static int
+isNT()
+{
+	static int firstTime = 1;
+	static int ret = 0;
+
+	if (firstTime) {
+		OSVERSIONINFO info;
+
+		info.dwOSVersionInfoSize = sizeof(info);
+		if (GetVersionEx(&info)) {
+			if (info.dwPlatformId == VER_PLATFORM_WIN32_NT)
+				ret = 1;
+		}
+		firstTime = 0;
+	}
+	return ret;
+}
+
+/*
+ * TODO: Hack to work around _open_osfhandle deficiency for Win 95/98/Me
+ */
+static int
+openOsfhandleHack(SOCKET sock, int flags)
+{
+	if (isNT())
+		return _open_osfhandle(sock, flags);
+
+	printLog(stderr, "This program only works with Windows NT, 2000, and XP\n");
+	exit(1);
 }
 
 static const char *
