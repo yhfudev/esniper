@@ -1,0 +1,6 @@
+For more information, see <http://esniper.sourceforge.net/>.
+
+This project is so simple, I didn't even bother to use autoconf.  For most
+systems, just type "make", then "make install" (perhaps as root).  If you
+have a problem, you might want to uncomment the LIBS line in the Makefile
+and try again.
