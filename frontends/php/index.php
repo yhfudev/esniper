@@ -25,7 +25,7 @@ function zeige(logID,alles) {
 function erstesAufbauen() {
     dieLogs = document.getElementsByName('logs');
     for(i=0;i<=dieLogs.length;i++) {
-	layouten(dieLogs[0]);
+	layouten(dieLogs[i]);
     }
 }
 
@@ -48,14 +48,14 @@ newtime = window.setTimeout("initCounter();", 1000);
 <AREA SHAPE="rect" ALT="Reload" COORDS="267,0,340,45" HREF="index.php" TARGET="_self">
 <AREA SHAPE="rect" ALT="Gruppen verwalten" COORDS="137,0,267,45" HREF="gruppenVerwalten.php" TARGET="gruppen">
 <AREA SHAPE="rect" ALT="neuen Artikel eingeben" COORDS="0,0,136,45" HREF="neuerArtikel.php" TARGET="artikel">
-<AREA SHAPE="rect" ALT="gwonnene und verlorene Auktionen löschen" COORDS="360,0,425,45" HREF="index.php?zutun=3" TARGET="_self">
+<AREA SHAPE="rect" ALT="gewonnene und verlorene Auktionen löschen" COORDS="360,0,425,45" HREF="index.php?zutun=3" TARGET="_self">
 </MAP>
 <?php
 
 /*
  * Copyright (c) 2005 Nils Rottgardt <nils@rottgardt.org>
  * All rights reserved
- * 
+ *
  * Published under BSD-licence
  *
  * Redistribution and use in source and binary forms, with or without
@@ -88,6 +88,7 @@ $artnr = $_GET["artnr"];
 $bid   = $_GET["bid"];
 $delete = $_GET["delete"];
 $gruppe = $_GET["gruppe"];
+$filtergruppe = $_GET["filtergruppe"];
 
 //Eintrag erstellen
 
@@ -99,18 +100,26 @@ switch($zutun) {
         $snipe = $db->get_row($sql);
         break;
     Case 2:
-	if ($gruppe == "keine") {
-	    $gruppeID = 0;
-	} else {
-	    $gruppeID = $db->get_var("SELECT gruppeID FROM gruppen WHERE name = \"".$gruppe."\"");
-	}
-        $sql = "UPDATE snipe SET gruppe = ".$gruppeID." WHERE artnr = ".$artnr;
-	$db->query($sql);
+        $sql = "UPDATE snipe SET gruppe = ".$gruppe." WHERE artnr = ".$artnr;
+		$db->query($sql);
         break;
     Case 3:
-    //Aufräumen
-    $sql = "DELETE FROM snipe WHERE status != 0";
-    $db->query($sql);
+    	//Aufräumen
+    	$sql = "DELETE FROM snipe WHERE status != 0";
+    	$db->query($sql);
+    	break;
+    Case 4:
+    	//Auktionsliste nach Gruppe filtern
+    	if ($filtergruppe == -1) {
+    		//Alles anzeigen
+    		$auktionenSQL = "SELECT * FROM snipe ORDER BY status,endtime ASC";
+    	} else {
+    		$auktionenSQL = "SELECT * FROM snipe WHERE gruppe = \"".$filtergruppe."\" ORDER BY status,endtime ASC";
+    	}
+    	break;
+	Default:
+		$auktionenSQL = "SELECT * FROM snipe ORDER BY status,endtime ASC";
+		break;
 }
 
 $sql = "SELECT count(*) FROM snipe";
@@ -132,6 +141,19 @@ $sql = "SELECT count(*) FROM snipe WHERE status = 2";
 $anzahl = $db->get_var($sql);
 printf("verloren: ". $anzahl);
 printf("</strong>");
+
+//Zum filtern der Auktionenliste nach einer Gruppe
+printf("<form action=\"index.php\" method=\"get\">");
+printf(html_GruppenFilternListe($filtergruppe,$db));
+printf("<input type=\"submit\" value=\"Gruppe filtern\">");
+printf("<input type=\"hidden\" name=\"zutun\" value=\"4\">");
+if ($filtergruppe >= 0 && $zutun=4) {
+	$sql="SELECT count(*) FROM snipe WHERE gruppe = \"".$filtergruppe."\"";
+	$aAnzahl = $db->get_var($sql);
+	printf(" Auktionen: ".$aAnzahl);
+}
+printf("</form>");
+
 ?>
 <table class="Inhaltstabelle">
 <?php
@@ -147,8 +169,8 @@ function read_tree ($dir) {
 }
 
 
-$sql = "SELECT * FROM snipe ORDER BY status,endtime ASC";
-$snipelist = $db->get_results($sql);
+
+$snipelist = $db->get_results($auktionenSQL);
 if (!empty($snipelist)) {
     printf ("<tr><td class=\"Inhaltstabzelle\">Artikelnummer </td>");
     printf ("<td class=\"Inhaltstabzelle\">Snipe-Status</td>");

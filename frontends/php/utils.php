@@ -54,12 +54,12 @@ function startEsniper($artnr) {
 function auktionBeendet($artnr) {
     $fn=TMP_FOLDER."/".$artnr.".ebaysnipelog";
     if (file_exists($fn)) {
-	$fp=fopen($fn,"r");
-	$text=fread($fp, filesize ($fn));
-	fclose($fp);
-	if (ereg("You have already won", $text)) {return(1);}
-	elseif (ueberbotenStatus($text)) {return(2);}
-	else {return(0);}
+		$fp=fopen($fn,"r");
+		$text=fread($fp, filesize ($fn));
+		fclose($fp);
+		if (ereg("You have already won", $text)) {return(1);}
+		elseif (ueberbotenStatus($text)) {return(2);}
+		else {return(0);}
     }
 }
 

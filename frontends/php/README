@@ -9,7 +9,7 @@ version from the CVS.
 -----------------------------------------------------------------------------------------------------
 
 Requirements:
-Apache, PHP, MySQL, esniper
+Apache, PHP, MySQL, esniper, pstree, grep
 
 It is provided that the pathes to SH and PHP-interpreter are:
 /bin/sh
@@ -29,7 +29,8 @@ Schritte für die Installation:
 4. In der Datei config.inc die Einstellungen anpassen.
    !Es muss auf die Dateien refereneziert werden: z.B./usr/bin/esniper   
 5. Die reload.php in die crontab eintragen und am besten jede Stunde laufen lassen.
-   Die reload.php prüft, ob noch alle Snipe-Prozesse laufen, bzw. beendet fehlerhafte.
+   Die reload.php prüft, ob noch alle Snipe-Prozesse laufen, bzw. beendet fehlerhafte. Sie kann auch beim
+   Booten ausgeführt werden.
 6. Schön aus dem Web snipern.
 
 
@@ -42,5 +43,5 @@ installation steps:
 4. Adapt the confic.inc to your installation properties.
    !There have to be absolute references on files: e.g. /usr/bin/esniper
 5. Put the reload.php in the crontab to run every hour.
-   The reload.php stops unknown esniper processes and starts missings.
+   The reload.php stops unknown esniper processes and starts missings. You could either execute it on booting.
 6. Sniper from the Web. 

@@ -29,35 +29,67 @@
 
 
 function html_Gruppenliste($artnr,$db) {
-//Baut eine Auswahlliste für die Gruppen zusammen
+//Baut eine Auswahlliste für die Gruppen auf einem Artikel zusammen
     $sql = "SELECT gruppe FROM snipe WHERE artnr = ".$artnr;
     $snipe = $db->get_row($sql);
     $temp = "<select name=\"gruppe\" size=\"1\">";
     if ($snipe->gruppe == 0) {
-	$temp .= "<option selected=\"selected\">keine</option>";
+		$temp .= "<option value=\"0\" selected=\"selected\">keine</option>";
     } else {
-	$temp .= "<option>keine</option>";
+		$temp .= "<option value=\"0\">keine</option>";
     }
     $sql = "SELECT * FROM gruppen";
-    $namenliste = $db->get_results($sql);
-    if (!empty($namenliste)) {
-        foreach($namenliste as $name) {
-    	    if ($snipe->gruppe == $name->gruppeID) {
-                $temp .= "<option selected=\"selected\">".$name->name."</option>";
-	    } else {
-		$temp .= "<option>".$name->name."</option>";
-	    }
-	}
+    $gruppenliste = $db->get_results($sql);
+    if (!empty($gruppenliste)) {
+        foreach($gruppenliste as $gruppe) {
+    	    if ($snipe->gruppe == $gruppe->gruppeID) {
+                $temp .= "<option value=\"".$gruppe->gruppeID."\" selected=\"selected\">".$gruppe->name."</option>";
+		    } else {
+				$temp .= "<option value=\"".$gruppe->gruppeID."\">".$gruppe->name."</option>";
+		    }
+		}
     }
     $temp .= "</select>";
     return($temp);
 }
+
+
+function html_GruppenFilternListe($gruppeID,$db) {
+//Baut eine Auswahlliste für die Gruppen zusammen
+    $temp = "<select name=\"filtergruppe\" size=\"1\">";
+    if ($gruppeID == -1) {
+    	$temp .= "<option value=\"-1\" selected=\"selected\">Alles</option>";
+    } else {
+    	$temp .= "<option value=\"-1\">Alles</option>";
+    }
+
+    if ($gruppeID == 0) {
+    	$temp .= "<option value=\"0\" selected=\"selected\">keine</option>";
+    } else {
+    	$temp .= "<option value=\"0\">keine</option>";
+    }
+    $sql = "SELECT * FROM gruppen";
+    $gruppenliste = $db->get_results($sql);
+    if (!empty($gruppenliste)) {
+        foreach($gruppenliste as $gruppe) {
+        	if ($gruppeID == $gruppe->gruppeID) {
+				$temp .= "<option value=\"".$gruppe->gruppeID."\" selected=\"selected\">".$gruppe->name."</option>";
+			} else {
+				$temp .= "<option value=\"".$gruppe->gruppeID."\">".$gruppe->name."</option>";
+			}
+		}
+    }
+    $temp .= "</select>";
+    return($temp);
+}
+
 
 function html_gruppenname($gruppeID,$db) {
     $sql = "SELECT name FROM gruppen WHERE gruppeID = ".$gruppeID;
     $gruppenname = $db->get_var($sql);
     return($gruppenname);
 }
+
 
 function html_snipestatus($code) {
 //Wandelt den Intergerwert aus der Datenbank (status) in HTML um.
