@@ -1143,11 +1143,18 @@ testParser(int flag)
 	switch (flag) {
 	case 1:
 	    {
-		/* dump non-tag data */
 		char *line;
 
+		/* dump non-tag data */
 		while ((line = getnontag(mp)))
 			printf("\"%s\"\n", line);
+
+		/* pagename? */
+		mp->readptr = mp->memory;
+		if ((line = getPageName(mp)))
+			printf("\nPAGENAME is \"%s\"\n", line);
+		else
+			printf("\nPAGENAME is NULL\n");
 		break;
 	    }
 	case 2:
