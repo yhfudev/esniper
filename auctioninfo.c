@@ -244,7 +244,8 @@ newAuctionInfo(char *auction, char *bidPriceStr)
 	aip->auction = myStrdup(auction);
 	aip->bidPriceStr = priceFixup(myStrdup(bidPriceStr), NULL);
 	aip->bidPrice = atof(aip->bidPriceStr);
-	aip->remain = 0;
+	aip->endTime = 0;
+	aip->latency = 0;
 #if 0
 	aip->host = NULL;
 #endif
@@ -288,10 +289,20 @@ freeAuction(auctionInfo *aip)
 int
 compareAuctionInfo(const void *p1, const void *p2)
 {
-	long r1 = (*((const auctionInfo * const *)p1))->remain;
-	long r2 = (*((const auctionInfo * const *)p2))->remain;
+	const auctionInfo * a1,  * a2;
 
-	return (r1 == r2) ? 0 : (r1 < r2 ? -1 : 1);
+	a1 = *((const auctionInfo * const *)p1);
+	a2 = *((const auctionInfo * const *)p2);
+
+	/* if end time is the same we compare the current price
+           and use the lower price first */
+	if (a1->endTime == a2->endTime)
+        {
+           /* comparison function must return an integer so we 
+              convert the price to cent or whatever it's called */
+	   return (int)((a1->price * 100.0) - (a2->price * 100.0));
+        }
+	return (int)(a1->endTime - a2->endTime);
 }
 
 /*

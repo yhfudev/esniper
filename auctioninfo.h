@@ -67,7 +67,8 @@ typedef struct {
 	char *auction;	/* auction number */
 	char *bidPriceStr;/* price you want to bid */
 	double bidPrice;/* price you want to bid (converted to double) */
-	long remain;	/* seconds remaining */
+	time_t endTime; /* end time as calculated from remaining seconds */
+	time_t latency; /* latency from HTTP request to first page data */
 #if 0
 	char *host;	/* bid history host */
 #endif

@@ -41,6 +41,8 @@
 #	include <unistd.h>
 #endif
 
+#define newRemain(aip) (aip->endTime - time(NULL) - aip->latency - options.bidtime)
+
 static int match(memBuf_t *mp, const char *str);
 static const char *gettag(memBuf_t *mp);
 static char *getnontag(memBuf_t *mp);
@@ -334,14 +336,14 @@ parseAuction(memBuf_t *mp, auctionInfo *aip, int quantity, const char *user, tim
 
 	resetAuctionError(aip);
 
+	if (timeToFirstByte) {
+		*timeToFirstByte = getTimeToFirstByte(mp);
+	}
+
 	/*
 	 * Auction title
 	 */
 	while ((line = getnontag(mp))) {
-		if (timeToFirstByte) {
-			*timeToFirstByte = getTimeToFirstByte(mp);
-			timeToFirstByte = NULL;
-		}
 		if (!strcmp(line, "Bid History"))
 			break;
 		if (!strcmp(line, "Unknown Item"))
@@ -364,6 +366,7 @@ parseAuctionInternal(memBuf_t *mp, auctionInfo *aip, int quantity, const char *u
 	char *line;
 	char *title;
 	int reserve = 0;	/* 1 = reserve not met */
+        long remain;		/* time until auction ends */
 
 	/*
 	 * Auction item
@@ -414,10 +417,11 @@ parseAuctionInternal(memBuf_t *mp, auctionInfo *aip, int quantity, const char *u
 	}
 	if (!line)
 		return auctionError(aip, ae_notime, NULL);
-	if ((aip->remain = getseconds(line)) < 0)
+	if ((remain = getseconds(line)) < 0)
 		return auctionError(aip, ae_badtime, line);
-	printLog(stdout, "Time remaining: %s (%ld seconds)\n",
-		line, aip->remain);
+	printLog(stdout, "Time remaining: %s (%ld seconds)\n", line, remain);
+        aip->endTime = remain + time(NULL);
+	printLog(stdout, "End time: %s\n", ctime(&(aip->endTime)));
 
 	if (!(line = getnontag(mp)))
 		return auctionError(aip, ae_nohighbid, NULL);
@@ -510,7 +514,7 @@ parseAuctionInternal(memBuf_t *mp, auctionInfo *aip, int quantity, const char *u
 			*winner = (aip->price <= aip->bidPrice &&
 				   (aip->bidResult == 0 ||
 				    (aip->bidResult == -1 &&
-				     aip->remain < options.bidtime))) ?
+				     aip->endTime - time(NULL) < options.bidtime))) ?
 					myStrdup(user) : myStrdup("[private]");
 		}
 		getnontag(mp); /* date */
@@ -536,11 +540,11 @@ parseAuctionInternal(memBuf_t *mp, auctionInfo *aip, int quantity, const char *u
 		printf("# of bids: %d\n", aip->bids);
 		if (strcasecmp(*winner, user)) {
 			printLog(stdout, "High bidder: %s (NOT %s)\n", *winner, user);
-			if (!aip->remain)
+			if (!remain)
 				aip->won = 0;
 		} else {
 			printLog(stdout, "High bidder: %s!!!\n", *winner);
-			if (!aip->remain)
+			if (!remain)
 				aip->won = 1;
 		}
 	} else {	/* dutch with bids */
@@ -574,7 +578,7 @@ parseAuctionInternal(memBuf_t *mp, auctionInfo *aip, int quantity, const char *u
 			line = getnontag(mp); /* <date> */
 		} while (line);
 		printf("# of bids: %d\n", aip->bids);
-		if (!aip->remain)
+		if (!remain)
 			aip->won = winning;
 		if (winning > 0) {
 			if (winning == wanted)
@@ -859,11 +863,17 @@ watch(auctionInfo *aip)
 	log(("*** WATCHING auction %s price-each %s quantity %d bidtime %ld\n", aip->auction, aip->bidPriceStr, options.quantity, options.bidtime));
 
 	for (;;) {
+		time_t tmpLatency;
 		time_t start = time(NULL);
 		time_t timeToFirstByte = 0;
 		int ret = getInfoTiming(aip, options.quantity, options.username, &timeToFirstByte);
 		time_t end = time(NULL);
-		time_t latency = (timeToFirstByte - start);
+		if (timeToFirstByte == 0)
+			timeToFirstByte = end;
+		tmpLatency = (timeToFirstByte - start);
+		if ((tmpLatency >= 0) && (tmpLatency < 600))
+			aip->latency = tmpLatency;
+	        printLog(stdout, "Latency: %d seconds\n", aip->latency);
 
 		if (ret) {
 			printAuctionError(aip, stderr);
@@ -874,7 +884,7 @@ watch(auctionInfo *aip)
 			 */
 			if (aip->auctionError == ae_unavailable) {
 				if (remain >= 0)
-					remain -= sleepTime + latency;
+					remain = newRemain(aip);
 				if (remain == LONG_MIN || remain > 86400) {
 					/* typical eBay maintenance period
 					 * is two hours.  Sleep for half that
@@ -888,11 +898,12 @@ watch(auctionInfo *aip)
 			} else if (remain == LONG_MIN) { /* first time */
 				int j;
 
-				for (j = 0; ret && j < 3 && aip->auctionError == ae_notitle; ++j)
+				for (j = 0; ret && j < 3 && aip->auctionError == ae_notitle; ++j) {
 					ret = getInfo(aip, options.quantity,
 						      options.username);
+                                }
 				if (!ret)
-					remain = aip->remain - options.bidtime - latency;
+					remain = newRemain(aip);
 				else
 					return 1;
 			} else {
@@ -901,22 +912,23 @@ watch(auctionInfo *aip)
 				if (errorCount > 50)
 					return auctionError(aip, ae_toomany, NULL);
 				printLog(stdout, "Cannot find auction - internet or eBay problem?\nWill try again after sleep.\n");
-				remain -= sleepTime + latency;
+				remain = newRemain(aip);
 			}
 		} else if (!isValidBidPrice(aip))
 			return auctionError(aip, ae_bidprice, NULL);
 		else
-			remain = aip->remain - options.bidtime - latency;
+			remain = newRemain(aip);
 
 		/*
 		 * if we're less than five minutes away and login was 
-       * more than five minutes ago, re-login
+		 * more than five minutes ago, re-login
 		 */
 		if ((remain <= 300) && ((time(NULL) - aip->loginTime) > 300)) {
-         cleanupCurlStuff();
-         initCurlStuff();
-         ebayLogin(aip);
-      }
+			cleanupCurlStuff();
+			initCurlStuff();
+			ebayLogin(aip);
+			remain = newRemain(aip);
+		}
 
 		/*
 		 * if we're less than two minutes away,
@@ -924,7 +936,6 @@ watch(auctionInfo *aip)
 		 */
 		if (remain <= 150 && !aip->key) {
 			int i;
-			time_t keyLatency;
 
 			printf("\n");
 			for (i = 0; i < 5; ++i) {
@@ -935,12 +946,12 @@ watch(auctionInfo *aip)
 				printLog(stderr, "Cannot get bid key\n");
 				return 1;
 			}
-			keyLatency = time(NULL) - end;
-			remain -= keyLatency;
 		}
 
+		remain = newRemain(aip);
+
 		/* it's time!!! */
-		if (remain < 0)
+		if (remain <= 0)
 			break;
 
 		/*
@@ -974,7 +985,7 @@ watch(auctionInfo *aip)
 		sleep(sleepTime);
 		printf("\n");
 
-		if ((long)sleepTime == remain)
+		if ((remain=newRemain(aip)) <= 0)
 			break;
 	}
 

@@ -190,7 +190,7 @@ sortAuctions(auctionInfo **auctions, int numAuctions, char *user, int *quantity)
 			*quantity -= aip->won;
 		else if (aip->auctionError != ae_none)
 			;
-		else if (aip->remain == 0)
+		else if (aip->endTime <= time(NULL))
 			;
 		else if (!isValidBidPrice(aip))
 			auctionError(aip, ae_bidprice, NULL);
@@ -293,7 +293,7 @@ CheckSecs(const void* valueptr, const optionTable_t* tableptr,
                   line, filename);
       else
          printLog(stderr, "Value %d at option -%s", intval, line);
-      printLog(stderr, "too small, using minimum value of %d seconds\n",
+      printLog(stderr, " too small, using minimum value of %d seconds\n",
                MIN_BIDTIME);
       intval = MIN_BIDTIME;
    }
@@ -953,7 +953,7 @@ main(int argc, char *argv[])
 		}
 
 		/* ran out of time! */
-		if (!auctions[i]->remain) {
+		if (auctions[i]->endTime <= time(NULL)) {
 			auctionError(auctions[i], ae_ended, NULL);
 			printAuctionError(auctions[i], stderr);
 			continue;
@@ -988,9 +988,12 @@ main(int argc, char *argv[])
 
 		/* view auction after bid */
 		if (options.bidtime > 0 && options.bidtime < 60) {
-			printLog(stdout, "Auction %s: Waiting %d seconds for auction to complete...\n", auctions[i]->auction, options.bidtime);
+			time_t seconds = auctions[i]->endTime - time(NULL);
+			if (seconds < 0)
+				seconds = 0;
+			printLog(stdout, "Auction %s: Waiting %d seconds for auction to complete...\n", auctions[i]->auction, seconds);
 			/* make sure it really is over */
-			sleep((unsigned int)options.bidtime + 1);
+			sleep((unsigned int)seconds + 1);
 		}
 
 		printLog(stdout, "\nAuction %s: Post-bid info:\n",
