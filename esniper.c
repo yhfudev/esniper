@@ -81,6 +81,7 @@ typedef struct {
 	int quantity;	/* number of items available */
 	int bids;	/* number of bids made */
 	double price;	/* current price */
+	double bidResult;/* result code from bid (-1 = no bid yet) */
 } itemInfo;
 
 static itemInfo *
@@ -95,6 +96,7 @@ newItemInfo(char *host, char *query, char *key)
 	iip->quantity = 0;
 	iip->bids = 0;
 	iip->price = 0;
+	iip->bidResult = -1;
 	return iip;
 }
 
@@ -725,6 +727,12 @@ parseItem(FILE *fp, char *item, char *quantity, char *amount, char *user, itemIn
 			printLog(stderr, "High bidder not found\n");
 			return 1;
 		}
+		if (strstr(line, "private auction")) {
+			if (iip->bidResult == 0 && iip->price <= atof(amount))
+				line = user;
+			else
+				line = "[private]";
+		}
 		if (strcmp(line, user))
 			printLog(stdout, "High bidder: %s (NOT %s)\n", line, user);
 		else
@@ -960,18 +968,18 @@ bidItem(int bid, const char *item, const char *amount, const char *quantity, con
 {
 	FILE *fp;
 	size_t cmdlen;
-	int ret = -1, i;
+	int i;
 	char *line;
 
 	log(("\n\n*** bidItem item %s amount %s quantity %s user %s password %s\n", item, amount, quantity, user, password));
 
 	if (!bid) {
 		printLog(stdout, "Bidding disabled\n");
-		return 0;
+		return iip->bidResult = 0;
 	}
 	if (!(fp = verboseConnect(HOSTNAME, 6, 5))) {
 		printLog(stderr, "Connect Failed.\n");
-		return 2;
+		return iip->bidResult = 2;
 	}
 
 	log(("\n\nquery string:\n"));
@@ -981,41 +989,42 @@ bidItem(int bid, const char *item, const char *amount, const char *quantity, con
 	printLog(fp, BID_FMT, iip->host, HOSTNAME, cmdlen);
 	printLog(fp, BID_CMD, item, iip->key, amount, quantity, user,password);
 	fflush(fp);
+	iip->bidResult = -1;
 
-	for (line = getnontag(fp), i = 0; ret < 0 && line && i < 10;
+	for (line = getnontag(fp), i = 0; iip->bidResult < 0 && line && i < 10;
 	     ++i, line = getnontag(fp)) {
 		if (!strcmp(line, "Congratulations...")) { /* high bidder */
 			printLog(stdout, "%s ", line);
 			printLog(stdout, "%s\n", getnontag(fp));
-			ret = 0;
+			iip->bidResult = 0;
 		} else if (!strcmp(line, "User ID")) { /* bad user/pass */
 			printLog(stdout, "%s ", line);
 			printLog(stdout, "%s\n", getnontag(fp));
-			ret = 1;
+			iip->bidResult = 1;
 		} else if (!strcmp(line, "We're sorry...")) { /* outbid */
 			printLog(stdout, "%s ", line);
 			printLog(stdout, "%s\n", getnontag(fp));
-			ret = 1;
+			iip->bidResult = 1;
 		} else if (!strcmp(line, "You are the current high bidder...")) {
 							/* reserve not met */
 			printLog(stdout, "%s ", line);
 			printLog(stdout, "%s\n", getnontag(fp));
-			ret = 1;
+			iip->bidResult = 1;
 		} else if (!strcmp(line, "Cannot proceed")) {
 							/* auction closed */
 			printLog(stdout, "%s\n", getnontag(fp));
-			ret = 1;
+			iip->bidResult = 1;
 		}
 	}
-	if (ret == -1) {
+	if (iip->bidResult == -1) {
 		printLog(stdout, "Cannot determine result of bid\n");
-		ret = 0;
+		return 0;	// prevent another bid
 	}
 
 	runout(fp);
 	fclose(fp);
 
-	return ret;
+	return iip->bidResult;
 }
 
 /* secret option - test parser */
