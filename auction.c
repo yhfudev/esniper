@@ -491,6 +491,7 @@ parseAuction(FILE *fp, auctionInfo *aip, int quantity, const char *user)
 	if (!line || !(line = getnontag(fp)) ||
 	    (aip->quantity = atoi(line)) < 1)
 		return auctionError(aip, ae_noquantity, NULL);
+	log(("quanity: %d", quantity));
 
 
 	/*
@@ -569,7 +570,9 @@ parseAuction(FILE *fp, auctionInfo *aip, int quantity, const char *user)
 			if (!(line = getnontag(fp)))	/* user */
 				return auctionError(aip, ae_nohighbid, NULL);
 			match = !strcmp(user, line);
-			if (!(line = getnontag(fp)) ||	/* reputation */
+			if (!(line = getnontag(fp)) ||	/* reputation ( */
+			    !(line = getnontag(fp)) ||	/* reputation number */
+			    !(line = getnontag(fp)) ||	/* reputation ) */
 			    !(line = getnontag(fp)) ||	/* bid */
 			    !(line = getnontag(fp)) ||	/* numItems */
 			    !(bidQuant = atoi(line)))
