@@ -48,7 +48,7 @@ static const char blurb[]="Please visit http://esniper.sf.net/ for updates and b
 #if defined(WIN32)
 #	include <io.h>
 #	define access(name, mode) _access((name), (mode))
-#	define sleep(t)	_sleep((t))
+#	define sleep(t)	_sleep((t) * 1000)
 #	define R_OK 0x04
 	extern int getopt(int, char *const *, const char *);
 	extern int opterr, optind, optopt;
