@@ -1,0 +1,51 @@
+body {
+	font-family: Arial, Helvetica, sans-serif;
+}
+.ueberschrift {
+	font-family: Arial, Helvetica, sans-serif;
+	font-size: 24px;
+	font-style: italic;
+	font-weight: bold;
+	color: #333366;
+}
+A.navi {
+	color: #333366;
+	font-size: 11px;
+	font-weight: bold;
+	font-family: Arial, Helvetica, sans-serif;
+}
+
+A.navi:visited {
+	color: #333366;
+	font-size: 11px;
+	font-weight: bold;
+}
+
+A.navi:hover {
+	color: #8293bf;
+	font-size: 11px;
+	font-weight: bold;
+}
+p {
+	font-family: Arial, Helvetica, sans-serif;
+}
+.Inhaltstabelle {
+	font-family: Arial, Helvetica, sans-serif;
+	text-align: left;
+	vertical-align: top;
+	border: thin dotted #333366;
+}
+.Inhaltstabzelle {
+	vertical-align: top;
+	border: thin dotted #333366;
+}
+.textnormal {
+	font-family: Arial, Helvetica, sans-serif;
+}
+.untertitel {
+	font-family: Arial, Helvetica, sans-serif;
+	font-size: 14px;
+	font-style: italic;
+	font-weight: bold;
+	color: #333366;
+}
