@@ -53,8 +53,8 @@ enum requestType {GET, POST};
 static FILE *verboseConnect(proxy_t *proxy, const char *host, unsigned int retryTime, int retryCount);
 static int getRedirect(FILE *fp, char **host, char **query, char **cookie);
 static int getStatus(FILE *fp);
-static FILE *httpRequest(auctionInfo *, const char *, const char *, const char *, const char *, int saveRedirect, enum requestType);
-static FILE *checkStatus(auctionInfo *aip, FILE *fp, const char *cookies, const char *data, int saveRedirect, enum requestType rt);
+static FILE *httpRequest(auctionInfo *, const char *host, const char *url, const char *cookies, const char *data, const char *logData, int saveRedirect, enum requestType);
+static FILE *checkStatus(auctionInfo *aip, FILE *fp, const char *cookies, const char *data, const char *logData, int saveRedirect, enum requestType rt);
 
 /*
  * Open a connection to the host.  Return valid FILE * if successful, NULL
@@ -292,14 +292,14 @@ getStatus(FILE *fp)
 FILE *
 httpGet(auctionInfo *aip, const char *host, const char *url, const char *cookies, int saveRedirect)
 {
-	return httpRequest(aip, host, url, cookies, "", saveRedirect, GET);
+	return httpRequest(aip, host, url, cookies, "", NULL, saveRedirect, GET);
 }
 
 /* returns open socket, or NULL on error */
 FILE *
-httpPost(auctionInfo *aip, const char *host, const char *url, const char *cookies, const char *data, int saveRedirect)
+httpPost(auctionInfo *aip, const char *host, const char *url, const char *cookies, const char *data, const char *logData, int saveRedirect)
 {
-	return httpRequest(aip, host, url, cookies, data, saveRedirect, POST);
+	return httpRequest(aip, host, url, cookies, data, logData, saveRedirect, POST);
 }
 
 static const char STANDARD_HEADERS[] =
@@ -321,7 +321,7 @@ static const char POST_TRAILER[] =
 static const char UNAVAILABLE[] = "unavailable/";
 
 static FILE *
-httpRequest(auctionInfo *aip, const char *host, const char *url, const char *cookies, const char *data, int saveRedirect, enum requestType rt)
+httpRequest(auctionInfo *aip, const char *host, const char *url, const char *cookies, const char *data, const char *logData, int saveRedirect, enum requestType rt)
 {
 	FILE *fp, *ret = NULL;
 	const char *reqHttp = options.proxy.host ? "http://" : "";
@@ -339,15 +339,16 @@ httpRequest(auctionInfo *aip, const char *host, const char *url, const char *coo
 	printLog(fp, STANDARD_HEADERS, host);
 	if (cookies && *cookies)
 		printLog(fp, "%s\r\n", cookies);
-	printLog(fp, trailer, strlen(nonNullData), nonNullData);
+	fprintf(fp, trailer, strlen(nonNullData), nonNullData);
+	log((trailer, strlen(nonNullData), logData ? logData : nonNullData));
 	fflush(fp);
 
-	ret = checkStatus(aip, fp, cookies, data, saveRedirect, rt);
+	ret = checkStatus(aip, fp, cookies, data, logData, saveRedirect, rt);
 	return ret;
 }
 
 static FILE *
-checkStatus(auctionInfo *aip, FILE *fp, const char *cookies, const char *data, int saveRedirect, enum requestType rt)
+checkStatus(auctionInfo *aip, FILE *fp, const char *cookies, const char *data, const char *logData, int saveRedirect, enum requestType rt)
 {
 	FILE *ret = NULL;
 	int status = getStatus(fp);
@@ -382,10 +383,10 @@ checkStatus(auctionInfo *aip, FILE *fp, const char *cookies, const char *data, i
 				log(("Unavailable!"));
 				auctionError(aip, ae_unavailable, NULL);
 			} else if (status == 301 || status == 307) {
-				ret = httpRequest(aip, newHost, newQuery, newCookies ? newCookies : cookies, data, saveRedirect, rt);
+				ret = httpRequest(aip, newHost, newQuery, newCookies ? newCookies : cookies, data, logData, saveRedirect, rt);
 			} else {
 				/* force a GET for 302, 303 */
-				ret = httpRequest(aip, newHost, newQuery, newCookies ? newCookies : cookies, "", saveRedirect, GET);
+				ret = httpRequest(aip, newHost, newQuery, newCookies ? newCookies : cookies, "", NULL, saveRedirect, GET);
 			}
 		}
 		free(newHost);

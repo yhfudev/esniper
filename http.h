@@ -31,6 +31,6 @@
 #include "auctioninfo.h"
 
 extern FILE *httpGet(auctionInfo *aip, const char *host, const char *url, const char *cookies, int saveRedirect);
-extern FILE *httpPost(auctionInfo *aip, const char *host, const char *url, const char *cookies, const char *data, int saveRedirect);
+extern FILE *httpPost(auctionInfo *aip, const char *host, const char *url, const char *cookies, const char *data, const char *logData, int saveRedirect);
 
 #endif /* HTTP_H_INCLUDED */

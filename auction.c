@@ -513,7 +513,9 @@ preBid(auctionInfo *aip)
 
 	log(("\n\n*** preBidAuction auction %s price %s\n", aip->auction, aip->bidPriceStr));
 
-	if (!(fp = httpPost(aip, BID_HOSTNAME, PRE_BID_URL, "", data, 0)))
+	fp = httpPost(aip, BID_HOSTNAME, PRE_BID_URL, "", data, NULL, 0);
+	free(data);
+	if (!fp)
 		return 1;
 
 	if (match(fp, "<input type=\"hidden\" name=\"key\" value=\""))
@@ -544,7 +546,7 @@ preBid(auctionInfo *aip)
 }
 
 static const char BID_URL[] = "ws/eBayISAPI.dll";
-static const char BID_DATA[] = "MfcISAPICommand=AcceptBid&item=%s&key=%s&maxbid=%s&quant=%s&userid=%s&pass=%s";
+static const char BID_DATA[] = "MfcISAPICommand=AcceptBid&item=%s&key=%s&maxbid=%s&quant=%s&user=%s&pass=%s&mode=1";
 
 static const char CONGRATS[] = "Congratulations...";
 static const char PAGENAME[] = "var pageName = \"";
@@ -612,35 +614,43 @@ int
 bid(option_t options, auctionInfo *aip)
 {
 	FILE *fp;
-	size_t dataLen;
-	char *data;
+	size_t dataLen, passwordLen;
+	char *data, *logData, *tmp;
 	int quantity = aip->quantity < options.quantity ?
 				aip->quantity : options.quantity;
 	char quantityStr[12];	/* must hold an int */
-	int ret;
+	int i, ret;
 
 	sprintf(quantityStr, "%d", quantity);
 
 	/* create data */
 	decryptPassword();
-	dataLen = sizeof(BID_DATA) + strlen(aip->auction) + strlen(aip->key) + strlen(aip->bidPriceStr) + strlen(quantityStr) + strlen(options.user) + strlen(options.password) - 12;
+	passwordLen = strlen(options.password);
+	dataLen = sizeof(BID_DATA) + strlen(aip->auction) + strlen(aip->key) + strlen(aip->bidPriceStr) + strlen(quantityStr) + strlen(options.user) + passwordLen - 12;
 	data = (char *)myMalloc(dataLen);
 	sprintf(data, BID_DATA, aip->auction, aip->key, aip->bidPriceStr, quantityStr, options.user, options.password);
 	encryptPassword();
-	log(("\n\nbid(): query data:\n"));
-	log((BID_DATA, aip->auction, aip->key, aip->bidPriceStr, quantityStr, options.user, "(password hidden)"));
+
+	logData = (char *)myMalloc(dataLen);
+	tmp = (char *)myMalloc(passwordLen + 1);
+	for (i = 0; i < passwordLen; ++i)
+		tmp[i] = '*';
+	tmp[i] = '\0';
+	sprintf(logData, BID_DATA, aip->auction, aip->key, aip->bidPriceStr, quantityStr, options.user, tmp);
+	free(tmp);
 
 	if (!options.bid) {
 		printLog(stdout, "Bidding disabled\n");
-		return aip->bidResult = 0;
-	}
-
-	if (!(fp = httpPost(aip, BID_HOSTNAME, BID_URL, "", data, 0)))
-		return 1;
-
-	ret = parseBid(fp, aip);
+		log(("\n\nbid(): query data:\n%s\n", logData));
+		ret = aip->bidResult = 0;
+	} else if (!(fp = httpPost(aip, BID_HOSTNAME, BID_URL, "", data, logData, 0)))
+		ret = 1;
+	else
+		ret = parseBid(fp, aip);
 	runout(fp);
 	fclose(fp);
+	free(data);
+	free(logData);
 	return ret;
 } /* bid() */
 
