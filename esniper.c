@@ -37,7 +37,7 @@
 #include "options.h"
 #include "util.h"
 
-static const char version[]="esniper version 2.5.3";
+static const char version[]="esniper version 2.5.4";
 static const char blurb[]="Please visit http://esniper.sourceforge.net/ for updates and bug reports.";
 
 #include <errno.h>
@@ -863,12 +863,12 @@ main(int argc, char *argv[])
 
 		/* 0 means "now" */
 		if (options.bidtime == 0) {
-			if (preBid(auctions[i])) {
+			if (preBid(auctions[i], &options)) {
 				printAuctionError(auctions[i], stderr);
 				continue;
 			}
 		} else {
-			if (watch(auctions[i], options)) {
+			if (watch(auctions[i], &options)) {
 				printAuctionError(auctions[i], stderr);
 				continue;
 			}
@@ -895,7 +895,7 @@ main(int argc, char *argv[])
 			options.quantity));
 
 		for (retryCount = 0; retryCount < 3; retryCount++) {
-			bidRet = bid(options, auctions[i]);
+			bidRet = bid(auctions[i], &options);
 			if (!bidRet || auctions[i]->auctionError != ae_connect)
 				break;
 			printLog(stderr, "Auction %s: retrying...\n",

@@ -41,7 +41,7 @@
 #	include <unistd.h>
 #endif
 
-static int match(FILE *fp, const char *str);
+static int match(FILE *fp, const char *str, option_t *opts);
 static const char *gettag(FILE *fp);
 static char *getnontag(FILE *fp);
 static long getseconds(char *timestr);
@@ -55,7 +55,7 @@ static int parseBid(FILE *fp, auctionInfo *aip);
  * returns 0 on success, -1 on failure
  */
 static int
-match(FILE *fp, const char *str)
+match(FILE *fp, const char *str, option_t *opts)
 {
 	const char *cursor;
 	int c;
@@ -64,18 +64,18 @@ match(FILE *fp, const char *str)
 
 	cursor = str;
 	while ((c = getc(fp)) != EOF) {
-		if (options.debug)
+		if (opts->debug)
 			logChar(c);
 		if ((char)c == *cursor) {
 			if (*++cursor == '\0') {
-				if (options.debug)
+				if (opts->debug)
 					logChar(EOF);
 				return 0;
 			}
 		} else if (c != '\n' && c != '\r')
 			cursor = str;
 	}
-	if (options.debug)
+	if (opts->debug)
 		logChar(EOF);
 	return -1;
 }
@@ -741,8 +741,7 @@ getInfo(auctionInfo *aip, int quantity, const char *user)
  *	 through.  Actual quantity will be sent with bid.
  */
 static const char PRE_BID_URL[] = "ws/eBayISAPI.dll";
-static const char PRE_BID_DATA_1[] = "MfcISAPICommand=MakeBid&item=";
-static const char PRE_BID_DATA_3[] = "&quant=1&maxbid=";
+static const char PRE_BID_DATA[] = "MfcISAPICommand=MakeBid&item=%s&maxbid=%s&quant=%s";
 
 /*
  * Get key for bid
@@ -750,20 +749,27 @@ static const char PRE_BID_DATA_3[] = "&quant=1&maxbid=";
  * returns 0 on success, 1 on failure.
  */
 int
-preBid(auctionInfo *aip)
+preBid(auctionInfo *aip, option_t *opts)
 {
 	FILE *fp;
-	char *data = myStrdup4(PRE_BID_DATA_1, aip->auction, PRE_BID_DATA_3, aip->bidPriceStr);
+	size_t dataLen;
+	int quantity = aip->quantity < opts->quantity ?
+				aip->quantity : opts->quantity;
+	char quantityStr[12];	/* must hold an int */
+	char *data;
 	int ret = 0;
 
-	log(("\n\n*** preBidAuction auction %s price %s\n", aip->auction, aip->bidPriceStr));
-
+	sprintf(quantityStr, "%d", quantity);
+	dataLen = sizeof(PRE_BID_DATA) + strlen(aip->auction) + strlen(aip->bidPriceStr) + strlen(quantityStr) - 6;
+	data = (char *)myMalloc(dataLen);
+	sprintf(data, PRE_BID_DATA, aip->auction, aip->bidPriceStr, quantityStr);
+	log(("\n\n*** preBid(): data is %s\n", data));
 	fp = httpPost(aip, BID_HOSTNAME, PRE_BID_URL, "", data, NULL, 0);
 	free(data);
 	if (!fp)
 		return 1;
 
-	if (match(fp, "<input type=\"hidden\" name=\"key\" value=\""))
+	if (match(fp, "<input type=\"hidden\" name=\"key\" value=\"", opts))
 		ret = auctionError(aip, ae_bidkey, NULL);
 	else {
 		char *cp, *tmpkey;
@@ -789,10 +795,6 @@ preBid(auctionInfo *aip)
 	return ret;
 }
 
-static const char BID_URL[] = "ws/eBayISAPI.dll";
-static const char BID_DATA[] = "MfcISAPICommand=AcceptBid&item=%s&key=%s&maxbid=%s&quant=%s&user=%s&pass=%s&mode=1";
-
-static const char CONGRATS[] = "Congratulations...";
 static const char PAGENAME[] = "var pageName = \"";
 
 /*
@@ -851,6 +853,9 @@ parseBid(FILE *fp, auctionInfo *aip)
 	return 0;	/* prevent another bid */
 } /* parseBid() */
 
+static const char BID_URL[] = "ws/eBayISAPI.dll";
+static const char BID_DATA[] = "MfcISAPICommand=AcceptBid&item=%s&key=%s&maxbid=%s&quant=%s&user=%s&pass=%s&mode=1";
+
 /*
  * Place bid.
  *
@@ -859,13 +864,13 @@ parseBid(FILE *fp, auctionInfo *aip)
  * 1: error
  */
 int
-bid(option_t options, auctionInfo *aip)
+bid(auctionInfo *aip, option_t *opts)
 {
 	FILE *fp;
 	size_t dataLen, passwordLen;
 	char *data, *logData, *tmpUsername, *tmpPassword, *password;
-	int quantity = aip->quantity < options.quantity ?
-				aip->quantity : options.quantity;
+	int quantity = aip->quantity < opts->quantity ?
+				aip->quantity : opts->quantity;
 	char quantityStr[12];	/* must hold an int */
 	int ret;
 
@@ -874,19 +879,19 @@ bid(option_t options, auctionInfo *aip)
 	/* create data */
 	password = getPassword();
 	passwordLen = strlen(password);
-	dataLen = sizeof(BID_DATA) + strlen(aip->auction) + strlen(aip->key) + strlen(aip->bidPriceStr) + strlen(quantityStr) + strlen(options.username) + passwordLen - 12;
+	dataLen = sizeof(BID_DATA) + strlen(aip->auction) + strlen(aip->key) + strlen(aip->bidPriceStr) + strlen(quantityStr) + strlen(opts->username) + passwordLen - 12;
 	data = (char *)myMalloc(dataLen);
-	sprintf(data, BID_DATA, aip->auction, aip->key, aip->bidPriceStr, quantityStr, options.username, password);
+	sprintf(data, BID_DATA, aip->auction, aip->key, aip->bidPriceStr, quantityStr, opts->username, password);
 	freePassword(password);
 
 	logData = (char *)myMalloc(dataLen);
-	tmpUsername = stars(strlen(options.username));
+	tmpUsername = stars(strlen(opts->username));
 	tmpPassword = stars(passwordLen);
 	sprintf(logData, BID_DATA, aip->auction, aip->key, aip->bidPriceStr, quantityStr, tmpUsername, tmpPassword);
 	free(tmpUsername);
 	free(tmpPassword);
 
-	if (!options.bid) {
+	if (!opts->bid) {
 		printLog(stdout, "Bidding disabled\n");
 		log(("\n\nbid(): query data:\n%s\n", logData));
 		ret = aip->bidResult = 0;
@@ -909,17 +914,17 @@ bid(option_t options, auctionInfo *aip)
  *	1 Error
  */
 int
-watch(auctionInfo *aip, option_t options)
+watch(auctionInfo *aip, option_t *opts)
 {
 	int errorCount = 0;
 	long remain = LONG_MIN;
 	unsigned int sleepTime = 0;
 
-	log(("*** WATCHING auction %s price-each %s quantity %d bidtime %ld\n", aip->auction, aip->bidPriceStr, options.quantity, options.bidtime));
+	log(("*** WATCHING auction %s price-each %s quantity %d bidtime %ld\n", aip->auction, aip->bidPriceStr, opts->quantity, opts->bidtime));
 
 	for (;;) {
 		time_t start = time(NULL);
-		int ret = getInfo(aip, options.quantity, options.username);
+		int ret = getInfo(aip, opts->quantity, opts->username);
 		time_t latency = time(NULL) - start;
 
 		if (ret) {
@@ -946,10 +951,10 @@ watch(auctionInfo *aip, option_t options)
 				int j;
 
 				for (j = 0; ret && j < 3 && aip->auctionError == ae_notitle; ++j)
-					ret = getInfo(aip, options.quantity,
-						      options.username);
+					ret = getInfo(aip, opts->quantity,
+						      opts->username);
 				if (!ret)
-					remain = aip->remain - options.bidtime - (latency * 2);
+					remain = aip->remain - opts->bidtime - (latency * 2);
 				else
 					return 1;
 			} else {
@@ -963,7 +968,7 @@ watch(auctionInfo *aip, option_t options)
 		} else if (!isValidBidPrice(aip))
 			return auctionError(aip, ae_bidprice, NULL);
 		else
-			remain = aip->remain - options.bidtime - (latency * 2);
+			remain = aip->remain - opts->bidtime - (latency * 2);
 
 		/* it's time!!! */
 		if (remain < 0)
@@ -979,7 +984,7 @@ watch(auctionInfo *aip, option_t options)
 
 			printf("\n");
 			for (i = 0; i < 5; ++i) {
-				if (!preBid(aip))
+				if (!preBid(aip, opts))
 					break;
 			}
 			if (i == 5) {
