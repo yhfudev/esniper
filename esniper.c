@@ -31,7 +31,7 @@
  * For updates, bug reports, etc, please go to esniper.sourceforge.net.
  */
 
-static const char version[]="esniper version 1.0";
+static const char version[]="esniper version 1.1";
 static const char blurb[]="Please visit http://esniper.sourceforge.net/ for updates and bug reports";
 
 #if defined(unix) || defined (__unix) || defined (__MACH__)
@@ -52,22 +52,14 @@ static const char blurb[]="Please visit http://esniper.sourceforge.net/ for upda
 #include <signal.h>
 #include <time.h>
 
-/*
- * Returned from getItemInfo()
- */
-typedef struct {
-	size_t remain;
-	char *host;
-	char *query;
-	int quantity;
-	int bids;
-	double price;
-} itemInfo;
+static void *myMalloc(size_t);
+static void *myMalloc(size_t);
+static char *myStrdup(const char *);
+static void printLog(FILE *, const char *, ...);
 
 /* various buffer sizes.  Assume these sizes are big enough (I hope!) */
 #define QUERY_LEN	1024
 #define TIME_BUF_SIZE	1024
-
 
 /* bid time, in seconds before end of auction */
 static const int MIN_BIDTIME = 5;
@@ -77,6 +69,74 @@ static const char HOSTNAME[] = "cgi.ebay.com";
 
 static FILE *logfile = NULL;
 static int debug = 0;
+
+/*
+ * All information associated with an item
+ */
+typedef struct {
+	size_t remain;	/* seconds remaining */
+	char *host;	/* bidding history host */
+	char *query;	/* bidding history query */
+	char *key;	/* bidding key */
+	int quantity;	/* number of items available */
+	int bids;	/* number of bids made */
+	double price;	/* current price */
+} itemInfo;
+
+static itemInfo *
+newItemInfo(char *host, char *query, char *key)
+{
+	itemInfo *iip = (itemInfo *)myMalloc(sizeof(itemInfo));
+
+	iip->remain = 0;
+	iip->host = host;
+	iip->query = query;
+	iip->key = key;
+	iip->quantity = 0;
+	iip->bids = 0;
+	iip->price = 0;
+	return iip;
+}
+
+/*
+ * Replacement malloc/realloc/strdup, with error checking
+ */
+
+static void *
+myMalloc(size_t size)
+{
+	void *ret = malloc(size);
+
+	if (!ret) {
+		printLog(stderr, "Cannot allocate memory: %s\n", strerror(errno));
+		exit(1);
+	}
+	return ret;
+}
+
+static void *
+myRealloc(void *buf, size_t size)
+{
+	void *ret = buf ? realloc(buf, size) : malloc(size);
+
+	if (!ret) {
+		printLog(stderr, "Cannot reallocate memory: %s\n", strerror(errno));
+		exit(1);
+	}
+	return ret;
+}
+
+static char *
+myStrdup(const char *s)
+{
+	char *ret;
+
+	if (!s)
+		return NULL;
+	ret = myMalloc(strlen(s) + 1);
+	strcpy(ret, s);
+	return ret;
+}
 
 /*
  * Debugging functions and macros.
@@ -151,6 +211,9 @@ printLog(FILE *fp, const char *fmt, ...)
 	va_end(arglist);
 }
 
+/*
+ * log a single character
+ */
 static void
 logChar(char ch)
 {
@@ -279,7 +342,7 @@ static char *
 resize(char *buf, size_t *size)
 {
 	*size += 1024;
-	return (char *)((buf == NULL) ? malloc(*size) : realloc(buf, *size));
+	return (char *)myRealloc(buf, *size);
 }
 
 #define addchar(buf, bufsize, count, c) \
@@ -409,7 +472,7 @@ getnontag(FILE *fp)
 {
 	static char *buf = NULL;
 	static size_t bufsize = 0;
-	size_t count = 0;
+	size_t count = 0, amp = 0;
 	int c;
 
 	while ((c = getc(fp)) != EOF) {
@@ -433,6 +496,37 @@ getnontag(FILE *fp)
 			if (count > 0 && buf[count-1] != ' ')
 				addchar(buf, bufsize, count, ' ');
 			break;
+		case ';':
+			if (amp > 0) {
+				char *cp = &buf[amp];
+
+				term(buf, bufsize, count);
+				if (*cp == '#') {
+					buf[amp-1] = atoi(cp+1);
+					count = amp;
+				} else if (!strcmp(cp, "amp")) {
+					count = amp;
+				} else if (!strcmp(cp, "gt")) {
+					buf[amp-1] = '>';
+					count = amp;
+				} else if (!strcmp(cp, "lt")) {
+					buf[amp-1] = '<';
+					count = amp;
+				} else if (!strcmp(cp, "nbsp")) {
+					buf[amp-1] = ' ';
+					count = amp;
+				} else if (!strcmp(cp, "quot")) {
+					buf[amp-1] = '&';
+					count = amp;
+				} else
+					addchar(buf, bufsize, count, c);
+				amp = 0;
+			} else
+				addchar(buf, bufsize, count, c);
+			break;
+		case '&':
+			amp = count + 1;
+			/* fall through */
 		default:
 			addchar(buf, bufsize, count, c);
 		}
@@ -489,9 +583,12 @@ getseconds(char *timestr)
 	static char *minute = "min";
 	static char *hour = "hour";
 	static char *day = "day";
+	static char *ended = "ended";
 	long accum = 0;
 	long num;
 
+	if (strstr(timestr, ended))
+		return 0;
 	while (*timestr) {
 		num = strtol(timestr, &timestr, 10);
 		while (isspace((int)*timestr))
@@ -506,7 +603,7 @@ getseconds(char *timestr)
 			accum += num * 86400;
 		else {
 			printf("Error: unknown time interval \"%s\"\n",timestr);
-			return accum;
+			return -1;
 		}
 		while (*timestr && !isdigit((int)*timestr))
 			++timestr;
@@ -515,14 +612,10 @@ getseconds(char *timestr)
 	return accum;
 }
 
-static itemInfo *
-parseItem(FILE *fp, char *item, char *amount, char *user, char *host, char *query)
+static int
+parseItem(FILE *fp, char *item, char *quantity, char *amount, char *user, itemInfo *iip)
 {
-	itemInfo *ret = (itemInfo *)malloc(sizeof(itemInfo));
 	char *line, *s1;
-
-	ret->host = host;
-	ret->query = query;
 
 	/*
 	 * Auction title
@@ -533,7 +626,7 @@ parseItem(FILE *fp, char *item, char *amount, char *user, char *host, char *quer
 	}
 	if (!line || !(line=getnontag(fp)) || !(s1=strstr(line, " (Item #"))) {
 		printLog(stderr, "Item title not found\n");
-		return NULL;
+		return 1;
 	}
 	*s1 = '\0';
 	printLog(stdout, "Item %s: %s\n", item, line);
@@ -548,16 +641,16 @@ parseItem(FILE *fp, char *item, char *amount, char *user, char *host, char *quer
 	}
 	if (!line || !(line = getnontag(fp))) {
 		printLog(stderr, "Current price not found\n");
-		return NULL;
+		return 1;
 	}
 	printLog(stdout, "Currently: %s\n", line);
-	ret->price = atof(line + strcspn(line, "0123456789"));
-	if (ret->price < 0.01) {
+	iip->price = atof(line + strcspn(line, "0123456789"));
+	if (iip->price < 0.01) {
 		printLog(stderr, "Cannot convert amount %s\n", line);
-		return NULL;
-	} else if (ret->price > atof(amount)) {
+		return 1;
+	} else if (iip->price > atof(amount)) {
 		printLog(stderr, "Current price above your limit.\n");
-		return NULL;
+		return 1;
 	}
 
 
@@ -569,9 +662,9 @@ parseItem(FILE *fp, char *item, char *amount, char *user, char *host, char *quer
 			break;
 	}
 	if (!line || !(line = getnontag(fp)) ||
-	    (ret->quantity = atoi(line)) < 1) {
+	    (iip->quantity = atoi(line)) < 1) {
 		printLog(stderr, "Quantity not found\n");
-		return NULL;
+		return 1;
 	}
 
 
@@ -582,11 +675,11 @@ parseItem(FILE *fp, char *item, char *amount, char *user, char *host, char *quer
 		if (!strcmp("# of bids", line))
 			break;
 	}
-	if (!line || !(line = getnontag(fp)) || (ret->bids = atoi(line)) < 0) {
+	if (!line || !(line = getnontag(fp)) || (iip->bids = atoi(line)) < 0) {
 		printLog(stderr, "Number of bids not found\n");
-		return NULL;
+		return 1;
 	}
-	printLog(stdout, "Bids: %d\n", ret->bids);
+	printLog(stdout, "Bids: %d\n", iip->bids);
 
 
 	/*
@@ -598,19 +691,21 @@ parseItem(FILE *fp, char *item, char *amount, char *user, char *host, char *quer
 	}
 	if (!line || !(line = getnontag(fp))) {
 		printLog(stderr, "Time remaining not found\n");
-		return NULL;
+		return 1;
 	}
-	ret->remain = getseconds(line);
+	iip->remain = getseconds(line);
+	if (iip->remain < 0)
+		return 1;
 	printLog(stdout, "Time remaining: %s (%ld seconds)\n",
-		line, ret->remain);
+		line, iip->remain);
 
 
 	/*
 	 * High bidder
 	 */
-	if (ret->bids == 0) {
+	if (iip->bids == 0) {
 		puts("High bidder: --");
-	} else if (ret->quantity == 1) {
+	} else if (iip->quantity == 1) {
 		/* single item with bids */
 		while((line = getnontag(fp))) {
 			if (!strcmp("Date of Bid", line))
@@ -618,7 +713,7 @@ parseItem(FILE *fp, char *item, char *amount, char *user, char *host, char *quer
 		}
 		if (!line || !(line = getnontag(fp))) {
 			printLog(stderr, "High bidder not found\n");
-			return NULL;
+			return 1;
 		}
 		if (strcmp(line, user))
 			printLog(stdout, "High bidder: %s (NOT %s)\n", line, user);
@@ -626,8 +721,8 @@ parseItem(FILE *fp, char *item, char *amount, char *user, char *host, char *quer
 			printLog(stdout, "High bidder: %s!!!\n", line);
 	} else {
 		/* dutch with bids */
-		int bids = ret->bids;
-		int quantity = ret->quantity;
+		int bids = iip->bids;
+		int quantity = iip->quantity;
 		int match = 0;
 
 		while((line = getnontag(fp))) {
@@ -636,14 +731,14 @@ parseItem(FILE *fp, char *item, char *amount, char *user, char *host, char *quer
 		}
 		if (!line) {
 			printLog(stderr, "High bidder not found\n");
-			return NULL;
+			return 1;
 		}
 		while (bids && quantity > 0) {
 			int bidQuant;
 
 			if (!(line = getnontag(fp))) {	/* user */
 				printLog(stderr, "High bidder not found\n");
-				return NULL;
+				return 1;
 			}
 			match = !strcmp(user, line);
 			if (!(line = getnontag(fp)) ||	/* reputation */
@@ -651,7 +746,7 @@ parseItem(FILE *fp, char *item, char *amount, char *user, char *host, char *quer
 			    !(line = getnontag(fp)) ||	/* quantity */
 			    !(bidQuant = atoi(line))) {
 				printLog(stderr, "High bidder not found\n");
-				return NULL;
+				return 1;
 			}
 			quantity -= bidQuant;
 			--bids;
@@ -664,7 +759,7 @@ parseItem(FILE *fp, char *item, char *amount, char *user, char *host, char *quer
 			}
 			if (!(line = getnontag(fp))) {	/* date */
 				printLog(stderr, "High bidder not found\n");
-				return NULL;
+				return 1;
 			}
 		}
 		if (!match)
@@ -672,7 +767,7 @@ parseItem(FILE *fp, char *item, char *amount, char *user, char *host, char *quer
 	}
 
 
-	return ret;
+	return 0;
 }
 
 static const char QUERY_FMT[] = "aw-cgi/eBayISAPI.dll?ViewBids&item=%s";
@@ -681,29 +776,29 @@ static const char QUERY_FMT[] = "aw-cgi/eBayISAPI.dll?ViewBids&item=%s";
  * Get item information, return time remaining in auction if successful, -1
  * otherwise
  */
-static itemInfo *
-getItemInfo(char *item, char *amount, char *user, char *host, char *query)
+static int
+getItemInfo(char *item, char *quantity, char *amount, char *user, itemInfo *iip)
 {
 	FILE *fp;
-	itemInfo *ret;
 	char *line, *s1, *s2;
+	int ret;
 
 	log(("\n\n*** getItemInfo item %s amount %s user %s\n", item, amount, user));
 
-	if (!host)
-		host = strdup(HOSTNAME);
-	if (!(fp = verboseConnect(host, 10, 5))) {
+	if (!iip->host)
+		iip->host = myStrdup(HOSTNAME);
+	if (!(fp = verboseConnect(iip->host, 10, 5))) {
 		printLog(stderr, "Connect Failed.\n");
-		return NULL;
+		return 1;
 	}
 
-	if (!query) {
-		query = (char *)malloc(sizeof(QUERY_FMT) + strlen(item));
-		sprintf(query, QUERY_FMT, item);
+	if (!iip->query) {
+		iip->query = (char *)myMalloc(sizeof(QUERY_FMT)+strlen(item));
+		sprintf(iip->query, QUERY_FMT, item);
 	}
 
-	log(("\n\nquery string:\n\nGET %s\n", query));
-	fprintf(fp, "GET /%s\n", query);
+	log(("\n\nquery string:\n\nGET %s\n", iip->query));
+	fprintf(fp, "GET /%s\n", iip->query);
 	fflush(fp);
 
 	/*
@@ -723,27 +818,29 @@ getItemInfo(char *item, char *amount, char *user, char *host, char *query)
 		log(("Redirect..."));
 		if (match(fp, "Location: http://")) {
 			printLog(stderr, "new item location not found\n");
-			return NULL;
+			return 1;
 		}
-		if (strcasecmp(host, (newHost = getuntilchar(fp, '/')))) {
+		if (strcasecmp(iip->host, (newHost = getuntilchar(fp, '/')))) {
 			log(("redirect hostname is %s\n", newHost));
-			host = strdup(newHost);
+			free(iip->host);
+			iip->host= myStrdup(newHost);
 		}
 		newQuery = getuntilchar(fp, '\n');
 		newQueryLen = strlen(newQuery);
 		if (newQuery[newQueryLen - 1] == '\r')
 			newQuery[--newQueryLen] = '\0';
-		if (strlen(query) < newQueryLen)
-			query = (char *)realloc(query, newQueryLen + 1);
-		strcpy(query, newQuery);
+		if (strcmp(iip->query, newQuery)) {
+			free(iip->query);
+			iip->query = myStrdup(newQuery);
+		}
 
 		runout(fp);
 		fclose(fp);
 
-		return getItemInfo(item, amount, user, host, query);
+		return getItemInfo(item, quantity, amount, user, iip);
 	}
 
-	ret = parseItem(fp, item, amount, user, host, query);
+	ret = parseItem(fp, item, quantity, amount, user, iip);
 
 	/* done! */
 	runout(fp);
@@ -765,59 +862,62 @@ static const char PRE_BID_FMT[] =
 static const char PRE_BID_CMD[] =
 	"MfcISAPICommand=MakeBid&item=%s&maxbid=%s\n\n";
 
-static const char *
-preBidItem(char *item, char *amount, char *host, char *referQuery)
+/*
+ * Get key for bid
+ *
+ * returns 0 on success, 1 on failure.
+ */
+static int
+preBidItem(char *item, char *amount, itemInfo *iip)
 {
 	FILE *fp;
 	char *tmpkey;
 	char *cp;
-	char *key;
 	size_t cmdlen = sizeof(PRE_BID_CMD) + strlen(item) + strlen(amount) -7;
+	int ret = 0;
 
-	log(("\n\n*** preBidItem item %s amount %s\n", item,amount));
+	log(("\n\n*** preBidItem item %s amount %s\n", item, amount));
 
 	if (!(fp = verboseConnect(HOSTNAME, 6, 5))) {
 		printLog(stderr, "Connect Failed.\n");
-		return 0;
+		return 1;
 	}
 
 
 	log(("\n\nquery string:\n"));
-	printLog(fp, PRE_BID_FMT, host, referQuery, host, cmdlen);
+	printLog(fp, PRE_BID_FMT, iip->host, iip->query, iip->host, cmdlen);
 	printLog(fp, PRE_BID_CMD, item, amount);
 	fflush(fp);
 
 	log(("sent pre-bid\n"));
 
 	if (match(fp, "<input type=hidden name=key value=\""))
-		return 0;
-	tmpkey = getuntilchar(fp, '\"');
-	log(("  reported key is: %s\n", tmpkey));
+		ret = 1;
+	else {
+		tmpkey = getuntilchar(fp, '\"');
+		log(("  reported key is: %s\n", tmpkey));
 
-	/* search for quantity here
-	 * ...not done yet
-	 */
+		/* translate key for URL */
+		iip->key = (char *)myMalloc(strlen(tmpkey)*3 + 1);
+		for (cp = iip->key; *tmpkey; ++tmpkey) {
+			if (*tmpkey == '$') {
+				*cp++ = '%';
+				*cp++ = '2';
+				*cp++ = '4';
+			} else
+				*cp++ = *tmpkey;
+		}
+		*cp = '\0';
 
-	/* translate key for URL */
-	key = (char *)malloc(strlen(tmpkey)*3 + 1);
-	for (cp = key; *tmpkey; ++tmpkey) {
-		if (*tmpkey == '$') {
-			*cp++ = '%';
-			*cp++ = '2';
-			*cp++ = '4';
-		} else
-			*cp++ = *tmpkey;
+		log(("\n\ntranslated key is: %s\n\n", iip->key));
 	}
-	*cp = '\0';
-
-	log(("\n\ntranslated key is: %s\n\n", key));
 
 	runout(fp);
 	fclose(fp);
 
 	log(("socket closed\n"));
 
-	return key;
+	return ret;
 }
 
 static const char BID_FMT[] =
@@ -833,11 +933,21 @@ static const char BID_FMT[] =
 static const char BID_CMD[] =
 	"MfcISAPICommand=AcceptBid&item=%s&key=%s&maxbid=%s&quant=%s&userid=%s&pass=%s\n\n";
 
+/*
+ * Place bid.
+ *
+ * Returns:
+ * 0: no error
+ * 1: known error
+ * 2: unknown error (retry?)
+ */
 int
-bidItem(int bid, const char *item, const char *amount, const char *quantity, const char *user, const char *password, const char *key, const char *host)
+bidItem(int bid, const char *item, const char *amount, const char *quantity, const char *user, const char *password, itemInfo *iip)
 {
 	FILE *fp;
 	size_t cmdlen;
+	int ret = -1, i;
+	char *line;
 
 	log(("\n\n*** bidItem item %s amount %s quantity %s user %s password %s\n", item, amount, quantity, user, password));
 
@@ -847,22 +957,84 @@ bidItem(int bid, const char *item, const char *amount, const char *quantity, con
 	}
 	if (!(fp = verboseConnect(HOSTNAME, 6, 5))) {
 		printLog(stderr, "Connect Failed.\n");
-		return -1;
+		return 2;
 	}
 
 	log(("\n\nquery string:\n"));
-	cmdlen = sizeof(BID_CMD) + strlen(item) + strlen(key) +
+	cmdlen = sizeof(BID_CMD) + strlen(item) + strlen(iip->key) +
 		strlen(amount) + strlen(quantity) + strlen(user) +
 		strlen(password) - 15;
-	printLog(fp, BID_FMT, host, host, cmdlen);
-	printLog(fp, BID_CMD, item, key, amount, quantity, user, password);
+	printLog(fp, BID_FMT, iip->host, iip->host, cmdlen);
+	printLog(fp, BID_CMD, item, iip->key, amount, quantity, user,password);
 	fflush(fp);
+
+	for (line = getnontag(fp), i = 0; ret < 0 && line && i < 10;
+	     ++i, line = getnontag(fp)) {
+		if (!strcmp(line, "Congratulations...")) { /* high bidder */
+			printLog(stdout, "%s ", line);
+			printLog(stdout, "%s\n", getnontag(fp));
+			ret = 0;
+		} else if (!strcmp(line, "User ID")) { /* bad user/pass */
+			printLog(stdout, "%s ", line);
+			printLog(stdout, "%s\n", getnontag(fp));
+			ret = 1;
+		} else if (!strcmp(line, "We're sorry...")) { /* outbid */
+			printLog(stdout, "%s ", line);
+			printLog(stdout, "%s\n", getnontag(fp));
+			ret = 1;
+		} else if (!strcmp(line, "You are the current high bidder...")) {
+							/* reserve not met */
+			printLog(stdout, "%s ", line);
+			printLog(stdout, "%s\n", getnontag(fp));
+			ret = 1;
+		} else if (!strcmp(line, "Cannot proceed")) {
+							/* auction closed */
+			printLog(stdout, "%s\n", getnontag(fp));
+			ret = 1;
+		}
+	}
+	if (ret == -1) {
+		printLog(stdout, "Cannot determine result of bid\n");
+		ret = 0;
+	}
 
 	runout(fp);
 	fclose(fp);
 
-	printLog(stdout, "Bid completed!\n");
-	return 0;
+	return ret;
+}
+
+/* secret option - test parser */
+void
+testParser(int argc, char *argv[])
+{
+	for (; argc; --argc, ++argv) {
+		FILE *fp = fopen(*argv, "r");
+		char *line;
+		FILE *fpw;
+		char *wname;
+
+		if (!fp) {
+			fprintf(stderr, "Cannot open %s: %s\n", *argv,
+				strerror(errno));
+			continue;
+		}
+		wname = basename(*argv);
+		wname = (char *)myMalloc(strlen(wname) + 4 + 1);
+		sprintf(wname, "%s.out", basename(*argv));
+
+		if (!(fpw = fopen(wname, "w"))) {
+			fprintf(stderr, "Cannot open %s: %s\n", wname,
+				strerror(errno));
+			fclose(fp);
+			continue;
+		}
+		while ((line = getnontag(fp)))
+			fprintf(fpw, "\"%s\"\n", line);
+		fclose(fp);
+		fclose(fpw);
+	}
+	exit(0);
 }
 
 static void
@@ -880,25 +1052,117 @@ sigTerm(int sig)
 	raise(sig);
 }
 
+static int
+watchItem(char *item, char *quantity, char *amount, char *user, long bidtime, int bid, itemInfo *iip)
+{
+	int errorCount = 0;
+	long prevSecs = -1;
+
+	log(("*** WATCHING item %s amount-each %s quantity %s user %s bidtime %ld\n", item, amount, quantity, user, bidtime));
+
+	for (;;) {
+		time_t start = time(NULL);
+		int ret = getItemInfo(item, quantity, amount, user, iip);
+		time_t latency = time(NULL) - start;
+		long secs;
+
+		if (ret) {
+			/*
+			 * error!
+			 *
+			 * If this is the first time through the loop
+			 * (i.e. prevSecs < 0), then this causes an
+			 * an exit.  Otherwise, we just assume the
+			 * 'net (or eBay) is flakey, sleep a reasonable
+			 * time and try again.
+			 */
+			if (prevSecs < 0)
+				return 1;
+			log((" ERROR %d!!!\n", ++errorCount));
+			if (errorCount > 50) {
+				printLog(stderr, "Cannot get item info\n");
+				return 1;
+			}
+			printLog(stdout, "Cannot find item - internet or eBay problem?\nWill try again after sleep.\n");
+			secs = prevSecs/2;
+		} else {
+			if (!iip->remain && prevSecs < 0)
+				return 0;
+			secs = (long)(iip->remain) - bidtime;
+
+			/* it's time!!! */
+			if (secs < 0)
+				break;
+			/*
+			 * if we're less than a minute away,
+			 * get key for bid
+			 */
+			if (secs < 60 && !iip->key && bid) {
+				int i;
+
+				printf("\n");
+				for (i = 0; i < 5; ++i) {
+					if (preBidItem(item, amount, iip))
+						break;
+				}
+				if (i == 5) {
+					printLog(stderr, "Cannot get bid key\n");
+					exit(1);
+				}
+			}
+			/* laggy connection at end of auction? */
+			if (secs > 7 && secs < 60 && latency > 5) {
+				log((" latency %ld NO SLEEP\n", latency));
+				continue;
+			}
+			/*
+			 * special handling when we're right on the
+			 * cusp
+			 */
+			if (secs < 8) {
+				secs -= latency;
+				log(("latency %ld CLOSE!!! SLEEP %ld",
+					latency, secs));
+				if (secs > 0)
+					sleep(secs);
+				break;
+			} else	/* logarithmic decay by twos */
+				secs /= 2;
+
+			log((" latency %ld sleep %ld\n", latency, secs));
+		}
+		printf("Sleeping for %ld seconds\n", secs);
+		prevSecs = secs;
+		sleep(secs);
+		printf("\n");
+	}
+
+	return 0;
+}
+
 int
 main(int argc, char *argv[])
 {
 	long bidtime = 0;
 	char *item, *amount, *quantity, *user, *password;
-	const char *key = 0;
-	int retryCount, now = 0, errcnt = 0, usage = 0;
+	int retryCount, now = 0, usage = 0;
 	int bid = 1;	/* really make a bid? */
+	int parse = 0;	/* secret option - for testing page parsing */
+	int ret = 0;
 	const char *progname = basename(argv[0]);
-	itemInfo ii, *iip;
+	itemInfo *iip = newItemInfo(NULL, NULL, NULL);
 	int c;
 
-	while ((c = getopt(argc, argv, "dnv")) != EOF) {
+	while ((c = getopt(argc, argv, "dnpv")) != EOF) {
 		switch (c) {
 		case 'd':
 			debug = 1;
 			break;
 		case 'n':
 			bid = 0;
+			break;
+		case 'p':	/* secret option */
+			parse = 1;
 			break;
 		case 'v':
 			fprintf(stderr, "%s\n%s\n", version, blurb);
@@ -909,6 +1173,11 @@ main(int argc, char *argv[])
 	}
 	argc -= optind;
 	argv += optind;
+
+	if (parse) {
+		testParser(argc, argv);
+		exit(0);
+	}
 
 	if (usage || argc < 5 || argc > 6) {
 		fprintf(stderr,
@@ -933,9 +1202,6 @@ main(int argc, char *argv[])
 	quantity = argv[2];
 	user = argv[3];
 	password = argv[4];
-	ii.host = NULL;
-	ii.query = NULL;
-	iip = &ii;
 	if (argc == 6) {
 		now = !strcmp("now", argv[5]);
 		if (!now) {
@@ -958,85 +1224,30 @@ main(int argc, char *argv[])
 	signal(SIGTERM, sigTerm);
 
 	if (now) {
-		iip = getItemInfo(item, amount, user, iip->host, iip->query);
-		key = preBidItem(item, amount, iip->host, iip->query);
+		if (getItemInfo(item, quantity, amount, user, iip))
+			exit(1);
+		if (iip->remain && preBidItem(item, amount, iip))
+			exit(1);
 	} else {
-		long prevSecs = -1;
+		if (watchItem(item, quantity, amount, user, bidtime, bid, iip))
+			exit(1);
+	}
 
-		log(("*** WATCHING item %s amount-each %s quantity %s user %s password %s bidtime %ld\n", item, amount, quantity, user, password, bidtime));
+	if (bid)
+		printLog(stdout, "\nBidding...\n");
 
-		for (;;) {
-			time_t start, latency;
-			long secs;
-
-			start = time(NULL);
-			iip = getItemInfo(item, amount, user, iip->host, iip->query);
-			latency = time(NULL) - start;
-
-			if (!iip) {
-				/*
-				 * error!
-				 *
-				 * If this is the first time through the loop
-				 * (i.e. prevSecs < 0), then this causes an
-				 * an exit.  Otherwise, we just assume the
-				 * 'net (or eBay) is flakey, sleep a reasonable
-				 * time and try again.
-				 */
-				if (prevSecs < 0)
-					exit(1);
-				log((" ERROR %d!!!\n", ++errcnt));
-				if (errcnt > 50) {
-					printLog(stderr, "Cannot get item info\n");
-					exit(1);
-				}
-				printLog(stdout, "Cannot find item - internet or eBay problem?\nWill try again after sleep.\n");
-				secs = prevSecs/2;
-			} else {
-				secs = (long)(iip->remain) - bidtime;
-
-				/* it's time!!! */
-				if (secs < 0)
-					break;
-				/*
-				 * if we're less than a minute away,
-				 * get key for bid
-				 */
-				if (secs < 60 && !key) {
-					printf("\n");
-					key = preBidItem(item, amount, iip->host, iip->query);
-				}
-				/* laggy connection at end of auction? */
-				if (secs > 7 && secs < 60 && latency > 5) {
-					log((" latency %ld NO SLEEP\n", latency));
-					continue;
-				}
-				/*
-				 * special handling when we're right on the
-				 * cusp
-				 */
-				if (secs < 8) {
-					secs -= latency;
-					log((" latency %ld CLOSE!!! SLEEP %ld",
-						latency, secs));
-					if (secs > 0)
-						sleep(secs);
-					break;
-				} else	/* logarithmic decay by twos */
-					secs /= 2;
-
-				log((" latency %ld sleep %ld\n", latency, secs));
-			}
-			printf("Sleeping for %ld seconds\n", secs);
-			prevSecs = secs;
-			sleep(secs);
-			printf("\n");
+	/* ran out of time! */
+	if (!iip->remain) {
+		if (bid) {
+			printLog(stderr, "Sorry, auction is over\n");
+			exit(1);
 		}
+		exit(0);
 	}
 
 	log((" IT'S TIME!!!\n"));
 
-	if (!key && bid) {
+	if (!iip->key && bid) {
 		printLog(stderr, "Problem with bid.  No bid placed.\n");
 		exit(1);
 	}
@@ -1044,15 +1255,23 @@ main(int argc, char *argv[])
 	log(("*** BIDDING!!! item %s amount %s quantity %s user %s password %s\n", item, amount, quantity, user, password));
 
 	for (retryCount = 0; retryCount < 3; retryCount++) {
-		if (bidItem(bid, item, amount, quantity, user, password, key, iip->host)) {
-			printLog(stderr, "Bid failed!\n");
-		} else
+		ret = bidItem(bid, item, amount, quantity, user, password,iip);
+
+		if (ret == 0 || ret == 1)
 			break;
+		printLog(stderr, "retrying...\n");
 	}
 
-	/* view item after bid */
-	printLog(stdout, "\nPost-bid info:\n");
-	getItemInfo(item, amount, user, iip->host, iip->query);
+	if (!(ret == 0 || ret == 1))
+		exit(ret);
 
-	exit(0);
+	/* view item after bid */
+	if (bidtime > 0 && bidtime < 60) {
+		printLog(stdout, "Waiting %d seconds for auction to complete...\n", bidtime);
+		sleep(bidtime + 1);	/* make sure it really is over */
+	}
+	printLog(stdout, "\nPost-bid info:\n");
+	getItemInfo(item, quantity, amount, user, iip);
+
+	exit(ret);
 }
