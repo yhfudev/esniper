@@ -622,9 +622,10 @@ parseAuctionInternal(memBuf_t *mp, auctionInfo *aip, int quantity, const char *u
 		aip->bids = 0;
 		/* can't determine starting bid on history page */
 		aip->price = 0;
-		puts("# of bids: 0");
-		puts("Currently: --");
-		printf("High bidder: -- (not %s)\n", user);
+		printf("# of bids: 0\n"
+		       "Currently: --  (your maximum bid: %s)\n"
+		       "High bidder: -- (not %s)\n",
+		       aip->bidPriceStr, user);
 	} else if (aip->quantity == 1) {	/* single auction with bids */
 		int private = 0;
 
@@ -668,8 +669,9 @@ parseAuctionInternal(memBuf_t *mp, auctionInfo *aip, int quantity, const char *u
 			getnontag(mp); /* bid amount */
 			getnontag(mp); /* date */
 		}
-		printf("Currently: %s\n", *currently);
-		printf("# of bids: %d\n", aip->bids);
+		printf("Currently: %s  (your maximum bid: %s)\n"
+		       "# of bids: %d\n",
+		       *currently, aip->bidPriceStr, aip->bids);
 		if (strcasecmp(*winner, user)) {
 			printLog(stdout, "High bidder: %s (NOT %s)\n", *winner, user);
 			aip->winning = 0;
@@ -684,7 +686,7 @@ parseAuctionInternal(memBuf_t *mp, auctionInfo *aip, int quantity, const char *u
 	} else {	/* dutch with bids */
 		int gotMatch = 0, wanted = 0, winning = 0;
 
-		printf("Currently: %s\n", *currently);
+		printf("Currently: %s  (your maximum bid: %s)\n", *currently, aip->bidPriceStr);
 
 		aip->bids = 0;
 		/* find your bid, count number of bids */
