@@ -440,8 +440,7 @@ static int SetConfigHelp(const void* valueptr, const optionTable_t* tableptr,
 }
 
 static const char usageSummary[] =
-  "usage: %s [-bdnPrUv] [-u user] [-s secs|now] [-q quantity] [-l logdir]\n"
-  "       [-p proxy] [-c conf_file] (auction_file | [auction price ...])\n"
+  "usage: %s [-bdhHnPrUv] [-c conf_file] [-l logdir] [-p proxy] [-q quantity]\n"  "       [-s secs|now] [-u user] (auction_file | [auction price ...])\n"
   "\n";
 
 static const char usageLong[] =
@@ -450,20 +449,20 @@ static const char usageLong[] =
  "-d: write debug output to file\n"
  "-h: command line options help\n"
  "-H: config and auction file help\n"
- "-l: log directory (default: ., or directory of auction file, if specified)\n"
  "-n: do not place bid\n"
- "-p: http proxy (default: http_proxy environment variable, format is\n"
- "    http://host:port/)\n"
  "-P: prompt for password\n"
  "-r: do not reduce quantity on startup if already won item(s)\n"
- "-u: ebay username\n"
  "-U: prompt for ebay username\n"
  "-v: print version and exit\n"
- "-s: time to place bid which may be \"now\" or seconds before end of auction\n"
- "    (default is %d seconds before end of auction)\n"
- "-q: quantity to buy (default is 1)\n"
  "-c: config file (default is \"$HOME/.esniper\" and, if auction file is\n"
  "    specified, .esniper in auction file's directory)\n"
+ "-l: log directory (default: ., or directory of auction file, if specified)\n"
+ "-p: http proxy (default: http_proxy environment variable, format is\n"
+ "    http://host:port/)\n"
+ "-q: quantity to buy (default is 1)\n"
+ "-s: time to place bid which may be \"now\" or seconds before end of auction\n"
+ "    (default is %d seconds before end of auction)\n"
+ "-u: ebay username\n"
  "\n"
  "You must specify either an auction file or <auction> <price> pair[s].\n"
  "Options on the command line override settings in config and auction files.\n";
