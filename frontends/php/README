@@ -1,0 +1,7 @@
+For more information, see <http://esniper.sf.net/>.
+
+Bitte Daten in config.inc anpassen.
+Please change configuration in config.inc
+
+Zugriff auf /tmp für temporäre Dateien notwendig.
+Need access to /tmp for temporaly fileactions.
