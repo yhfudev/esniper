@@ -553,13 +553,13 @@ parseAuctionInternal(memBuf_t *mp, auctionInfo *aip, int quantity, const char *u
 		return auctionError(aip, ae_badtime, line);
 	printLog(stdout, "Time remaining: %s (%ld seconds)\n", line, remain);
         aip->endTime = remain + time(NULL);
-	printLog(stdout, "End time: %s\n", ctime(&(aip->endTime)));
+	/* no \n needed -- ctime returns a string with \n at the end */
+	printLog(stdout, "End time: %s", ctime(&(aip->endTime)));
 
 	if (!(line = getnontag(mp)))
 		return auctionError(aip, ae_nohighbid, NULL);
 	if (!strcmp("Reserve not met", line))
 		reserve = 1;
-
 
 	/*
 	 * Determine high bidder
@@ -1055,7 +1055,7 @@ watch(auctionInfo *aip)
 			remain = newRemain(aip);
 
 		/*
-		 * if we're less than five minutes away and login was 
+		 * if we're less than five minutes away and login was
 		 * more than five minutes ago, re-login
 		 */
 		if ((remain <= 300) && ((time(NULL) - aip->loginTime) > 300)) {
