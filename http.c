@@ -320,7 +320,7 @@ static const char POST_TRAILER[] =
 	"%s\r\n";
 static const char UNAVAILABLE[] = "unavailable/";
 
-FILE *
+static FILE *
 httpRequest(auctionInfo *aip, const char *host, const char *url, const char *cookies, const char *data, int saveRedirect, enum requestType rt)
 {
 	FILE *fp, *ret = NULL;
