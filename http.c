@@ -26,41 +26,16 @@
 
 #include "http.h"
 #include "esniper.h"
-#include <ctype.h>
-#include <errno.h>
-#include <limits.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/types.h>
-#include <time.h>
-#if defined(WIN32)
-#	include <winsock.h>
-#	include <io.h>
-#	include <fcntl.h>
-#	define sleep(t) _sleep((t) * 1000)
-#	define strcasecmp(s1, s2) stricmp((s1), (s2))
-#	define strncasecmp(s1, s2, n) strnicmp((s1), (s2), (n))
-#	define DEVNULL "nul"
-#else
-#	include <signal.h>
-#	include <unistd.h>
-#	include <netdb.h>
-#	include <netinet/in.h>
-#	include <sys/socket.h>
-#	if defined(_XOPEN_SOURCE_EXTENDED)
-#		include <arpa/inet.h>
-#	endif
-#	if defined(__aix)
-#		include <strings.h>	/* AIX 4.2 strcasecmp() */
-#	endif
-#	define DEVNULL "/dev/null"
-#endif
-
 #include <curl/curl.h>
 #include <curl/types.h>
 #include <curl/easy.h>
-#include "esniper.h"
+#include <stdlib.h>
+#include <string.h>
+#if defined(WIN32)
+#	define DEVNULL "nul"
+#else
+#	define DEVNULL "/dev/null"
+#endif
 
 enum requestType {GET, POST};
 
