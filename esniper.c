@@ -1061,8 +1061,11 @@ getAuctionInfo(auctionInfo *aip, int quantity, char *user)
 		size_t newQueryLen;
 
 		log(("Redirect..."));
-		if (match(fp, "Location: http://"))
+		if (match(fp, "Location: http://")) {
+			runout(fp);
+			fclose(fp);
 			return auctionError(aip, ae_badredirect, NULL);
+		}
 		if (strcasecmp(aip->host, (newHost = getuntilchar(fp, '/')))) {
 			log(("redirect hostname is %s\n", newHost));
 			free(aip->host);
@@ -1079,7 +1082,6 @@ getAuctionInfo(auctionInfo *aip, int quantity, char *user)
 
 		runout(fp);
 		fclose(fp);
-
 		return getAuctionInfo(aip, quantity, user);
 	}
 
@@ -1186,22 +1188,12 @@ static const char CONGRATS[] = "Congratulations...";
  * 1: error
  */
 int
-bidAuction(int bid, auctionInfo *aip, int quantity, const char *user, const char *password)
+bidAuctionSocket(FILE *fp, auctionInfo *aip, int quantity, const char *user, const char *password)
 {
-	FILE *fp;
 	size_t cmdlen;
 	int i;
 	char *line;
 	char quantityStr[12];	/* must hold an int */
-
-	log(("\n\n*** bidAuction auction %s price %s quantity %d user %s\n", aip->auction, aip->bidPriceStr, quantity, user));
-
-	if (!bid) {
-		printLog(stdout, "Bidding disabled\n");
-		return aip->bidResult = 0;
-	}
-	if (!(fp = verboseConnect(HOSTNAME, 6, 5)))
-		return aip->bidResult = auctionError(aip, ae_connect, NULL);
 
 	if (aip->quantity < quantity)
 		quantity = aip->quantity;
@@ -1235,11 +1227,35 @@ bidAuction(int bid, auctionInfo *aip, int quantity, const char *user, const char
 		return 0;	/* prevent another bid */
 	}
 
+	return aip->bidResult;
+} /* bidAuctionSocket() */
+
+/*
+ * Place bid.
+ *
+ * Returns:
+ * 0: OK
+ * 1: error
+ */
+int
+bidAuction(int bid, auctionInfo *aip, int quantity, const char *user, const char *password)
+{
+	FILE *fp;
+	int ret;
+
+	log(("\n\n*** bidAuction auction %s price %s quantity %d user %s\n", aip->auction, aip->bidPriceStr, quantity, user));
+
+	if (!bid) {
+		printLog(stdout, "Bidding disabled\n");
+		return aip->bidResult = 0;
+	}
+	if (!(fp = verboseConnect(HOSTNAME, 6, 5)))
+		return aip->bidResult = auctionError(aip, ae_connect, NULL);
+	ret = bidAuctionSocket(fp, aip, quantity, user, password);
 	runout(fp);
 	fclose(fp);
-
-	return aip->bidResult;
-}
+	return ret;
+} /* bidAuction() */
 
 /* secret option - test parser */
 void
