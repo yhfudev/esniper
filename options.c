@@ -59,24 +59,26 @@ static int parseSpecialValue(const char *name, const char *value,
 /*
  * readConfigFile(): read configuration from file, skipping auctions
  *
- * returns: >0 file successfully read, even if no config entries found
- *          0  config file not found
+ * returns:
+ *	0 file successfully read, even if no config entries found
+ *	1 file not found
+ *	2 other error
  */
 int
 readConfigFile(const char *filename, optionTable_t *table)
 {
 	char *buf = NULL;
 	size_t bufsize = 0, count = 0;
-	int c;
+	int c, ret = 0;
 	FILE *fp = fopen(filename, "r");
 
 	if (fp == NULL) {
 		/* file not found is OK */
 		if (errno == ENOENT)
-			return 0;
+			return 1;
 		printLog(stderr, "Cannot open %s: %s\n", filename,
 			 strerror(errno));
-		exit(1);
+		return 2;
 	}
 
 	while ((c = getc(fp)) != EOF) {
@@ -122,12 +124,11 @@ readConfigFile(const char *filename, optionTable_t *table)
 	if (ferror(fp)) {
 		printLog(stderr, "Cannot read %s: %s\n", filename,
 			 strerror(errno));
-		fclose(fp);
-		exit(1);
+		ret = 2;
 	}
 	fclose(fp);
 	free(buf);
-	return 1;
+	return ret;
 } /* readConfigFile() */
 
 /*
@@ -138,14 +139,14 @@ readConfigFile(const char *filename, optionTable_t *table)
 int
 parseGetoptValue(int option, const char *optval, optionTable_t *table)
 {
-   char optstr[] = { '\0', '\0' };
+	char optstr[] = { '\0', '\0' };
 
-   optstr[0] = (char)option;
-   /* optval "" should be handled the same as empty config value */
-   if (optval && !*optval)
-      optval = NULL;
-   /* filename NULL means command line option */
-   return parseConfigValue(optstr, optval, table, NULL, optstr);
+	optstr[0] = (char)option;
+	/* optval "" should be handled the same as empty config value */
+	if (optval && !*optval)
+		optval = NULL;
+	/* filename NULL means command line option */
+	return parseConfigValue(optstr, optval, table, NULL, optstr);
 }
 
 /*
@@ -158,56 +159,57 @@ static int
 parseConfigValue(const char *name, const char *value,
 	const optionTable_t *table, const char *filename, const char *line)
 {
-   const optionTable_t *tableptr;
-   const char *tablename;
+	const optionTable_t *tableptr;
+	const char *tablename;
+	int ret = 0;
 
-   log(("parsing name %s value %s\n", name, nullStr(value)));
-   /* lookup name in table */
-   for (tableptr=table; tableptr->value; tableptr++) {
-      if(filename)
-         tablename = tableptr->configname;
-      else
-         tablename = tableptr->optionname;
-      if(tablename && !strcmp(name, tablename))
-         break;
-   }
-   /* found */
-   if (tableptr->value) {
-      switch(tableptr->type) {
-      case OPTION_BOOL:
-      case OPTION_BOOL_NEG:
-         if (parseBoolValue(name, value, tableptr, filename, line,
-                            (tableptr->type == OPTION_BOOL_NEG)))
-            exit(1);
-         break;
-      case OPTION_STRING:
-         if (parseStringValue(name, value, tableptr, filename, line))
-            exit(1);
-         break;
-      case OPTION_SPECIAL:
-         if (parseSpecialValue(name, value, tableptr, filename, line))
-            exit(1);
-         break;
-      case OPTION_INT:
-         if (parseIntValue(name, value, tableptr, filename, line))
-            exit(1);
-         break;
-      default:
-         printLog(stderr,
-                  "Internal error: invalid type in config table (%s)",
-                  tableptr->configname ? tableptr->configname
-                                       : tableptr->optionname);
-         exit(1);
-      }
-   } else {
-      if(filename)
-         printLog(stderr, "Unknown configuration entry \"%s\" in file %s\n",
-                  line, filename);
-      else
-         printLog(stderr, "Unknown command line option -%s\n", line);
-      exit(1);
-   }
-   return 0;
+	log(("parsing name %s value %s\n", name, nullStr(value)));
+	/* lookup name in table */
+	for (tableptr=table; tableptr->value; tableptr++) {
+		if (filename)
+			tablename = tableptr->configname;
+		else
+			tablename = tableptr->optionname;
+		if (tablename && !strcmp(name, tablename))
+			break;
+	}
+	if (tableptr->value) {	/* found */
+		switch (tableptr->type) {
+		case OPTION_BOOL:
+		case OPTION_BOOL_NEG:
+			ret = parseBoolValue(name, value, tableptr, filename,
+				line, (tableptr->type == OPTION_BOOL_NEG));
+			break;
+		case OPTION_STRING:
+			ret = parseStringValue(name, value, tableptr, filename,
+				line);
+			break;
+		case OPTION_SPECIAL:
+			ret = parseSpecialValue(name, value, tableptr, filename,
+				line);
+			break;
+		case OPTION_INT:
+			ret = parseIntValue(name, value, tableptr, filename,
+				line);
+			break;
+		default:
+			printLog(stderr,
+			    "Internal error: invalid type in config table (%s)",
+			    tableptr->configname ? tableptr->configname
+						 : tableptr->optionname);
+			ret = 1;
+		}
+	} else {
+		if (filename)
+			printLog(stderr,
+			      "Unknown configuration entry \"%s\" in file %s\n",
+			      line, filename);
+		else
+			printLog(stderr, "Unknown command line option -%s\n",
+				 line);
+		ret = 1;
+	}
+	return ret;
 }
 
 /*
@@ -220,33 +222,25 @@ parseBoolValue(const char *name, const char *value,
 	const optionTable_t *tableptr, const char *filename, const char *line,
 	int neg)
 {
-   int intval = boolValue(value);
+	int intval = boolValue(value);
 
-   if (intval == -1) {
-      if(filename)
-         printLog(stderr, "Invalid boolean value in file %s, line \"%s\"\n",
-                  filename, line);
-      else
-         printLog(stderr,
-                  "Invalid boolean value \"%s\" at command line option -%s\n",
-                  value, line);
-      return 1;
-   }
-   if(neg) intval = !intval;
-   if(tableptr->checkfunc) {
-      /* check value with specific check function */
-      if((*tableptr->checkfunc)(&intval, tableptr, filename, line) != 0) {
-         return 1;
-      }
-   }
-   else
-   {
-      *(int*)(tableptr->value) = intval;
-   }
-   log(("bool value for %s is %d\n", name, *(int*)(tableptr->value)));
-   return 0;
+	if (intval == -1) {
+		if (filename)
+			printLog(stderr, "Invalid boolean value in file %s, line \"%s\"\n", filename, line);
+		else
+			printLog(stderr, "Invalid boolean value \"%s\" at command line option -%s\n", value, line);
+		return 1;
+	}
+	if (neg)
+		intval = !intval;
+	if (tableptr->checkfunc) { /* check value with check function */
+		if ((*tableptr->checkfunc)(&intval, tableptr, filename, line))
+			return 1;
+	} else
+		*(int*)(tableptr->value) = intval;
+	log(("bool value for %s is %d\n", name, *(int*)(tableptr->value)));
+	return 0;
 }
-
 
 /*
  * parseStringValue(): parse a string value, call checking func if specified
@@ -257,17 +251,19 @@ static int
 parseStringValue(const char *name, const char *value,
 	const optionTable_t *tableptr, const char *filename, const char *line)
 {
-   if(tableptr->checkfunc) {
-      /* Check value with specific check function.
-       * Check function is responsible for allocating/freeing values */
-      if((*tableptr->checkfunc)(value, tableptr, filename, line) != 0)
-         return 1;
-   } else {
-      free(*(char**)(tableptr->value));
-      *(char**)(tableptr->value) = myStrdup(value);
-   }
-   log(("string value for %s is \"%s\"\n", name, nullStr(*(char**)(tableptr->value))));
-   return 0;
+	if (tableptr->checkfunc) {
+		/* Check value with specific check function.
+		 * Check function is responsible for allocating/freeing values
+		 */
+		if ((*tableptr->checkfunc)(value, tableptr, filename, line))
+			return 1;
+	} else {
+		free(*(char**)(tableptr->value));
+		*(char**)(tableptr->value) = myStrdup(value);
+	}
+	log(("string value for %s is \"%s\"\n",
+	     name, nullStr(*(char**)(tableptr->value))));
+	return 0;
 }
 
 /*
@@ -280,21 +276,15 @@ static int
 parseSpecialValue(const char *name, const char *value,
         const optionTable_t *tableptr, const char *filename, const char *line)
 {
-   if(tableptr->checkfunc) {
-      /* check value with specific check function */
-      if((*tableptr->checkfunc)(value, tableptr, filename, line) != 0) {
-         return 1;
-      }
-   } else {
-      printLog(stderr,
-      "Internal error: special type needs check function in config table (%s)",
-               tableptr->configname ? tableptr->configname
-                                    : tableptr->optionname);
-      exit(1);
-   }
-   return 0;
+	if (tableptr->checkfunc) { /* check value with check function */
+		if ((*tableptr->checkfunc)(value, tableptr, filename, line))
+			return 1;
+	} else {
+		printLog(stderr, "Internal error: special type needs check function in config table (%s)", tableptr->configname ? tableptr->configname : tableptr->optionname);
+		return 1;
+	}
+	return 0;
 }
-
 
 /*
  * parseIntValue(): parse an integer value, call checking func if specified
@@ -305,43 +295,32 @@ static int
 parseIntValue(const char *name, const char *value,
 	const optionTable_t *tableptr, const char *filename, const char *line)
 {
-   int intval;
-   char *endptr;
+	int intval;
+	char *endptr;
 
-   if(!value) {
-      if(filename)
-         printLog(stderr,
-                  "Config entry \"%s\" in file %s needs an integer value\n",
-                  line, filename);
-      else
-         printLog(stderr,
-                  "Option -%s needs an integer value\n",
-                  line);
-      return 1;
-   }
-   intval = strtol(value, &endptr, 10);
-   if(*endptr != '\0') {
-      if(filename)
-         printLog(stderr,
-                  "Invalid integer value at config entry \"%s\" in file %s\n",
-                  line, filename);
-      else
-         printLog(stderr,
-                  "Invalid integer value \"%s\" at command line option -%s\n",
-                  value, line);
-      return 1;
-   }
+	if (!value) {
+		if(filename)
+			printLog(stderr, "Config entry \"%s\" in file %s needs an integer value\n", line, filename);
+		else
+			printLog(stderr, "Option -%s needs an integer value\n",
+				 line);
+		return 1;
+	}
+	intval = strtol(value, &endptr, 10);
+	if (*endptr != '\0') {
+		if (filename)
+			printLog(stderr, "Invalid integer value at config entry \"%s\" in file %s\n", line, filename);
+		else
+			printLog(stderr, "Invalid integer value \"%s\" at command line option -%s\n", value, line);
+		return 1;
+	}
 
-   if(tableptr->checkfunc) {
-      /* check value with specific check function */
-      if((*tableptr->checkfunc)(&intval, tableptr, filename, line) != 0) {
-         return 1;
-      }
-   }
-   else
-   {
-      *(int*)(tableptr->value) = intval;
-   }
-   log(("integer value for %s is %d\n", name, *(int*)(tableptr->value)));
-   return 0;
+	if (tableptr->checkfunc) {
+		/* check value with specific check function */
+		if ((*tableptr->checkfunc)(&intval, tableptr, filename, line))
+			return 1;
+	} else
+		*(int*)(tableptr->value) = intval;
+	log(("integer value for %s is %d\n", name, *(int*)(tableptr->value)));
+	return 0;
 }

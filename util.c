@@ -36,8 +36,8 @@
 #include <time.h>
 #include <sys/types.h>
 #if !defined(WIN32)
-#include <termios.h>
-#include <unistd.h>
+#	include <termios.h>
+#	include <unistd.h>
 #endif
 
 static void toLowerString(char *s);

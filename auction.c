@@ -31,6 +31,9 @@
 #include <limits.h>
 #include <stdio.h>
 #include <string.h>
+#if !defined(WIN32)
+#	include <unistd.h>
+#endif
 
 static int match(FILE *fp, const char *str);
 static const char *gettag(FILE *fp);

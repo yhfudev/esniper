@@ -54,7 +54,7 @@ option_t options = {
 	NULL,             /* password */
 	DEFAULT_BIDTIME,  /* bidtime */
 	1,                /* quantity */
-	NULL,             /* config file */       
+	NULL,             /* config file */
 	NULL,             /* auction file */
 	1,                /* bid */
 	1,                /* reduce quantity */
@@ -63,7 +63,7 @@ option_t options = {
 	0,                /* batch */
 	0,                /* password encrypted? */
 	{ NULL, 0 },      /* proxy host & port */
-	NULL,             /* log directory */       
+	NULL,             /* log directory */
 };
 
 const char DEFAULT_CONF_FILE[] = ".esniper";
@@ -495,7 +495,8 @@ static const char usageSummary[] =
   "usage: %s [-bdhHnPrUv] [-c conf_file] [-l logdir] [-p proxy] [-q quantity]\n"  "       [-s secs|now] [-u user] (auction_file | [auction price ...])\n"
   "\n";
 
-static const char usageLong[] =
+/* split in two to prevent gcc portability warning.  maximum length is 509 */
+static const char usageLong1[] =
  "where:\n"
  "-b: batch mode, don't prompt for password or username if not specified\n"
  "-d: write debug output to file\n"
@@ -507,7 +508,8 @@ static const char usageLong[] =
  "-U: prompt for ebay username\n"
  "-v: print version and exit\n"
  "-c: config file (default is \"$HOME/.esniper\" and, if auction file is\n"
- "    specified, .esniper in auction file's directory)\n"
+ "    specified, .esniper in auction file's directory)\n";
+static const char usageLong2[] =
  "-l: log directory (default: ., or directory of auction file, if specified)\n"
  "-p: http proxy (default: http_proxy environment variable, format is\n"
  "    http://host:port/)\n"
@@ -519,7 +521,8 @@ static const char usageLong[] =
  "You must specify either an auction file or <auction> <price> pair[s].\n"
  "Options on the command line override settings in config and auction files.\n";
 
-static const char usageConfig[] =
+/* split in two to prevent gcc portability warning.  maximum length is 509 */
+static const char usageConfig1[] =
  "Config variables (values shown are default):\n"
  "  Boolean: (valid values: true,y,yes,on,1,enabled  false,n,no,off,0,disabled)\n"
  "    batch = false\n"
@@ -534,7 +537,8 @@ static const char usageConfig[] =
  "  Numeric: (seconds may also be \"now\")\n"
  "    quantity = 1\n"
  "    seconds = %d\n"
- "\n"
+ "\n";
+static const char usageConfig2[] =
  "A config file consists of variable settings, blank lines, and comment lines.\n"
  "Comment lines begin with #\n"
  "\n"
@@ -548,10 +552,14 @@ usage(int helplevel)
 {
 	if (helplevel & USAGE_SUMMARY)
 		fprintf(stderr, usageSummary, progname);
-	if (helplevel & USAGE_LONG)
-		fprintf(stderr, usageLong, DEFAULT_BIDTIME);
-	if (helplevel & USAGE_CONFIG)
-		fprintf(stderr, usageConfig, DEFAULT_BIDTIME);
+	if (helplevel & USAGE_LONG) {
+		fprintf(stderr, usageLong1);
+		fprintf(stderr, usageLong2, DEFAULT_BIDTIME);
+	}
+	if (helplevel & USAGE_CONFIG) {
+		fprintf(stderr, usageConfig1, DEFAULT_BIDTIME);
+		fprintf(stderr, usageConfig2);
+	}
 	if (helplevel == USAGE_SUMMARY)
 		fprintf(stderr, "Try \"%s -h\" for more help.\n", progname);
 	fprintf(stderr,"\n%s\n", blurb);
