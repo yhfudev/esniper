@@ -53,9 +53,9 @@ readAuctionFile(const char *filename, auctionInfo ***aip)
 	int c, i, j, line, numAuctions = 0;
 
 	if (fp == NULL) {
-		fprintf(stderr, "Cannot open %s: %s\n", filename,
+		fprintf(stderr, "Cannot open auction file %s: %s\n", filename,
 			strerror(errno));
-		exit(1);
+		return -1;
 	}
 
 	while (numAuctions != -1 && (c = getc(fp)) != EOF) {
@@ -139,7 +139,5 @@ readAuctionFile(const char *filename, auctionInfo ***aip)
 
 	free(buf);
 
-	if (numAuctions <= 0)
-		exit(1);
 	return numAuctions;
 } /* readAuctions() */

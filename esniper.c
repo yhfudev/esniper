@@ -38,7 +38,7 @@
 #include "util.h"
 
 static const char version[]="esniper version 2.5.1";
-static const char blurb[]="Please visit http://esniper.sourceforge.net/ for updates and bug reports";
+static const char blurb[]="Please visit http://esniper.sourceforge.net/ for updates and bug reports.";
 
 #if !defined(WIN32)
 #       include <unistd.h>
@@ -78,7 +78,10 @@ static void sigTerm(int sig);
 static int sortAuctions(auctionInfo **auctions, int numAuctions, char *user,
                         int *quantity);
 static void cleanup(void);
-static void usage(int longhelp);
+static int usage(int helptype);
+#define USAGE_SUMMARY	0x01
+#define USAGE_LONG	0x02
+#define USAGE_CONFIG	0x04
 int main(int argc, char *argv[]);
 
 /* used for option table */
@@ -471,7 +474,7 @@ static int SetLongHelp(const void* valueptr, const optionTable_t* tableptr,
                        const char* filename, const char *line)
 {
    /* copy value to target variable */
-   *(int*)(tableptr->value) = 2;
+   *(int*)(tableptr->value) |= USAGE_SUMMARY | USAGE_LONG;
    return 0;
 }
 
@@ -484,7 +487,7 @@ static int SetConfigHelp(const void* valueptr, const optionTable_t* tableptr,
                          const char* filename, const char *line)
 {
    /* copy value to target variable */
-   *(int*)(tableptr->value) = 3;
+   *(int*)(tableptr->value) = USAGE_CONFIG;
    return 0;
 }
 
@@ -540,23 +543,19 @@ static const char usageConfig[] =
  "by a bid price.  If no bid price is given, the auction number uses the bid\n"
  "price of the first prior auction line that contains a bid price.\n";
 
-static void
+static int
 usage(int helplevel)
 {
-	switch (helplevel) {
-	case 1:
+	if (helplevel & USAGE_SUMMARY)
 		fprintf(stderr, usageSummary, progname);
-		fprintf(stderr, "use \"%s -h\" for more help.\n", progname);
-		break;
-	case 2:
-		fprintf(stderr, usageSummary, progname);
+	if (helplevel & USAGE_LONG)
 		fprintf(stderr, usageLong, DEFAULT_BIDTIME);
-		break;
-	case 3:
+	if (helplevel & USAGE_CONFIG)
 		fprintf(stderr, usageConfig, DEFAULT_BIDTIME);
-		break;
-	}
+	if (helplevel == USAGE_SUMMARY)
+		fprintf(stderr, "Try \"%s -h\" for more help.\n", progname);
 	fprintf(stderr,"\n%s\n", blurb);
+	return 1;
 }
 
 int
@@ -618,11 +617,13 @@ main(int argc, char *argv[])
 		case 'h': /* command-line options help */
 		case 'H': /* config and auction file help */
 		case '?': /* unknown -> help */
-			parseGetoptValue(c, NULL, optiontab);
+			if (parseGetoptValue(c, NULL, optiontab))
+				options.usage |= USAGE_SUMMARY;
 			break;
 		case 'c': /* config file */
 		case 'l': /* log directory */
-			parseGetoptValue(c, optarg, optiontab);
+			if (parseGetoptValue(c, optarg, optiontab))
+				options.usage |= USAGE_SUMMARY;
 			break;
 #if DEBUG
 		case 'X': /* secret option - for testing page parsing */
@@ -641,20 +642,23 @@ main(int argc, char *argv[])
 		}
 	}
 
-	if (options.usage) {
-		usage(options.usage);
-		exit(1);
-	}
+	if (options.usage)
+		exit(usage(options.usage));
 
 	/* One argument after options?  Must be an auction file. */
-	if ((argc - optind) == 1)
-		parseGetoptValue('f', argv[optind], optiontab);
+	if ((argc - optind) == 1) {
+		if (parseGetoptValue('f', argv[optind], optiontab)) {
+			options.usage |= USAGE_SUMMARY;
+			exit(usage(options.usage));
+		}
+	}
 
 	/* if config file specified assume one specific file
 	 * including directory
 	 */
 	if (options.conffilename) {
-		readConfigFile(options.conffilename, optiontab);
+		if (readConfigFile(options.conffilename, optiontab) > 1)
+			options.usage |= USAGE_SUMMARY;
 	} else {
 		char *homedir = getenv("HOME");
 
@@ -663,7 +667,8 @@ main(int argc, char *argv[])
 			/* parse $HOME/.esniper */
 			char *cfname = myStrdup3(homedir,"/",DEFAULT_CONF_FILE);
 
-			readConfigFile(cfname, optiontab);
+			if (readConfigFile(cfname, optiontab) > 1)
+				options.usage |= USAGE_SUMMARY;
 			free(cfname);
 		} else
 			printLog(stderr, "Warning: environment variable HOME not set. Cannot parse $HOME/%s.\n", DEFAULT_CONF_FILE);
@@ -673,7 +678,8 @@ main(int argc, char *argv[])
 			char *auctfilename = myStrdup(options.auctfilename);
 			char *cfname = myStrdup3(dirname(auctfilename), "/", DEFAULT_CONF_FILE);
 
-			readConfigFile(cfname, optiontab);
+			if (readConfigFile(cfname, optiontab) > 1)
+				options.usage |= USAGE_SUMMARY;
 			free(auctfilename);
 			free(cfname);
 		}
@@ -687,7 +693,8 @@ main(int argc, char *argv[])
 			options.logdir = myStrdup(dirname(tmp));
 			free(tmp);
 		}
-		readConfigFile(options.auctfilename, optiontab);
+		if (readConfigFile(options.auctfilename, optiontab) > 1)
+			options.usage |= USAGE_SUMMARY;
 	}
 
 	/* skip back to first arg */
@@ -700,7 +707,8 @@ main(int argc, char *argv[])
 		case 'q': /* quantity */
 		case 's': /* seconds */
 		case 'u': /* user */
-			parseGetoptValue(c, optarg, optiontab);
+			if (parseGetoptValue(c, optarg, optiontab))
+				options.usage |= USAGE_SUMMARY;
 			break;
 			/* Debug is in both getopt() sections, because we want
 			 * debugging as soon as possible, and also because
@@ -715,7 +723,8 @@ main(int argc, char *argv[])
 		case 'P': /* read password */
 		case 'r': /* reduce */
 		case 'U': /* read username */
-			parseGetoptValue(c, NULL, optiontab);
+			if (parseGetoptValue(c, NULL, optiontab))
+				options.usage |= USAGE_SUMMARY;
 			break;
 		default:
 			/* ignore other options, these have been parsed
@@ -743,32 +752,30 @@ main(int argc, char *argv[])
 	if (!options.usage) {
 		if (!options.auctfilename && argc < 2) {
 			printLog(stderr, "Error: no auctions specified.\n");
-			options.usage = 1;
+			options.usage |= USAGE_SUMMARY;
 		}
 		if (!options.auctfilename && argc % 2) {
 			printLog(stderr, "Error: auctions and prices must be specified in pairs.\n");
-			options.usage = 1;
+			options.usage |= USAGE_SUMMARY;
 		}
 		if (!options.username) {
 			if (options.batch) {
 				printLog(stderr, "Error: no username specified.\n");
-				options.usage = 1;
+				options.usage |= USAGE_SUMMARY;
 			} else if (!options.usage)
 				parseGetoptValue('U', NULL, optiontab);
 		}
 		if (!options.password) {
 			if (options.batch) {
 				printLog(stderr, "Error: no password specified.\n");
-				options.usage = 1;
+				options.usage |= USAGE_SUMMARY;
 			} else if (!options.usage)
 				parseGetoptValue('P', NULL, optiontab);
 		}
 	}
 
-	if (options.usage) {
-		usage(options.usage > 1);
-		exit(1);
-	}
+	if (options.usage)
+		exit(usage(options.usage));
 
 	/* init variables */
 	if (options.auctfilename) {
@@ -779,6 +786,9 @@ main(int argc, char *argv[])
 		for (i = 0; i < argc/2; i++)
 			auctions[i] = newAuctionInfo(argv[2*i], argv[2*i+1]);
 	}
+
+	if (numAuctions <= 0)
+		exit(usage(USAGE_SUMMARY));
 
 	signal(SIGALRM, sigAlarm);
 	signal(SIGHUP, SIG_IGN);
