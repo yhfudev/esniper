@@ -133,7 +133,7 @@ myStrdup4(const char *s1, const char *s2, const char *s3, const char *s4)
  * Debugging functions.
  */
 
-FILE *logfile = NULL;
+static FILE *logfile = NULL;
 
 void
 logClose()
@@ -145,7 +145,7 @@ logClose()
 }
 
 void
-logOpen(const char *progname, const auctionInfo *aip)
+logOpen(const char *progname, const auctionInfo *aip, const char *logdir)
 {
 	char *logfilename;
 
@@ -153,11 +153,17 @@ logOpen(const char *progname, const auctionInfo *aip)
 		logfilename = myStrdup2(progname, ".log");
 	else
 		logfilename = myStrdup4(progname, ".", aip->auction, ".log");
+	if (logdir) {
+		char *tmp = logfilename;
+
+		logfilename = myStrdup3(logdir, "/", logfilename);
+		free(tmp);
+	}
 	logClose();
 	if (!(logfile = fopen(logfilename, "a"))) {
+                /* non-fatal error! */
 		fprintf(stderr, "Unable to open log file %s: %s\n",
 			logfilename, strerror(errno));
-		exit(1);
 	}
 	free(logfilename);
 }
@@ -172,17 +178,15 @@ vlog(const char *fmt, va_list arglist)
 	time_t t;
 	char timebuf[80];	/* more than big enough */
 
-	if (!logfile) {
-		fprintf(stderr, "Log file not open\n");
-		vfprintf(stderr, fmt, arglist);
-	} else {
-		gettimeofday(&tv, NULL);
-		t = (time_t)(tv.tv_sec);
-		strftime(timebuf, sizeof(timebuf), "\n\n*** %Y-%m-%d %H:%M:%S", localtime(&t));
-		fprintf(logfile, "%s.%06ld ", timebuf, (long)tv.tv_usec);
-		vfprintf(logfile, fmt, arglist);
-		fflush(logfile);
-	}
+	if (!logfile)
+		return;
+
+	gettimeofday(&tv, NULL);
+	t = (time_t)(tv.tv_sec);
+	strftime(timebuf, sizeof(timebuf), "\n\n*** %Y-%m-%d %H:%M:%S", localtime(&t));
+	fprintf(logfile, "%s.%06ld ", timebuf, (long)tv.tv_usec);
+	vfprintf(logfile, fmt, arglist);
+	fflush(logfile);
 }
 
 /*
@@ -224,10 +228,8 @@ printLog(FILE *fp, const char *fmt, ...)
 void
 logChar(int c)
 {
-	if (!logfile) {
-		fprintf(stderr, "Log file not open!\n");
-		exit(1);
-	}
+	if (!logfile)
+		return;
 
 	if (c == EOF)
 		fflush(logfile);
@@ -378,6 +380,12 @@ parseProxy(const char *value, proxy_t *proxy)
 	const char *cp = value, *host;
 	int port = 80;	/* default */
 	size_t len;
+
+	if (!cp) {
+		free(proxy->host);
+		proxy->host = NULL;
+		return 0;
+	}
 
 	if (!strncasecmp(cp, "http://", 7))
 		cp += 7;

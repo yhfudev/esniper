@@ -62,7 +62,8 @@ option_t options = {
 	0,                /* usage */
 	0,                /* batch */
 	0,                /* password encrypted? */
-	{ NULL, 0 }       /* proxy host & port */
+	{ NULL, 0 },      /* proxy host & port */
+	NULL,             /* log directory */       
 };
 
 const char DEFAULT_CONF_FILE[] = ".esniper";
@@ -90,12 +91,19 @@ static int ReadUser(const void* valueptr, const optionTable_t* tableptr,
                     const char* filename, const char *line);
 static int ReadPass(const void* valueptr, const optionTable_t* tableptr,
                     const char* filename, const char *line);
-static int CheckFile(const void* valueptr, const optionTable_t* tableptr,
-                     const char* filename, const char *line);
+static int CheckAuctionFile(const void* valueptr, const optionTable_t* tableptr,
+                            const char* filename, const char *line);
+static int CheckConfigFile(const void* valueptr, const optionTable_t* tableptr,
+                           const char* filename, const char *line);
 static int CheckProxy(const void* valueptr, const optionTable_t* tableptr,
                      const char* filename, const char *line);
 static int SetHelp(const void* valueptr, const optionTable_t* tableptr,
                    const char* filename, const char *line);
+
+/* called by CheckAuctionFile, CheckConfigFile */
+static int CheckFile(const void* valueptr, const optionTable_t* tableptr,
+                     const char* filename, const char *line,
+                     const char *fileType);
 
 
 static void
@@ -125,7 +133,7 @@ sortAuctions(auctionInfo **auctions, int numAuctions, char *user, int *quantity)
 		int j;
 
 		if (options.debug)
-			logOpen(progname, auctions[i]);
+			logOpen(progname, auctions[i], options.logdir);
 		for (j = 0; j < 3; ++j) {
 			if (j > 0)
 				printLog(stderr, "Retrying...\n");
@@ -202,7 +210,7 @@ static int CheckDebug(const void* valueptr, const optionTable_t* tableptr,
 {
 	int val = *((const int*)valueptr);
 
-	val ? logOpen(progname, NULL) : logClose();
+	val ? logOpen(progname, NULL, options.logdir) : logClose();
 	*(int*)(tableptr->value) = val;
 	log(("Debug mode is %s\n", val ? "on" : "off"));
 	return 0;
@@ -341,22 +349,39 @@ ReadPass(const void* valueptr, const optionTable_t* tableptr,
 }
 
 /*
+ * CheckAuctionFile(): accept accessible files only
+ *
+ * returns: 0 = OK, else error
+ */
+static int CheckAuctionFile(const void* valueptr, const optionTable_t* tableptr,
+                            const char* filename, const char *line)
+{
+   return CheckFile(valueptr, tableptr, filename, line, "Auction");
+}
+
+/*
+ * CheckConfigFile(): accept accessible files only
+ *
+ * returns: 0 = OK, else error
+ */
+static int CheckConfigFile(const void* valueptr, const optionTable_t* tableptr,
+                           const char* filename, const char *line)
+{
+   return CheckFile(valueptr, tableptr, filename, line, "Config");
+}
+
+/*
  * CheckFile(): accept accessible files only
  *
  * returns: 0 = OK, else error
  */
 static int CheckFile(const void* valueptr, const optionTable_t* tableptr,
-                     const char* filename, const char *line)
+                     const char* filename, const char *line,
+                     const char *filetype)
 {
    if(access((const char*)valueptr, R_OK)) {
-      if(filename)
-         printLog(stderr,
-                "File specified in at \"%s\" in file %s is not readable: %s\n",
-                  line, filename, strerror(errno));
-      else
-         printLog(stderr,
-                  "File \"%s\" specified at option -%s is not readable: %s\n",
-                  (const char*)valueptr, line, strerror(errno));
+      printLog(stderr, "%s file \"%s\" is not readable: %s\n",
+               filetype, nullStr((const char*)valueptr), strerror(errno));
       return 1;
    }
    free(*(char**)(tableptr->value));
@@ -375,12 +400,12 @@ static int CheckProxy(const void* valueptr, const optionTable_t* tableptr,
    if (parseProxy((const char *)valueptr, (proxy_t *)(tableptr->value))) {
       if(filename)
          printLog(stderr,
-                "Proxy specified in at \"%s\" in file %s is not valid: %s\n",
-                  line, filename, strerror(errno));
+                "Proxy specified in \"%s\" in file %s is not valid\n",
+                  line, filename);
       else
          printLog(stderr,
-                  "Proxy \"%s\" specified at option -%s is not valid: %s\n",
-                  (const char*)valueptr, line, strerror(errno));
+                  "Proxy \"%s\" specified at option -%s is not valid\n",
+                  nullStr((const char*)valueptr), line);
       return 1;
    }
    return 0;
@@ -400,14 +425,15 @@ static int SetHelp(const void* valueptr, const optionTable_t* tableptr,
 }
 
 static const char usageSummary[] =
-  "usage: %s [-bdnPrUv] [-u user] [-s secs|now] [-q quantity]\n"
-  "       [-p proxy] [-f auction_file] [-c conf_file] [auction price ...]\n"
+  "usage: %s [-bdnPrUv] [-u user] [-s secs|now] [-q quantity] [-l logdir]\n"
+  "       [-p proxy] [-c conf_file] (auction_file | [auction price ...])\n"
   "\n";
 
 static const char usageLong[] =
  "where:\n"
  "-b: batch mode, don't prompt for password or username if not specified\n"
  "-d: write debug output to file\n"
+ "-l: log directory\n"
  "-n: do not place bid\n"
  "-p: http proxy\n"
  "-P: prompt for password\n"
@@ -418,11 +444,9 @@ static const char usageLong[] =
  "-s: time to place bid which may be \"now\" or seconds before end of auction\n"
  "    (default is %d seconds before end of auction)\n"
  "-q: quantity to buy (default is 1)\n"
- "-f: read auction data from file\n"
  "-c: read config from specified file instead of \".esniper\"\n"
  "\n"
- "If you don't specify an auction data file with option -f you must provide\n"
- "<auction> <price> pair[s] on command line.\n"
+ "You must specify either an auction file or <auction> <price> pair[s].\n"
  "Options on the command line override settings in config and auction files.\n";
 
 static void
@@ -441,45 +465,41 @@ main(int argc, char *argv[])
 {
 	int ret = 1;	/* assume failure, change if successful */
 	auctionInfo **auctions = NULL;
-	int c, i;
-	int argcmin = 2;
-	int numAuctions = 0, numAuctionsOrig = 0;
-	char *http_proxy;
+	int c, i, numAuctions = 0, numAuctionsOrig = 0;
 
    /* this table describes options and config entries */
    static optionTable_t optiontab[] = {
    {"username", "u", (void*)&options.user,         OPTION_STRING,   NULL},
    {"password",NULL, (void*)&options.password,     OPTION_STRING,   NULL},
-   {"seconds",  "s", (void*)&options.bidtime,      OPTION_SPECIAL,  &CheckSecs},
+   {"seconds",  "s", (void*)&options.bidtime,      OPTION_STRING,   &CheckSecs},
    {"quantity", "q", (void*)&options.quantity,     OPTION_INT,  &CheckQuantity},
    {"proxy",    "p", (void*)&options.proxy,        OPTION_STRING,  &CheckProxy},
-   {NULL,       "P", (void*)&options.password,     OPTION_SPECIAL,  &ReadPass},
-   {NULL,       "U", (void*)&options.user,         OPTION_SPECIAL,  &ReadUser},
-   {NULL,       "c", (void*)&options.conffilename, OPTION_STRING,   &CheckFile},
-   {NULL,       "f", (void*)&options.auctfilename, OPTION_STRING,   &CheckFile},
+   {NULL,       "P", (void*)&options.password,     OPTION_STRING,   &ReadPass},
+   {NULL,       "U", (void*)&options.user,         OPTION_STRING,   &ReadUser},
+   {NULL,       "c", (void*)&options.conffilename, OPTION_STRING,   &CheckConfigFile},
+   {NULL,       "f", (void*)&options.auctfilename, OPTION_STRING,   &CheckAuctionFile},
    {"reduce",  NULL, (void*)&options.reduce,       OPTION_BOOL,     NULL},
    {NULL,       "r", (void*)&options.reduce,       OPTION_BOOL_NEG, NULL},
    {"bid",     NULL, (void*)&options.bid,          OPTION_BOOL,     NULL},
    {NULL,       "n", (void*)&options.bid,          OPTION_BOOL_NEG, NULL},
    {"debug",    "d", (void*)&options.debug,        OPTION_BOOL,    &CheckDebug},
    {"batch",    "b", (void*)&options.batch,        OPTION_BOOL,     NULL},
+   {"logdir",   "l", (void*)&options.logdir,       OPTION_STRING,   NULL},
    {NULL,       "?", (void*)&options.usage,        OPTION_BOOL,     NULL},
-   {NULL,       "h", (void*)&options.usage,        OPTION_SPECIAL,  &SetHelp},
+   {NULL,       "h", (void*)&options.usage,        OPTION_STRING,   &SetHelp},
    {NULL, NULL, NULL, 0, NULL}
    };
 
 	/* all known options */
-	static const char optionstring[]="bc:df:hnp:Pq:rs:u:UvX";
+	static const char optionstring[]="bc:dhl:np:Pq:rs:u:UvX";
 
 	atexit(cleanup);
 	progname = basename(argv[0]);
 
 	/* environment variables */
 	/* TODO - obey no_proxy */
-	if ((http_proxy = getenv("http_proxy"))) {
-		if (parseProxy(http_proxy, &options.proxy))
-			printLog(stderr, "http_proxy environment variable invalid\n");
-	}
+	if (parseProxy(getenv("http_proxy"), &options.proxy))
+		printLog(stderr, "http_proxy environment variable invalid\n");
 
 	/* first, check for debug, config file and auction file
 	 * options but accept all other options to avoid error messages
@@ -496,7 +516,7 @@ main(int argc, char *argv[])
 			parseGetoptValue(c, NULL, optiontab);
 			break;
 		case 'c': /* config file */
-		case 'f': /* auction file */
+		case 'l': /* log directory */
 			parseGetoptValue(c, optarg, optiontab);
 			break;
 		case 'X': /* secret option - for testing page parsing */
@@ -519,6 +539,10 @@ main(int argc, char *argv[])
 		usage(options.usage > 1);
 		exit(1);
 	}
+
+	/* One argument after options?  Must be an auction file. */
+	if ((argc - optind) == 1)
+		parseGetoptValue('f', argv[optind], optiontab);
 
 	/* if config file specified assume one specific file
 	 * including directory
@@ -550,14 +574,22 @@ main(int argc, char *argv[])
 	}
 
 	/* parse auction file */
-	if (options.auctfilename)
+	if (options.auctfilename) {
+		if (!options.logdir) {
+			char *tmp = myStrdup(options.auctfilename);
+
+			options.logdir = myStrdup(dirname(tmp));
+			free(tmp);
+		}
 		readConfigFile(options.auctfilename, optiontab);
+	}
 
 	/* skip back to first arg */
 	optind = 1;
 	/* check options which may overwrite settings from config file */
 	while ((c = getopt(argc, argv, optionstring)) != EOF) {
 		switch (c) {
+		case 'l': /* log directory */
 		case 'p': /* proxy */
 		case 'q': /* quantity */
 		case 's': /* seconds */
@@ -569,6 +601,9 @@ main(int argc, char *argv[])
 			 * command line -d overrides settings in config files
 			 */
 		case 'd': /* debug */
+			if (options.debug)
+				break;
+			/* fall through */
 		case 'b': /* batch */
 		case 'n': /* don't bid */
 		case 'P': /* read password */
@@ -599,16 +634,12 @@ main(int argc, char *argv[])
 	log(("options.debug=%d\n", options.debug));
 	log(("options.usage=%d\n", options.usage));
 
-	/* no args needed if auction file specified */
-	if (options.auctfilename)
-		argcmin=0;
-
 	if (!options.usage) {
-		if (argc < argcmin) {
+		if (!options.auctfilename && argc < 2) {
 			printLog(stderr, "Error: no auctions specified.\n");
 			options.usage = 1;
 		}
-		if (argc % 2) {
+		if (!options.auctfilename && argc % 2) {
 			printLog(stderr, "Error: auctions and prices must be specified in pairs.\n");
 			options.usage = 1;
 		}
@@ -672,7 +703,7 @@ main(int argc, char *argv[])
 			continue;
 
 		if (options.debug)
-			logOpen(progname, auctions[i]);
+			logOpen(progname, auctions[i], options.logdir);
 
 		log(("auction %s price %s quantity %d user %s bidtime %ld\n",
 		     auctions[i]->auction, auctions[i]->bidPriceStr,

@@ -36,8 +36,6 @@ typedef struct {
 	int port;
 } proxy_t;
 
-extern FILE *logfile;
-
 extern void *myMalloc(size_t);
 extern void *myRealloc(void *buf, size_t size);
 extern char *myStrdup(const char *);
@@ -47,7 +45,7 @@ extern char *myStrdup3(const char *, const char *, const char *);
 extern char *myStrdup4(const char *, const char *, const char *, const char *);
 
 extern void logClose(void);
-extern void logOpen(const char *progname, const auctionInfo *aip);
+extern void logOpen(const char *progname, const auctionInfo *aip, const char *logdir);
 extern void vlog(const char *fmt, va_list arglist);
 extern void dlog(const char *fmt, ...);
 extern void printLog(FILE *fp, const char *fmt, ...);

@@ -52,9 +52,6 @@ static int parseStringValue(const char *name, const char *value,
 static int parseIntValue(const char *name, const char *value,
                          const optionTable_t *tableptr, const char *filename,
                          const char *line);
-static int parseSpecialValue(const char *name, const char *value,
-                             const optionTable_t *tableptr,
-                             const char *filename, const char *line);
 
 /*
  * readConfigFile(): read configuration from file, skipping auctions
@@ -141,6 +138,9 @@ parseGetoptValue(int option, const char *optval, optionTable_t *table)
    char optstr[] = { '\0', '\0' };
 
    optstr[0] = (char)option;
+   /* optval "" should be handled the same as empty config value */
+   if (optval && !*optval)
+      optval = NULL;
    /* filename NULL means command line option */
    return parseConfigValue(optstr, optval, table, NULL, optstr);
 }
@@ -179,10 +179,6 @@ parseConfigValue(const char *name, const char *value,
          break;
       case OPTION_STRING:
          if (parseStringValue(name, value, tableptr, filename, line))
-            exit(1);
-         break;
-      case OPTION_SPECIAL:
-         if (parseSpecialValue(name, value, tableptr, filename, line))
             exit(1);
          break;
       case OPTION_INT:
@@ -254,17 +250,6 @@ static int
 parseStringValue(const char *name, const char *value,
 	const optionTable_t *tableptr, const char *filename, const char *line)
 {
-   if(!value) {
-      if(filename)
-         printLog(stderr,
-                  "Config entry \"%s\" in file %s needs a value\n",
-                  line, filename);
-      else
-         printLog(stderr,
-                  "Option -%s needs a value\n",
-                  line);
-      return 1;
-   }
    if(tableptr->checkfunc) {
       /* Check value with specific check function.
        * Check function is responsible for allocating/freeing values */
@@ -275,32 +260,6 @@ parseStringValue(const char *name, const char *value,
       *(char**)(tableptr->value) = myStrdup(value);
    }
    log(("string value for %s is \"%s\"\n", name, *(char**)(tableptr->value)));
-   return 0;
-}
-
-
-/*
- * parseSpecialValue(): parse a special value, which is is not interpreted here
- *                      A checking func is required to convert/check value.
- *
- * returns: 0 = OK, else error
- */
-static int
-parseSpecialValue(const char *name, const char *value,
-	const optionTable_t *tableptr, const char *filename, const char *line)
-{
-   if(tableptr->checkfunc) {
-      /* check value with specific check function */
-      if((*tableptr->checkfunc)(value, tableptr, filename, line) != 0) {
-         return 1;
-      }
-   } else {
-      printLog(stderr,
-      "Internal error: special type needs check function in config table (%s)",
-               tableptr->configname ? tableptr->configname
-                                    : tableptr->optionname);
-      exit(1);
-   }
    return 0;
 }
 

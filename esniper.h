@@ -53,6 +53,7 @@ typedef struct {
 	int batch;
 	int encrypted;
 	proxy_t proxy;
+	char *logdir;
 } option_t;
 
 extern option_t options;

@@ -64,7 +64,7 @@ static int bidSocket(FILE *fp, auctionInfo *aip, int quantity,
 static int
 logNonTag(const char *msg, FILE *fp, int ret)
 {
-	if (options.debug && logfile) {
+	if (options.debug) {
 		dlog("%s ", msg);
 		dlog("%s\n", getnontag(fp));
 	}
