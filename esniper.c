@@ -37,7 +37,7 @@
 #include "options.h"
 #include "util.h"
 
-static const char version[]="esniper version 2.2";
+static const char version[]="esniper version 2.2.1";
 static const char blurb[]="Please visit http://esniper.sourceforge.net/ for updates and bug reports";
 
 #if !defined(WIN32)
@@ -518,7 +518,7 @@ main(int argc, char *argv[])
    static optionTable_t optiontab[] = {
    {"username", "u", (void*)&options.user,         OPTION_STRING,   NULL},
    {"password",NULL, (void*)&options.password,     OPTION_STRING,   NULL},
-   {"seconds",  "s", (void*)&options.bidtime,      OPTION_STRING,   &CheckSecs},
+   {"seconds",  "s", (void*)&options.bidtime,      OPTION_SPECIAL,  &CheckSecs},
    {"quantity", "q", (void*)&options.quantity,     OPTION_INT,  &CheckQuantity},
    {"proxy",    "p", (void*)&options.proxy,        OPTION_STRING,  &CheckProxy},
    {NULL,       "P", (void*)&options.password,     OPTION_STRING,   &ReadPass},
