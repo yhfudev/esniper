@@ -79,11 +79,13 @@ function auktionEndtime($text) {
 }
 
 function ueberbotenStatus($text) {
+	//True meldet, dass überboten wurde.
     ereg("bid: [0-9]+\.?[0-9]+",$text,$meineGebote);
-    if (getHighestBid($text) - substr($meineGebote[count($meineGebote)-1],5) > 0) {
-	return(true);
+    $bidMinimum = ereg("Bid price less than minimum bid price",$text);
+    if (substr($meineGebote[count($meineGebote)-1],5) - getHighestBid($text) > 0 || $bidMinimum != false) {
+		return(true);
     } else {
-	return(false);
+		return(false);
     }
 }
 
@@ -230,15 +232,16 @@ function snipeGenerate($db) {
 		if (!snipeRunCheck($snipe->pid)) {
 		//Prozess läuft nicht
 			snipeEinstellen($snipe->artnr,$snipe->bid,$db);
-			$msg = $msg . "Snipe für ".$snipe->artnr." gestartet.\n";
+			$msg = $msg ."Snipe für ".$snipe->artnr." gestartet.\n";
 		} else {
-			$msg = $msg . "Snipe für ".$snipe->artnr." läuft bereits.\n";
+			$msg = $msg ."Snipe für ".$snipe->artnr." läuft bereits.\n";
 		}
     }
     return($msg);
 }
 
 function collectGarbage($db) {
+	$msg = "";
     //Pids abschiessen, welche nicht laufen dürfen
     $sql = "SELECT pid FROM snipe WHERE status = 0";
     $snipePids = $db->get_col($sql);
@@ -247,6 +250,7 @@ function collectGarbage($db) {
     $pids = getPids();
     foreach($pids as $pid) {
 		if (!in_Array($pid,$snipePids)) {
+			$msg = $msg ."Prozess ".$pid." wurde beendet";
 			exec("kill -15 ".getEsniperPid($pid));
 		}
     }
@@ -256,12 +260,13 @@ function collectGarbage($db) {
     $snipeArtnr = $db->get_col($sql);
     $dateien = fileList(TMP_FOLDER);
     foreach($dateien as $datei) {
-	if (!in_Array(substr($datei,0,10),$snipeArtnr)) {
-	    exec("rm ".TMP_FOLDER."/".$datei);
-	}
+		if (!in_Array(substr($datei,0,10),$snipeArtnr)) {
+		    exec("rm ".TMP_FOLDER."/".$datei);
+		}
     }
     foreach($snipeArtnr as $artnr) {
-	statusPruefen($artnr,$db);
+		statusPruefen($artnr,$db);
     }
+    return($msg);
 }
 ?>
