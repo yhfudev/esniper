@@ -1415,7 +1415,7 @@ watchAuction(auctionInfo *aip, int quantity, char *user, long bidtime)
 /*
  * readAuctions(): read auctions from file
  *
- * returns: number of auctions
+ * returns: number of auctions, or -1 if error
  */
 static int
 readAuctions(FILE *fp, auctionInfo ***aip)
@@ -1429,12 +1429,10 @@ readAuctions(FILE *fp, auctionInfo ***aip)
 	int line;
 
 	while ((c = getc(fp)) != EOF) {
-		if (c == '#') {
+		if (isspace(c))
+			continue;
+		else if (c == '#')
 			c = skipline(fp);
-			if (c == EOF)
-				break;
-		} else if (isspace(c))
-			;
 		else if (isdigit(c)) {
 			++numAuctions;
 			/* get auction number */
@@ -1442,39 +1440,43 @@ readAuctions(FILE *fp, auctionInfo ***aip)
 			do {
 				addchar(buf, bufsize, count, c);
 			} while (isdigit(c = getc(fp)));
-			for (; isspace(c) && c != EOF && c != '\n' && c != '#'; c = getc(fp))
+			for (; isspace(c) && c != '\n'; c = getc(fp))
 				;
 			if (c == '#')	/* comment? */
 				c = skipline(fp);
 			/* no price? */
 			if (c == EOF || c == '\n') {
-				/* can use price of previous auction */
+				/* use price of previous auction */
 				if (numAuctions == 1) {
 					fprintf(stderr, "Cannot find price on first auction\n");
-					exit(1);
+					return -1;
 				}
-				addchar(buf, bufsize, count, '\n');
-				continue;
-			}
-			addchar(buf, bufsize, count, ' ');
-			/* get price */
-			for (; !isspace(c) && c != EOF && c != '#'; c = getc(fp))
-				addchar(buf, bufsize, count, c);
-			if (c == '#')	/* comment? */
-				c = skipline(fp);
-			for (; isspace(c) && c!=EOF && c!='\n'; c = getc(fp))
-				;
-			if (c == '#')	/* comment? */
-				c = skipline(fp);
-			if (c != EOF && c != '\n') {
-				term(buf, bufsize, count);
-				fprintf(stderr, "Invalid auction line: %s\n", &buf[line]);
-				exit(0);
+			} else {
+				addchar(buf, bufsize, count, ' ');
+				/* get price */
+				for (; isdigit(c) || c == '.'; c = getc(fp))
+					addchar(buf, bufsize, count, c);
+				for (; isspace(c) && c != '\n'; c = getc(fp))
+					;
+				if (c == '#')	/* comment? */
+					c = skipline(fp);
+				if (c != EOF && c != '\n') {
+					term(buf, bufsize, count);
+					fprintf(stderr, "Invalid auction line: %s\n", &buf[line]);
+					return -1;
+				}
 			}
 			addchar(buf, bufsize, count, '\n');
-			if (c == EOF)
-				break;
+		} else {
+			fprintf(stderr, "Invalid auction line: ");
+			do {
+				putc(c, stderr);
+			} while ((c = getc(fp)) != EOF && c != '\n');
+			putc('\n', stderr);
+			return -1;
 		}
+		if (c == EOF)
+			break;
 	}
 
 	*aip = (auctionInfo **)malloc(sizeof(auctionInfo *) * numAuctions);
@@ -1499,7 +1501,7 @@ readAuctions(FILE *fp, auctionInfo ***aip)
 	}
 
 	return numAuctions;
-}
+} /* readAuctions() */
 
 /*
  * readAuctionFile(): read a file listing auctions to watch.
@@ -1519,10 +1521,10 @@ readAuctionFile(const char *filename, auctionInfo ***aip)
 	}
 	numAuctions = readAuctions(fp, aip);
 	fclose(fp);
-	if (numAuctions == 0) {
+	if (numAuctions == 0)
 		fprintf(stderr, "Cannot find any auctions!\n");
+	if (numAuctions <= 0)
 		exit(1);
-	}
 	return numAuctions;
 } /* readAuctionFile() */
 
@@ -1586,7 +1588,7 @@ sortAuctions(auctionInfo **auctions, int numAuctions, char *user, int quantity)
 		numAuctions -= sawError;
 	}
 	return numAuctions;
-}
+} /* sortAuctions() */
 
 /* cleanup open files */
 static void
@@ -1603,7 +1605,6 @@ main(int argc, char *argv[])
 	int quantity;
 	int now = 0, usage = 0;
 	int bid = 1;	/* really make a bid? */
-	int parse = 0;	/* secret option - for testing page parsing */
 	int ret = 1;	/* assume failure, change if successful */
 	const char *progname = basename(argv[0]);
 	auctionInfo **auctions = NULL;
@@ -1627,9 +1628,9 @@ main(int argc, char *argv[])
 		case 'n':
 			bid = 0;
 			break;
-		case 'p':	/* secret option */
-			parse = 1;
-			break;
+		case 'p':	/* secret option - for testing page parsing */
+			testParser(argc, argv);
+			exit(0);
 		case 'v':
 			fprintf(stderr, "%s\n%s\n", version, blurb);
 			exit(0);
@@ -1639,11 +1640,6 @@ main(int argc, char *argv[])
 	}
 	argc -= optind;
 	argv += optind;
-
-	if (parse) {
-		testParser(argc, argv);
-		exit(0);
-	}
 
 	if (usage || argc < argcmin || argc > argcmax) {
 		fprintf(stderr,
