@@ -48,6 +48,8 @@ static const char *gettag(FILE *fp);
 static char *getnontag(FILE *fp);
 static long getseconds(char *timestr);
 static int parseAuction(FILE *fp, auctionInfo *aip, int quantity, const char *user);
+static int parseAuctionOld(FILE *fp, auctionInfo *aip, int quantity, const char *user);
+static int parseAuctionNew(FILE *fp, auctionInfo *aip, int quantity, const char *user);
 static int parseBid(FILE *fp, auctionInfo *aip);
 
 /*
@@ -92,6 +94,10 @@ gettag(FILE *fp)
 	size_t count = 0;
 	int inStr = 0, comment = 0, c;
 
+	if (feof(fp)) {
+		log(("gettag(): returning NULL\n"));
+		return NULL;
+	}
 	while ((c = getc(fp)) != EOF && c != '<')
 		;
 	if (c == EOF) {
@@ -199,6 +205,10 @@ getnontag(FILE *fp)
 	size_t count = 0, amp = 0;
 	int c;
 
+	if (feof(fp)) {
+		log(("getnontag(): returning NULL\n"));
+		return NULL;
+	}
 	while ((c = getc(fp)) != EOF) {
 		switch (c) {
 		case '<':
@@ -295,7 +305,7 @@ getseconds(char *timestr)
 }
 
 /*
- * parseAuction(): parses bid history page
+ * parseAuction(): parses bid history page (pageName: PageViewBids)
  *
  * returns:
  *	0 OK
@@ -304,7 +314,7 @@ getseconds(char *timestr)
 static int
 parseAuction(FILE *fp, auctionInfo *aip, int quantity, const char *user)
 {
-	char *line, *s1;
+	char *line;
 
 	resetAuctionError(aip);
 
@@ -312,15 +322,249 @@ parseAuction(FILE *fp, auctionInfo *aip, int quantity, const char *user)
 	 * Auction title
 	 */
 	while ((line = getnontag(fp))) {
+		if (!strcmp(line, "Bid History"))
+			return parseAuctionNew(fp, aip, quantity, user);
 		if (!strcmp(line, "eBay.com Bid History for") ||
 		    !strcmp(line, "eBay.comBid History for") ||
 		    !strcmp(line, "eBay Bid History for") ||
 		    !strcmp(line, "eBayBid History for"))
-			break;
+			return parseAuctionOld(fp, aip, quantity, user);
 		if (!strcmp(line, "Unknown Item"))
 			return auctionError(aip, ae_baditem, NULL);
 	}
-	if (!line || !(line=getnontag(fp)) || !(s1=strstr(line, " (Item #")))
+	return auctionError(aip, ae_notitle, NULL);
+} /* parseAuction() */
+
+/*
+ * parseAuctionNew(): parses new-style bid history page.
+ *	Changeover to new style took place gradually around 03/27/2004.
+ *
+ * returns:
+ *	0 OK
+ *	1 error (badly formatted page, etc) - sets auctionError
+ */
+static int
+parseAuctionNew(FILE *fp, auctionInfo *aip, int quantity, const char *user)
+{
+	char *line;
+
+	/*
+	 * Auction item
+	 */
+	line = getnontag(fp);
+	if (!line)
+		return auctionError(aip, ae_notitle, NULL);
+	printLog(stdout, "Auction %s: %s\n", aip->auction, line);
+
+
+	/*
+	 * current price
+	 */
+	while ((line = getnontag(fp))) {
+		if (!strcmp("Currently:", line)) {
+			line = getnontag(fp);
+			break;
+		}
+	}
+	if (!line)
+		return auctionError(aip, ae_noprice, NULL);
+	printLog(stdout, "Currently: %s  (your maximum bid: %s)\n", line,
+		 aip->bidPriceStr);
+	aip->price = atof(line + strcspn(line, "0123456789"));
+	if (aip->price < 0.01)
+		return auctionError(aip, ae_convprice, line);
+
+
+	/*
+	 * Number of bids
+	 */
+	while ((line = getnontag(fp))) {
+		if (!strcmp("# of bids:", line)) {
+			line = getnontag(fp);
+			break;
+		}
+	}
+	if (!line || (aip->bids = atoi(line)) < 0)
+		return auctionError(aip, ae_nonumbid, NULL);
+	printLog(stdout, "Bids: %d\n", aip->bids);
+
+
+	/*
+	 * Time remaining
+	 */
+	while ((line = getnontag(fp))) {
+		if (!strcmp("Time left:", line)) {
+			line = getnontag(fp);
+			break;
+		}
+	}
+	if (!line)
+		return auctionError(aip, ae_notime, NULL);
+	if ((aip->remain = getseconds(line)) < 0)
+		return auctionError(aip, ae_badtime, line);
+	printLog(stdout, "Time remaining: %s (%ld seconds)\n",
+		line, aip->remain);
+
+
+	/*
+	 * Quantity
+	 */
+	while ((line = getnontag(fp))) {
+		if (!strcmp("Quantity:", line)) {
+			line = getnontag(fp);
+			break;
+		}
+	}
+	if (!line || (aip->quantity = atoi(line)) < 1)
+		return auctionError(aip, ae_noquantity, NULL);
+	log(("quanity: %d", aip->quantity));
+
+
+	/*
+	 * High bidder
+	 *
+	 * Format of high bidder table is:
+	 *
+	 *	Single item auction:
+	 *	    Header line:
+	 *		"Date of Bid"
+	 *		"Bid Amount"
+	 *		"User ID"
+	 *	    For each bid:
+	 *			<date>
+	 *			<amount, or -- if auction still on>
+	 *			<user>
+	 *			"("
+	 *			<feedback #>
+	 *			")"
+	 *
+	 *	    If the auction is private, the user names are:
+	 *		"private auction -- bidders' identities protected"
+	 *
+	 *	Dutch auction:
+	 *	    Header line:
+	 *		"Date of Bid"
+	 *		"Bid Amount"
+	 *		"Quantity"
+	 *		"User ID"
+	 *	    For each bid:
+	 *			<date>
+	 *			<amount>
+	 *			<quantity>
+	 *			<user>
+	 *			"("
+	 *			<feedback #>
+	 *			")"
+	 *
+	 *	    Dutch auctions cannot be private.
+	 */
+	if (aip->bids == 0) {
+		puts("High bidder: --");
+	} else if (aip->quantity == 1) {
+		/* single auction with bids */
+		const char *winner = NULL;
+
+		while((line = getnontag(fp))) {
+			if (!strcmp("Date of Bid", line)) {
+				getnontag(fp);	/* "Bid Amount" */
+				getnontag(fp);	/* "User ID" */
+				getnontag(fp);	/* date */
+				getnontag(fp);	/* amount */
+				line = getnontag(fp);	/* user */
+				break;
+			}
+		}
+		if (!line)
+			return auctionError(aip, ae_nohighbid, NULL);
+		if (strcmp(line, "private auction -- bidders' identities protected")) {
+			if (aip->bidResult == 0 && aip->price <= aip->bidPrice)
+				winner = user;
+			else
+				winner = "[private]";
+		} else
+			winner = line;
+		if (strcasecmp(winner, user)) {
+			printLog(stdout, "High bidder: %s (NOT %s)\n", winner, user);
+			if (!aip->remain)
+				aip->won = 0;
+		} else {
+			printLog(stdout, "High bidder: %s!!!\n", winner);
+			if (!aip->remain)
+				aip->won = 1;
+		}
+	} else {
+		/* dutch with bids */
+		int bids = aip->bids;
+		int numItems = aip->quantity;
+		int match = 0;
+
+		while((line = getnontag(fp))) {
+			if (!strcmp("Date of Bid", line)) {
+				getnontag(fp);	/* "Bid Amount" */
+				getnontag(fp);	/* "Quantity" */
+				line = getnontag(fp);	/* "User ID" */
+				break;
+			}
+		}
+		if (!line)
+			return auctionError(aip, ae_nohighbid, NULL);
+		while (bids && numItems > 0) {
+			int bidQuant;
+
+			getnontag(fp);	/* date */
+			getnontag(fp);	/* amount */
+			line = getnontag(fp);	/* quantity */
+			if (!line || !(bidQuant = atoi(line)))
+				return auctionError(aip, ae_nohighbid, NULL);
+			numItems -= bidQuant;
+			--bids;
+			line = getnontag(fp);	/* user */
+			if (!(match = strcasecmp(user, line))) {
+				if (numItems >= 0) {
+					if (!aip->remain)
+						aip->won = bidQuant;
+					printLog(stdout, "High bidder: %s!!!\n", user);
+				} else {
+					if (!aip->remain)
+						aip->won = bidQuant + numItems;
+					printLog(stdout, "High bidder: %s!!! (%d out of %d items)\n", user, bidQuant + numItems, bidQuant);
+				}
+				break;
+			}
+			getnontag(fp);	/* "(" */
+			getnontag(fp);	/* feedback # */
+			line = getnontag(fp);	/* ")" */
+			if (!line)
+				return auctionError(aip, ae_nohighbid, NULL);
+		}
+		if (!match) {
+			printLog(stdout, "High bidder: various dutch bidders (NOT %s)\n", user);
+			if (!aip->remain)
+				aip->won = 0;
+		}
+	}
+
+	return 0;
+} /* parseAuctionNew() */
+
+/*
+ * parseAuctionOld(): parses old-style bid history page.
+ *	Changeover to new style took place gradually around 03/27/2004.
+ *
+ * returns:
+ *	0 OK
+ *	1 error (badly formatted page, etc) - sets auctionError
+ */
+static int
+parseAuctionOld(FILE *fp, auctionInfo *aip, int quantity, const char *user)
+{
+	char *line, *s1;
+
+	/*
+	 * Auction item
+	 */
+	line = getnontag(fp);
+	if (!line || !(s1=strstr(line, " (Item #")))
 		return auctionError(aip, ae_notitle, NULL);
 	*s1 = '\0';
 	printLog(stdout, "Auction %s: %s\n", aip->auction, line);
@@ -352,7 +596,7 @@ parseAuction(FILE *fp, auctionInfo *aip, int quantity, const char *user)
 	if (!line || !(line = getnontag(fp)) ||
 	    (aip->quantity = atoi(line)) < 1)
 		return auctionError(aip, ae_noquantity, NULL);
-	log(("quanity: %d", quantity));
+	log(("quanity: %d", aip->quantity));
 
 
 	/*
@@ -463,7 +707,7 @@ parseAuction(FILE *fp, auctionInfo *aip, int quantity, const char *user)
 	}
 
 	return 0;
-} /* parseAuction() */
+} /* parseAuctionOld() */
 
 static const char GETINFO[] = "aw-cgi/eBayISAPI.dll?ViewBids&item=";
 
