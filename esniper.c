@@ -37,8 +37,11 @@
 #include "options.h"
 #include "util.h"
 
-static const char version[] = "esniper version 2.9.0 alpha";
+static const char *progname = NULL;
+static const char version[] = "2.9.0 beta";
+
 static const char blurb[] = "Please visit http://esniper.sf.net/ for updates and bug reports.";
+static const char DEFAULT_CONF_FILE[] = ".esniper";
 
 #include <errno.h>
 #include <signal.h>
@@ -86,9 +89,6 @@ option_t options = {
 	NULL,             /* bidHost */
 };
 
-static const char DEFAULT_CONF_FILE[] = ".esniper";
-static const char *progname = NULL;
-
 /* support functions */
 #if !defined(WIN32)
 static void sigAlarm(int sig);
@@ -131,6 +131,17 @@ static int CheckFile(const void* valueptr, const optionTable_t* tableptr,
                      const char *fileType);
 
 
+const char *getVersion()
+{
+	return version;
+}
+
+const char *getProgname()
+{
+	return progname ? progname : "esniper";
+}
+
+
 #if !defined(WIN32)
 static void
 sigAlarm(int sig)
@@ -149,7 +160,10 @@ sigTerm(int sig)
 }
 
 /*
- * Get initial auction info, sort items based on end time.
+ * Get initial auction info, sort items based on:
+ *
+ * 1. current status (i.e. you already placed a bid and are winning)
+ * 2. end time.
  */
 static int
 sortAuctions(auctionInfo **auctions, int numAuctions, char *user, int *quantity)
@@ -160,7 +174,7 @@ sortAuctions(auctionInfo **auctions, int numAuctions, char *user, int *quantity)
 		int j;
 
 		if (options.debug)
-			logOpen(progname, auctions[i], options.logdir);
+			logOpen(auctions[i], options.logdir);
 		for (j = 0; j < 3; ++j) {
 			if (j > 0)
 				printLog(stderr, "Retrying...\n");
@@ -177,7 +191,7 @@ sortAuctions(auctionInfo **auctions, int numAuctions, char *user, int *quantity)
 	}
 	if (numAuctions > 1) {
 		printLog(stdout, "Sorting auctions...\n");
-		/* sort by end time */
+		/* sort by status and end time */
 		qsort(auctions, (size_t)numAuctions,
 		      sizeof(auctionInfo *), compareAuctionInfo);
 	}
@@ -238,7 +252,7 @@ CheckDebug(const void* valueptr, const optionTable_t* tableptr,
 {
 	int val = *((const int*)valueptr);
 
-	val ? logOpen(progname, NULL, options.logdir) : logClose();
+	val ? logOpen(NULL, options.logdir) : logClose();
 	*(int*)(tableptr->value) = val;
 	log(("Debug mode is %s\n", val ? "on" : "off"));
 	return 0;
@@ -582,7 +596,7 @@ static int
 usage(int helplevel)
 {
 	if (helplevel & USAGE_SUMMARY)
-		fprintf(stderr, usageSummary, progname);
+		fprintf(stderr, usageSummary, getProgname());
 	if (helplevel & USAGE_LONG) {
 		fprintf(stderr, usageLong1);
 		fprintf(stderr, usageLong2, DEFAULT_BIDTIME);
@@ -592,7 +606,7 @@ usage(int helplevel)
 		fprintf(stderr, usageConfig2);
 	}
 	if (helplevel == USAGE_SUMMARY)
-		fprintf(stderr, "Try \"%s -h\" for more help.\n", progname);
+		fprintf(stderr, "Try \"%s -h\" for more help.\n", getProgname());
 	fprintf(stderr,"\n%s\n", blurb);
 	return 1;
 }
@@ -686,7 +700,7 @@ main(int argc, char *argv[])
 			break;
 #endif
 		case 'v': /* version */
-			fprintf(stderr, "%s\n%s\n", version, blurb);
+			fprintf(stderr, "%s version %s\n%s\n", getProgname(), getVersion, blurb);
 			exit(0);
 			break;
 		default:
@@ -921,7 +935,7 @@ main(int argc, char *argv[])
 			continue;
 
 		if (options.debug)
-			logOpen(progname, auctions[i], options.logdir);
+			logOpen(auctions[i], options.logdir);
 
 		log(("auction %s price %s quantity %d user %s bidtime %ld\n",
 		     auctions[i]->auction, auctions[i]->bidPriceStr,

@@ -46,10 +46,11 @@ extern char *myStrdup3(const char *, const char *, const char *);
 extern char *myStrdup4(const char *, const char *, const char *, const char *);
 
 extern void logClose(void);
-extern void logOpen(const char *progname, const auctionInfo *aip, const char *logdir);
+extern void logOpen(const auctionInfo *aip, const char *logdir);
 extern void vlog(const char *fmt, va_list arglist);
 extern void dlog(const char *fmt, ...);
 extern void printLog(FILE *fp, const char *fmt, ...);
+extern void bugReport(const char *func, const char *file, int line, memBuf_t *mp, const char *fmt, ...);
 extern void logChar(int c);
 
 extern char *getUntil(memBuf_t *mp, int until);

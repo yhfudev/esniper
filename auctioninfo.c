@@ -246,9 +246,6 @@ newAuctionInfo(char *auction, char *bidPriceStr)
 	aip->bidPrice = atof(aip->bidPriceStr);
 	aip->endTime = 0;
 	aip->latency = 0;
-#if 0
-	aip->host = NULL;
-#endif
 	aip->query = NULL;
 	aip->key = NULL;
 	aip->quantity = 1;
@@ -257,6 +254,7 @@ newAuctionInfo(char *auction, char *bidPriceStr)
 	aip->currency = NULL;
 	aip->bidResult = -1;
 	aip->won = -1;
+	aip->winning = -1;
 	aip->auctionError = ae_none;
 	aip->auctionErrorDetail = NULL;
    aip->loginTime = 0;
@@ -270,9 +268,6 @@ freeAuction(auctionInfo *aip)
 		return;
 	free(aip->auction);
 	free(aip->bidPriceStr);
-#if 0
-	free(aip->host);
-#endif
 	free(aip->query);
 	free(aip->key);
 	free(aip->currency);
@@ -294,14 +289,16 @@ compareAuctionInfo(const void *p1, const void *p2)
 	a1 = *((const auctionInfo * const *)p1);
 	a2 = *((const auctionInfo * const *)p2);
 
+	/* Currently winning bids go first */
+	if (a1->winning != a2->winning)
+		return a1->winning > a2->winning ? -1 : 1;
 	/* if end time is the same we compare the current price
            and use the lower price first */
 	if (a1->endTime == a2->endTime)
-        {
-           /* comparison function must return an integer so we 
-              convert the price to cent or whatever it's called */
-	   return (int)((a1->price * 100.0) - (a2->price * 100.0));
-        }
+		/* comparison function must return an integer so we 
+		 * convert the price to cent or whatever it's called
+		 */
+		return (int)((a1->price * 100.0) - (a2->price * 100.0));
 	return (int)(a1->endTime - a2->endTime);
 }
 
@@ -351,7 +348,8 @@ auctionError(auctionInfo *aip, enum auctionErrorCode pe, const char *details)
 /*
  * isValidBidPrice(): Determine if the bid price is valid.
  *
- * If there are no bids, there is no increment, just the minimum price.
+ * If there are no bids, or you are the current high bidder, there is no
+ * increment, just the minimum price.
  * If there are bids, then the increment depends on the current price.
  * See http://pages.ebay.com/help/basics/g-bid-increment.html for details.
  */
@@ -360,7 +358,7 @@ isValidBidPrice(const auctionInfo *aip)
 {
 	double increment = 0.0;
 
-	if (aip->bids) {
+	if (aip->bids && !aip->winning) {
 		int i;
 		double *increments = getIncrements(aip);
 

@@ -53,6 +53,8 @@ typedef struct {
 } option_t;
 
 extern option_t options;
+extern const char *getVersion();
+extern const char *getProgname();
 
 #define log(x) if(!options.debug);else dlog x
 

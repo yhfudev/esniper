@@ -79,10 +79,11 @@ typedef struct {
 	double price;	/* current price */
 	char *currency;	/* currency used in auction */
 	int bidResult;  /* result code from bid (-1=no bid yet, 0=success, 1 = error) */
-	int won;	/* number won (-1 = no clue, 0 or greater = actual # */
+	int won;	/* number won (-1 = no clue, 0 or greater = actual #) */
+	int winning;	/* number currently winning (-1 = no clue, 0 or greater = actual #) */
 	enum auctionErrorCode auctionError;/* error encountered while parsing */
 	char *auctionErrorDetail;/* details of error */
-   time_t loginTime; /* time of last login to eBay */
+	time_t loginTime; /* time of last login to eBay */
 } auctionInfo;
 
 extern auctionInfo *newAuctionInfo(char *auction, char *bidPriceStr);

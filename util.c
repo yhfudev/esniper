@@ -152,14 +152,14 @@ logClose()
 }
 
 void
-logOpen(const char *progname, const auctionInfo *aip, const char *logdir)
+logOpen(const auctionInfo *aip, const char *logdir)
 {
 	char *logfilename;
 
 	if (aip == NULL)
-		logfilename = myStrdup2(progname, ".log");
+		logfilename = myStrdup2(getProgname(), ".log");
 	else
-		logfilename = myStrdup4(progname, ".", aip->auction, ".log");
+		logfilename = myStrdup4(getProgname(), ".", aip->auction, ".log");
 	if (logdir) {
 		char *tmp = logfilename;
 
@@ -222,7 +222,7 @@ dlog(const char *fmt, ...)
 }
 
 /*
- * send message to log file and stderr
+ * Send message to log file and stderr
  */
 void
 printLog(FILE *fp, const char *fmt, ...)
@@ -238,6 +238,53 @@ printLog(FILE *fp, const char *fmt, ...)
 	vfprintf(fp, fmt, arglist);
 	va_end(arglist);
 	fflush(fp);
+}
+
+/*
+ * Request user to file a bug report.
+ */
+void
+bugReport(const char *func, const char *file, int line, memBuf_t *mp, const char *fmt, ...)
+{
+	va_list arglist;
+
+	printLog(stdout,
+		"esniper encountered a bug.  Please go to:\n"
+		"\thttp://sourceforge.net/tracker/?func=add&group_id=45285&atid=442436\n"
+		"paste this into \"Detailed Description\":\n"
+		"\tAutomated esniper bug report.\n"
+		"\t%s version %s\n"
+		"\tError encountered in function %s in %s line %d\n",
+		getProgname(), getVersion(), func, file, line);
+	if (mp) {
+		printLog(stdout,
+			"\tbuf = %p, size = %d, read = %p, time = %d\n",
+			mp->memory, mp->size, mp->readptr, mp->timeToFirstByte);
+	}
+	printf("\t");
+	if (options.debug && logfile) {
+		va_start(arglist, fmt);
+		vlog(fmt, arglist);
+		va_end(arglist);
+	}
+	va_start(arglist, fmt);
+	vfprintf(stdout, fmt, arglist);
+	va_end(arglist);
+	printLog(stdout, "\n");
+	fflush(stdout);	/* in case writing memory contents causes core dump */
+	if (mp && mp->memory && mp->size) {
+		char *bugname = myStrdup2(getProgname(), ".bug.html");
+		FILE *fp = fopen(bugname, "w");
+
+		if (fp) {
+			fwrite(mp->memory, 1, mp->size, fp);
+			fclose(fp);
+			printLog(stdout, "then upload and attach %s ", bugname);
+		} else
+			printLog(stdout, "\tFailed to create bug file %s: %s\n", bugname, strerror(errno));
+	}
+	printLog(stdout, "and click submit.\n");
+	fflush(stdout);
 }
 
 /*

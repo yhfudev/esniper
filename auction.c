@@ -43,11 +43,22 @@
 
 #define newRemain(aip) (aip->endTime - time(NULL) - aip->latency - options.bidtime)
 
+typedef struct {
+	char *pageName;
+	char *pageId;
+	char *srcId;
+} pageInfo_t;
+
 static int match(memBuf_t *mp, const char *str);
 static const char *gettag(memBuf_t *mp);
 static char *getnontag(memBuf_t *mp);
 static long getseconds(char *timestr);
 static int getInfoTiming(auctionInfo *aip, int quantity, const char *user, time_t *timeToFirstByte);
+static char *getPageName(memBuf_t *mp);
+static char *getIdInternal(char *s, size_t len);
+static char *getPageNameInternal(char *var);
+static pageInfo_t *getPageInfo(memBuf_t *mp);
+static void freePageInfo(pageInfo_t *pp);
 
 static int getQuantity(int want, int available);
 static int parseAuction(memBuf_t *mp, auctionInfo *aip, int quantity, const char *user, time_t *timeToFirstByte);
@@ -82,6 +93,127 @@ match(memBuf_t *mp, const char *str)
 	if (options.debug)
 		logChar(EOF);
 	return -1;
+}
+
+static const char PAGENAME[] = "var pageName = \"";
+static const char PAGEID[] = "Page id: ";
+static const char SRCID[] = "srcId: ";
+
+/*
+ * Get pagename variable, or NULL if not found.
+ */
+static char *
+getPageName(memBuf_t *mp)
+{
+	const char *line;
+
+	log(("getPageName():\n"));
+	while ((line = gettag(mp))) {
+		char *tmp;
+
+		if (strncmp(line, "!--", 3))
+			continue;
+		if ((tmp = strstr(line, PAGENAME))) {
+			tmp = getPageNameInternal(tmp);
+			log(("getPageName(): pagename = %s\n", nullStr(tmp)));
+			return tmp;
+		}
+	}
+	log(("getPageName(): Cannot find pagename, returning NULL\n"));
+	return NULL;
+}
+
+/*
+ * Get page info, including pagename variable, page id and srcid comments.
+ */
+static pageInfo_t *
+getPageInfo(memBuf_t *mp)
+{
+	const char *line;
+	pageInfo_t p = {NULL, NULL, NULL}, *pp;
+	int needPageName = 1;
+	int needPageId = 1;
+	int needSrcId = 1;
+	int needMore = 3;
+
+	log(("getPageInfo():\n"));
+	while (needMore && (line = gettag(mp))) {
+		char *tmp, *pagename, *quote;
+
+		if (strncmp(line, "!--", 3))
+			continue;
+		if (needPageName && (tmp = strstr(line, PAGENAME))) {
+			if ((tmp = getPageNameInternal(tmp))) {
+				--needMore;
+				--needPageName;
+				p.pageName = myStrdup(tmp);
+			}
+		} else if (needPageId && (tmp = strstr(line, PAGEID))) {
+			if ((tmp = getIdInternal(tmp, sizeof(PAGEID)))) {
+				--needMore;
+				--needPageId;
+				p.pageId = myStrdup(tmp);
+			}
+		} else if (needSrcId && (tmp = strstr(line, SRCID))) {
+			if ((tmp = getIdInternal(tmp, sizeof(SRCID)))) {
+				--needMore;
+				--needSrcId;
+				p.srcId = myStrdup(tmp);
+			}
+		}
+	}
+	log(("getPageInfo(): pageName = %s, pageId = %s, srcId = %s\n", nullStr(p.pageName), nullStr(p.pageId), nullStr(p.srcId)));
+	if (needMore == 3)
+		return NULL;
+	pp = (pageInfo_t *)myMalloc(sizeof(pageInfo_t));
+	pp->pageName = p.pageName;
+	pp->pageId = p.pageId;
+	pp->srcId = p.srcId;
+	return pp;
+}
+
+static char *
+getIdInternal(char *s, size_t len)
+{
+	char *id = s + len - 1;
+	char *dash = strchr(id, '-');
+
+	if (!*dash) {
+		log(("getIdInternal(): Cannot find trailing dash: %s\n", id));
+		return NULL;
+	}
+	*dash = '\0';
+	log(("getIdInternal(): id = %s\n", id));
+	return id;
+}
+
+static char *
+getPageNameInternal(char *s)
+{
+	char *pagename = s + sizeof(PAGENAME) - 1;
+	char *quote = strchr(pagename, '"');
+
+	if (!*quote) {
+		log(("getPageNameInternal(): Cannot find trailing quote in pagename: %s\n", pagename));
+		return NULL;
+	}
+	*quote = '\0';
+	log(("getPageName(): pagename = %s\n", pagename));
+	return pagename;
+}
+
+/*
+ * Free a pageInfo_t and it's internal members.
+ */
+static void
+freePageInfo(pageInfo_t *pp)
+{
+	if (pp) {
+		free(pp->pageName);
+		free(pp->pageId);
+		free(pp->srcId);
+		free(pp);
+	}
 }
 
 /*
@@ -540,10 +672,12 @@ parseAuctionInternal(memBuf_t *mp, auctionInfo *aip, int quantity, const char *u
 		printf("# of bids: %d\n", aip->bids);
 		if (strcasecmp(*winner, user)) {
 			printLog(stdout, "High bidder: %s (NOT %s)\n", *winner, user);
+			aip->winning = 0;
 			if (!remain)
 				aip->won = 0;
 		} else {
 			printLog(stdout, "High bidder: %s!!!\n", *winner);
+			aip->winning = 1;
 			if (!remain)
 				aip->won = 1;
 		}
@@ -578,6 +712,7 @@ parseAuctionInternal(memBuf_t *mp, auctionInfo *aip, int quantity, const char *u
 			line = getnontag(mp); /* <date> */
 		} while (line);
 		printf("# of bids: %d\n", aip->bids);
+		aip->winning = winning;
 		if (!remain)
 			aip->won = winning;
 		if (winning > 0) {
@@ -703,6 +838,7 @@ ebayLogin(auctionInfo *aip)
 	memBuf_t *mp;
 	size_t urlLen;
 	char *url, *logUrl;
+	pageInfo_t *pp;
 	int ret = 0;
 
 	mp = httpGet(aip, LOGIN_1_URL, NULL);
@@ -722,15 +858,25 @@ ebayLogin(auctionInfo *aip)
 	free(url);
 	free(logUrl);
 
-	if (match(mp, "Welcome to eBay,"))
+	if ((pp = getPageInfo(mp))) {
+		log(("ebayLogin(): pagename = \"%s\", pageid = \"%s\", srcid = \"%s\"", nullStr(pp->pageName), nullStr(pp->pageId), nullStr(pp->srcId)));
+		if (pp->srcId && !strcmp(pp->srcId, "SignInAlertSupressor"))
+			aip->loginTime = time(NULL);
+		else if (pp->pageName && !strcmp(pp->pageName, "PageSignIn"))
+			ret = auctionError(aip, ae_login, NULL);
+		else {
+			ret = auctionError(aip, ae_login, NULL);
+			bugReport("ebayLogin", __FILE__, __LINE__, mp, "pagename = \"%s\", pageid = \"%s\", srcid = \"%s\"", nullStr(pp->pageName), nullStr(pp->pageId), nullStr(pp->srcId));
+		}
+	} else {
+		log(("ebayLogin(): pageinfo is NULL\n"));
 		ret = auctionError(aip, ae_login, NULL);
-	else
-		aip->loginTime = time(NULL);
+		bugReport("ebayLogin", __FILE__, __LINE__, mp, "pageinfo is NULL");
+	}
 	clearMembuf(mp);
+	freePageInfo(pp);
 	return ret;
 }
-
-static const char PAGENAME[] = "var pageName = \"";
 
 /*
  * Parse bid result.
@@ -742,41 +888,30 @@ static const char PAGENAME[] = "var pageName = \"";
 static int
 parseBid(memBuf_t *mp, auctionInfo *aip)
 {
-	const char *line;
+	char *pagename;
 
 	aip->bidResult = -1;
-	while ((line = gettag(mp))) {
-		char *var, *pagename, *quote;
-
-		if (strncmp(line, "!--", 3) || !(var = strstr(line, PAGENAME)))
-			continue;
-
-		pagename = var + sizeof(PAGENAME) - 1;
-		quote = strchr(pagename, '"');
-
-		if (!*quote) {
-			log(("Cannot find trailing quote in pagename: %s\n", pagename));
-			break;
-		}
-
-		*quote = '\0';
+	if ((pagename = getPageName(mp))) {
 		log(("parseBid(): pagename = %s\n", pagename));
 		if (!strcmp(pagename, "AcceptBid_HighBidder"))
 			return aip->bidResult = 0;
-		else if (!strcmp(pagename, "AcceptBid_Outbid") ||
-			 !strcmp(pagename, "AcceptBid_Outbid_rebid"))
+		if (!strcmp(pagename, "AcceptBid_Outbid") ||
+		    !strcmp(pagename, "AcceptBid_Outbid_rebid"))
 			return aip->bidResult = auctionError(aip, ae_outbid, NULL);
-		else if (!strcmp(pagename, "MakeBidErrorMinBid"))
+		if (!strcmp(pagename, "MakeBidErrorMinBid"))
 			return aip->bidResult = auctionError(aip, ae_bidprice, NULL);
-		else if (!strcmp(pagename, "AcceptBid_ReserveNotMet"))
+		if (!strcmp(pagename, "AcceptBid_ReserveNotMet"))
 			return aip->bidResult = auctionError(aip, ae_reservenotmet, NULL);
-		else if (!strcmp(pagename, "MakeBidErrorPassword") ||
-			   !strcmp(pagename, "PageMakeBid") ||
-			   !strcmp(pagename, "PageMakeBid_signin"))
+		if (!strcmp(pagename, "MakeBidErrorPassword") ||
+		    !strcmp(pagename, "PageMakeBid") ||
+		    !strcmp(pagename, "PageMakeBid_signin"))
 			return aip->bidResult = auctionError(aip, ae_badpass, NULL);
-		else if (!strcmp(pagename, "MakeBidError"))
+		if (!strcmp(pagename, "MakeBidError"))
 			return aip->bidResult = auctionError(aip, ae_ended, NULL);
-		break;
+		bugReport("parseBid", __FILE__, __LINE__, mp, "pagename is \"%s\"", pagename);
+	} else {
+		log(("parseBid(): pagename is NULL\n"));
+		bugReport("parseBid", __FILE__, __LINE__, mp, "pagename is NULL");
 	}
 	printLog(stdout, "Cannot determine result of bid\n");
 	return 0;	/* prevent another bid */
