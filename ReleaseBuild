@@ -33,16 +33,24 @@ Create source tar:
 
 	cd $CURRENT
 	mkdir $CURRFILE
-	cp ../Makefile ../COPYRIGHT ../README ../TODO ../*.[ch] $CURRFILE
-	cp ../sample*.txt ../esniper.ds* ../esniper.mak $CURRFILE
-	cp ../esniper.1 ../esniper_man.html $CURRFILE
+	cp ../aclocal.m4 ../auction.c ../auctionfile.c $CURRFILE
+	cp ../auctionfile.h ../auction.h ../auctioninfo.c $CURRFILE
+	cp ../auctioninfo.h ../AUTHORS ../buffer.c ../buffer.h $CURRFILE
+	cp ../ChangeLog ../configure ../configure.in ../COPYING $CURRFILE
+	cp ../depcomp ../esniper.1 ../esniper.c ../esniper.dsp $CURRFILE
+	cp ../esniper.dsw ../esniper.h ../esniper.mak $CURRFILE
+	cp ../esniper_man.html ../getopt.c ../getopt.h ../http.c $CURRFILE
+	cp ../http.h ../INSTALL ../install-sh ../Makefile.am $CURRFILE
+	cp ../Makefile.in ../misc.mk ../missing ../NEWS ../options.c $CURRFILE
+	cp ../options.h ../README ../sample_auction.txt $CURRFILE
+	cp ../sample_config.txt ../TODO ../util.c ../util.h $CURRFILE
 	tar cvf - $CURRFILE | gzip >$CURRFILE.tgz
-
-	(note: ensure Makefile is same as in CVS - not Sun version!)
 
 Edit Changes and Notes (change version # for source file in Notes):
 
 	vi Changes Notes
+
+	(Changes can be just an edit of ../ChangeLog)
 
 Build esniper on Sun, and HP and Cygwin, strip and copy to release directory:
 
@@ -96,6 +104,7 @@ Build other versions on sourceforge:
 		<enter password>
 
 	(note: list of hosts is in /etc/compilefarm-hosts)
+	(note: makeit must be updated to run ./configure)
 
 	FreeBSD:
 		ssh x86-freebsd1
