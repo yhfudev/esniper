@@ -37,7 +37,7 @@
 #include "options.h"
 #include "util.h"
 
-static const char version[]="esniper version 2.1";
+static const char version[]="esniper version 2.2";
 static const char blurb[]="Please visit http://esniper.sourceforge.net/ for updates and bug reports";
 
 #if !defined(WIN32)
@@ -148,8 +148,6 @@ sortAuctions(auctionInfo **auctions, int numAuctions, char *user, int *quantity)
 				sleep(3600);
 			}
 		}
-		if (j == 3)
-			exit(1);
 		printLog(stdout, "\n");
 	}
 	if (numAuctions > 1) {
@@ -163,10 +161,9 @@ sortAuctions(auctionInfo **auctions, int numAuctions, char *user, int *quantity)
 	for (i = 0; i < numAuctions; ++i) {
 		auctionInfo *aip = auctions[i];
 
-		if (!aip->remain) {
+		if (aip->auctionError != ae_none) {
 			if (aip->won > 0)
 				*quantity -= aip->won;
-			auctionError(aip, ae_ended, NULL);
 		} else if (!isValidBidPrice(aip))
 			auctionError(aip, ae_bidprice, NULL);
 		else if (i > 0 && auctions[i-1] &&
