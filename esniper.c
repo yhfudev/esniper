@@ -60,6 +60,7 @@ option_t options = {
 	1,                /* reduce quantity */
 	0,                /* debug */
 	0,                /* usage */
+	0,                /* batch */
 	0                 /* password encrypted? */
 };
 
@@ -350,16 +351,19 @@ static int SetHelp(const void* valueptr, const optionTable_t* tableptr,
 }
 
 static const char usageSummary[] =
-  "usage: %s [-dnv] [-p] [-u user] [-s secs|now] [-q quantity]\n"
+  "usage: %s [-bdnprUv] [-u user] [-s secs|now] [-q quantity]\n"
   "       [-f auction_file] [-c conf_file] [-q quantity] [auction price ...]\n"
   "\n";
 
 static const char usageLong[] =
  "where:\n"
+ "-b: batch mode, don't prompt for password or username if not specified\n"
  "-d: write debug output to file\n"
  "-n: do not place bid\n"
- "-v: print version and exit\n"
  "-p: prompt for password\n"
+ "-r: do not reduce quantity on startup if already won item(s)\n"
+ "-U: prompt for username\n"
+ "-v: print version and exit\n"
  "-u: ebay username\n"
  "-s: time to place bid which may be \"now\" or seconds before end of auction\n"
  "    (default is %d seconds before end of auction)\n"
@@ -369,8 +373,7 @@ static const char usageLong[] =
  "\n"
  "If you don't specify an auction data file with option -f you must provide\n"
  "<auction> <price> pair[s] on command line.\n"
- "You have to specify username and password either in one of the config files\n"
- "or using options -u or -p.\n";
+ "Options on the command line override settings in config and auction files.\n";
 
 static void
 usage(const char *progname, int longhelp)
@@ -395,10 +398,8 @@ main(int argc, char *argv[])
 
    /* this table describes options and config entries */
    static optionTable_t optiontab[] = {
-   /* username and password must be the first two table entries */
    {"username", "u", (void*)&options.user,         OPTION_STRING,   0, NULL},
    {"password",NULL, (void*)&options.password,     OPTION_STRING,   0, NULL},
-   /* ^^^ username and password must be the first two table entries ^^^ */
 
    {"seconds",  "s", (void*)&options.bidtime,      OPTION_SPECIAL,  0,
                                                                 &CheckSeconds},
@@ -406,15 +407,18 @@ main(int argc, char *argv[])
                                                                &CheckQuantity},
    {NULL,       "p", (void*)&options.password,     OPTION_SPECIAL,  0,
                                                                 &ReadPassword},
+   {NULL,       "U", (void*)&options.password,     OPTION_SPECIAL,  0,
+                                                                &ReadUsername},
    {NULL,       "c", (void*)&options.conffilename, OPTION_STRING,   0,
                                                                &CheckFilename},
    {NULL,       "f", (void*)&options.auctfilename, OPTION_STRING,   0,
                                                                &CheckFilename},
-   {"reduce",   "r", (void*)&options.reduce,       OPTION_BOOL,     0, NULL},
-   {"dontreduce","R",(void*)&options.reduce,       OPTION_BOOL_NEG, 0, NULL},
+   {"reduce",  NULL,(void*)&options.reduce,       OPTION_BOOL_NEG, 0, NULL},
+   {"dontreduce","r",(void*)&options.reduce,       OPTION_BOOL_NEG, 0, NULL},
    {"dontbid",  "n", (void*)&options.bid,          OPTION_BOOL_NEG, 0, NULL},
    {"bid",     NULL, (void*)&options.bid,          OPTION_BOOL,     0, NULL},
    {"debug",    "d", (void*)&options.debug,        OPTION_BOOL,     0, NULL},
+   {"batch",    "b", (void*)&options.batch,        OPTION_BOOL,     0, NULL},
    {NULL,       "?", (void*)&options.usage,        OPTION_BOOL,     0, NULL},
    {NULL,       "h", (void*)&options.usage,        OPTION_SPECIAL,  0,
                                                                      &SetHelp},
@@ -422,7 +426,7 @@ main(int argc, char *argv[])
    };
 
 	/* all known options */
-	static const char optionstring[]="c:df:hnpq:rRs:u:vX";
+	static const char optionstring[]="bc:df:hnpq:rs:u:UvX";
 
 	atexit(cleanup);
 
@@ -433,11 +437,14 @@ main(int argc, char *argv[])
 		int olddebug = options.debug;
 		switch (c) {
 		case 'd': /* debug */
+			/* This is in both getopt() sections, because we want
+			 * debugging as soon as possible, and also because
+			 * command line -d overrides settings in config files
+			 */
 			if (!olddebug)
 				logOpen(progname, NULL);
 			/* fall through */
 		case 'h': /* long help */
-		case 'n': /* don't bid */
 		case '?': /* unknown -> help */
 			parseGetoptValue(c, NULL, optiontab);
 			break;
@@ -503,15 +510,26 @@ main(int argc, char *argv[])
 	optind = 1;
 	/* check options which may overwrite settings from config file */
 	while ((c = getopt(argc, argv, optionstring)) != EOF) {
+		int olddebug = options.debug;
 		switch (c) {
 		case 'q': /* quantity */
 		case 's': /* seconds */
 		case 'u': /* user */
 			parseGetoptValue(c, optarg, optiontab);
 			break;
+		case 'd': /* debug */
+			/* This is in both getopt() sections, because we want
+			 * debugging as soon as possible, and also because
+			 * command line -d overrides settings in config files
+			 */
+			if (!olddebug)
+				logOpen(progname, NULL);
+			/* fall through */
+		case 'b': /* batch */
+		case 'n': /* don't bid */
 		case 'p': /* read password */
 		case 'r': /* reduce */
-		case 'R': /* don't reduce */
+		case 'U': /* read username */
 			parseGetoptValue(c, NULL, optiontab);
 			break;
 		default:
@@ -543,19 +561,29 @@ main(int argc, char *argv[])
 
 	if (!options.usage) {
 		if (argc < argcmin) {
-			fprintf(stderr, "Error: no auctions specified.\n");
+			printLog(stderr, "Error: no auctions specified.\n");
 			options.usage = 1;
 		}
 		if (argc % 2) {
-			fprintf(stderr, "Error: auctions and prices must be specified in pairs.\n");
+			printLog(stderr, "Error: auctions and prices must be specified in pairs.\n");
 			options.usage = 1;
 		}
 	}
 
-	if (!options.usage && !options.user)
-		options.usage = ReadUsername(NULL, &optiontab[0], NULL, "u");
-	if (!options.usage && !options.password)
-		options.usage = ReadPassword(NULL, &optiontab[1], NULL, "p");
+	if (!options.usage && !options.user) {
+		if (options.batch) {
+			printLog(stderr, "Error: no username specified.\n");
+			options.usage = 1;
+		} else
+			parseGetoptValue('U', NULL, optiontab);
+	}
+	if (!options.usage && !options.password) {
+		if (options.batch) {
+			printLog(stderr, "Error: no password specified.\n");
+			options.usage = 1;
+		} else
+			parseGetoptValue('p', NULL, optiontab);
+	}
 
 	if (options.usage) {
 		usage(progname, options.usage > 1);
