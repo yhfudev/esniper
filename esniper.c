@@ -47,7 +47,6 @@ static const char DEFAULT_CONF_FILE[] = ".esniper";
 #include <stdlib.h>
 #include <string.h>
 #if defined(WIN32)
-#	include "getopt.h"
 #	include <io.h>
 #	define access(name, mode) _access((name), (mode))
 #	define sleep(t)	_sleep((t) * 1000)
