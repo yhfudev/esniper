@@ -27,6 +27,7 @@
 #include "auctioninfo.h"
 #include "util.h"
 #include <stdlib.h>
+#include <string.h>
 
 static double *getIncrements(const auctionInfo *aip);
 
@@ -230,6 +231,7 @@ static const char *auctionErrorString[] = {
 	"Auction %s: Duplicate auction\n",
 	"Auction %s: Too many errors, quitting\n",
 	"Auction %s: eBay temporarily unavailable\n",
+	"Auction %s: Login failed\n",
 	/* ae_unknown must be last error */
 	"Auction %s: Unknown error code %d\n",
 };
@@ -243,7 +245,9 @@ newAuctionInfo(char *auction, char *bidPriceStr)
 	aip->bidPriceStr = priceFixup(myStrdup(bidPriceStr), NULL);
 	aip->bidPrice = atof(aip->bidPriceStr);
 	aip->remain = 0;
+#if 0
 	aip->host = NULL;
+#endif
 	aip->query = NULL;
 	aip->key = NULL;
 	aip->quantity = 1;
@@ -254,6 +258,7 @@ newAuctionInfo(char *auction, char *bidPriceStr)
 	aip->won = -1;
 	aip->auctionError = ae_none;
 	aip->auctionErrorDetail = NULL;
+   aip->loginTime = 0;
 	return aip;
 }
 
@@ -264,7 +269,9 @@ freeAuction(auctionInfo *aip)
 		return;
 	free(aip->auction);
 	free(aip->bidPriceStr);
+#if 0
 	free(aip->host);
+#endif
 	free(aip->query);
 	free(aip->key);
 	free(aip->currency);

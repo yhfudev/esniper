@@ -37,7 +37,7 @@
 #include "options.h"
 #include "util.h"
 
-static const char version[] = "esniper version 2.8.1";
+static const char version[] = "esniper version 2.9.0 alpha";
 static const char blurb[] = "Please visit http://esniper.sf.net/ for updates and bug reports.";
 
 #include <errno.h>
@@ -627,6 +627,7 @@ main(int argc, char *argv[])
    {"bid",     NULL, (void*)&options.bid,          OPTION_BOOL,     NULL},
    {NULL,       "n", (void*)&options.bid,          OPTION_BOOL_NEG, NULL},
    {"debug",    "d", (void*)&options.debug,        OPTION_BOOL,    &CheckDebug},
+   {"curldebug","C", (void*)&options.curldebug,    OPTION_BOOL,     NULL},
    {"batch",    "b", (void*)&options.batch,        OPTION_BOOL,     NULL},
    {"logdir",   "l", (void*)&options.logdir,       OPTION_STRING,   NULL},
    {"historyHost",NULL,(void*)&options.historyHost,OPTION_STRING,   NULL},
@@ -928,6 +929,15 @@ main(int argc, char *argv[])
 
 		if (numAuctionsOrig > 1)
 			printLog(stdout, "\nNeed to win %d item(s), %d auction(s) remain\n\n", options.quantity, numAuctions - i);
+
+      cleanupCurlStuff();
+      initCurlStuff();
+
+      if(ebayLogin(auctions[i]))
+      {
+         printAuctionError(auctions[i], stderr);
+         continue;
+      }
 
 		/* 0 means "now" */
 		if (options.bidtime == 0) {

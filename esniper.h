@@ -49,6 +49,7 @@ typedef struct {
 	char *historyHost;
 	char *prebidHost;
 	char *bidHost;
+        int curldebug;
 } option_t;
 
 extern option_t options;

@@ -34,6 +34,7 @@ extern int getInfo(auctionInfo *aip, int quantity, const char *user);
 extern int watch(auctionInfo *aip);
 extern int preBid(auctionInfo *aip);
 extern int bid(auctionInfo *aip);
+extern int ebayLogin(auctionInfo *aip);
 
 #if DEBUG
 /* secret option */

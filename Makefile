@@ -1,4 +1,4 @@
-CFLAGS = -O
+CFLAGS = -O -g
 
 # System dependencies
 
@@ -42,7 +42,7 @@ HDR = auction.h auctionfile.h auctioninfo.h buffer.h esniper.h http.h \
 all: esniper
 
 esniper: $(OBJ)
-	$(CC) $(CFLAGS) -o esniper $(OBJ) $(LIBS)
+	$(CC) $(CFLAGS) -o esniper $(OBJ) $(LIBS) `curl-config --libs` -g
 
 $(OBJ): $(HDR)
 

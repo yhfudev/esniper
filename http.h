@@ -30,8 +30,24 @@
 #include <stdio.h>
 #include "auctioninfo.h"
 
-extern FILE *httpGet(auctionInfo *aip, const char *host, const char *url, const char *cookies, int saveRedirect);
-extern FILE *httpPost(auctionInfo *aip, const char *host, const char *url, const char *cookies, const char *data, const char *logData, int saveRedirect);
-extern int closeSocket(FILE *fp);
+typedef struct {
+   char *memory;
+   size_t size;
+   char *readptr;
+   time_t timeToFirstByte;
+} memBuf_t;
+
+extern int memEof(memBuf_t *mp);
+extern int memGetc(memBuf_t *mp);
+extern void memUngetc(int c, memBuf_t *mp);
+extern time_t getTimeToFirstByte(memBuf_t *mp);
+
+extern int initCurlStuff(void);
+extern void cleanupCurlStuff(void);
+extern void resetCurlStuff(void);
+
+extern memBuf_t *httpGet(auctionInfo *aip, const char *url);
+extern memBuf_t *httpPost(auctionInfo *aip, const char *url, const char *data, const char *logData);
+extern void clearMembuf(memBuf_t *mp);
 
 #endif /* HTTP_H_INCLUDED */

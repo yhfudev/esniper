@@ -28,6 +28,7 @@
 #define AUCTIONINFO_H_INCLUDED
 
 #include <stdio.h>
+#include <time.h>
 
 /*
  * errors from parseError(), getAuctionInfo(), watchAuction()
@@ -54,6 +55,7 @@ enum auctionErrorCode {
 	ae_duplicate,
 	ae_toomany,
 	ae_unavailable,
+   ae_login,
 	/* ae_unknown must be last error */
 	ae_unknown
 };
@@ -66,7 +68,9 @@ typedef struct {
 	char *bidPriceStr;/* price you want to bid */
 	double bidPrice;/* price you want to bid (converted to double) */
 	long remain;	/* seconds remaining */
+#if 0
 	char *host;	/* bid history host */
+#endif
 	char *query;	/* bid history query */
 	char *key;	/* bid key */
 	int quantity;	/* number of items available */
@@ -77,6 +81,7 @@ typedef struct {
 	int won;	/* number won (-1 = no clue, 0 or greater = actual # */
 	enum auctionErrorCode auctionError;/* error encountered while parsing */
 	char *auctionErrorDetail;/* details of error */
+   time_t loginTime; /* time of last login to eBay */
 } auctionInfo;
 
 extern auctionInfo *newAuctionInfo(char *auction, char *bidPriceStr);

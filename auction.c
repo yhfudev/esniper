@@ -41,23 +41,23 @@
 #	include <unistd.h>
 #endif
 
-static int match(FILE *fp, const char *str);
-static const char *gettag(FILE *fp);
-static char *getnontag(FILE *fp);
+static int match(memBuf_t *mp, const char *str);
+static const char *gettag(memBuf_t *mp);
+static char *getnontag(memBuf_t *mp);
 static long getseconds(char *timestr);
 static int getInfoTiming(auctionInfo *aip, int quantity, const char *user, time_t *timeToFirstByte);
 
 static int getQuantity(int want, int available);
-static int parseAuction(FILE *fp, auctionInfo *aip, int quantity, const char *user, time_t *timeToFirstByte);
-static int parseAuctionInternal(FILE *fp, auctionInfo *aip, int quantity, const char *user, char **currently, char **winner);
-static int parseBid(FILE *fp, auctionInfo *aip);
+static int parseAuction(memBuf_t *mp, auctionInfo *aip, int quantity, const char *user, time_t *timeToFirstByte);
+static int parseAuctionInternal(memBuf_t *mp, auctionInfo *aip, int quantity, const char *user, char **currently, char **winner);
+static int parseBid(memBuf_t *mp, auctionInfo *aip);
 
 /*
  * attempt to match some input, ignoring \r and \n
  * returns 0 on success, -1 on failure
  */
 static int
-match(FILE *fp, const char *str)
+match(memBuf_t *mp, const char *str)
 {
 	const char *cursor;
 	int c;
@@ -65,7 +65,7 @@ match(FILE *fp, const char *str)
 	log(("\n\nmatch(\"%s\")\n\n", str));
 
 	cursor = str;
-	while ((c = getc(fp)) != EOF) {
+	while ((c = memGetc(mp)) != EOF) {
 		if (options.debug)
 			logChar(c);
 		if ((char)c == *cursor) {
@@ -87,18 +87,18 @@ match(FILE *fp, const char *str)
  * and leaving only a single space for all internal whitespace.
  */
 static const char *
-gettag(FILE *fp)
+gettag(memBuf_t *mp)
 {
 	static char *buf = NULL;
 	static size_t bufsize = 0;
 	size_t count = 0;
 	int inStr = 0, comment = 0, c;
 
-	if (feof(fp)) {
+	if (memEof(mp)) {
 		log(("gettag(): returning NULL\n"));
 		return NULL;
 	}
-	while ((c = getc(fp)) != EOF && c != '<')
+	while ((c = memGetc(mp)) != EOF && c != '<')
 		;
 	if (c == EOF) {
 		log(("gettag(): returning NULL\n"));
@@ -106,7 +106,7 @@ gettag(FILE *fp)
 	}
 
 	/* first char - check for comment */
-	c = getc(fp);
+	c = memGetc(mp);
 	if (c == '>') {
 		log(("gettag(): returning empty tag\n"));
 		return "";
@@ -116,7 +116,7 @@ gettag(FILE *fp)
 	}
 	addchar(buf, bufsize, count, c);
 	if (c == '!') {
-		int c2 = getc(fp);
+		int c2 = memGetc(mp);
 
 		if (c2 == '>' || c2 == EOF) {
 			term(buf, bufsize, count);
@@ -125,7 +125,7 @@ gettag(FILE *fp)
 		}
 		addchar(buf, bufsize, count, c2);
 		if (c2 == '-') {
-			int c3 = getc(fp);
+			int c3 = memGetc(mp);
 
 			if (c3 == '>' || c3 == EOF) {
 				term(buf, bufsize, count);
@@ -138,7 +138,7 @@ gettag(FILE *fp)
 	}
 
 	if (comment) {
-		while ((c = getc(fp)) != EOF) {
+		while ((c = memGetc(mp)) != EOF) {
 			if (c=='>' && buf[count-1]=='-' && buf[count-2]=='-') {
 				term(buf, bufsize, count);
 				log(("gettag(): returning %s\n", buf));
@@ -149,11 +149,11 @@ gettag(FILE *fp)
 			addchar(buf, bufsize, count, c);
 		}
 	} else {
-		while ((c = getc(fp)) != EOF) {
+		while ((c = memGetc(mp)) != EOF) {
 			switch (c) {
 			case '\\':
 				addchar(buf, bufsize, count, c);
-				c = getc(fp);
+				c = memGetc(mp);
 				if (c == EOF) {
 					term(buf, bufsize, count);
 					log(("gettag(): returning %s\n", buf));
@@ -198,22 +198,22 @@ gettag(FILE *fp)
  * and leaving only a single space for all internal whitespace.
  */
 static char *
-getnontag(FILE *fp)
+getnontag(memBuf_t *mp)
 {
 	static char *buf = NULL;
 	static size_t bufsize = 0;
 	size_t count = 0, amp = 0;
 	int c;
 
-	if (feof(fp)) {
+	if (memEof(mp)) {
 		log(("getnontag(): returning NULL\n"));
 		return NULL;
 	}
-	while ((c = getc(fp)) != EOF) {
+	while ((c = memGetc(mp)) != EOF) {
 		c &= 0x7F;	/* eBay throws in 8th bit to screw things up */
 		switch (c) {
 		case '<':
-			ungetc(c, fp);
+			memUngetc(c, mp);
 			if (count) {
 				if (buf[count-1] == ' ')
 					--count;
@@ -221,7 +221,7 @@ getnontag(FILE *fp)
 				log(("getnontag(): returning %s\n", buf));
 				return buf;
 			} else
-				gettag(fp);
+				gettag(mp);
 			break;
 		case ' ':
 		case '\n':
@@ -327,7 +327,7 @@ getseconds(char *timestr)
  *	1 error (badly formatted page, etc) - sets auctionError
  */
 static int
-parseAuction(FILE *fp, auctionInfo *aip, int quantity, const char *user, time_t *timeToFirstByte)
+parseAuction(memBuf_t *mp, auctionInfo *aip, int quantity, const char *user, time_t *timeToFirstByte)
 {
 	char *line, *currently = NULL, *winner = NULL;
 	int ret;
@@ -337,9 +337,9 @@ parseAuction(FILE *fp, auctionInfo *aip, int quantity, const char *user, time_t 
 	/*
 	 * Auction title
 	 */
-	while ((line = getnontag(fp))) {
+	while ((line = getnontag(mp))) {
 		if (timeToFirstByte) {
-			*timeToFirstByte = time(NULL);
+			*timeToFirstByte = getTimeToFirstByte(mp);
 			timeToFirstByte = NULL;
 		}
 		if (!strcmp(line, "Bid History"))
@@ -350,7 +350,7 @@ parseAuction(FILE *fp, auctionInfo *aip, int quantity, const char *user, time_t 
 	if (!line)
 		return auctionError(aip, ae_notitle, NULL);
 
-	ret = parseAuctionInternal(fp, aip, quantity, user, &currently, &winner);
+	ret = parseAuctionInternal(mp, aip, quantity, user, &currently, &winner);
 	free(currently);
 	free(winner);
 	return ret;
@@ -359,7 +359,7 @@ parseAuction(FILE *fp, auctionInfo *aip, int quantity, const char *user, time_t 
 const char PRIVATE[] = "private auction - bidders' identities protected";
 
 static int
-parseAuctionInternal(FILE *fp, auctionInfo *aip, int quantity, const char *user, char **currently, char **winner)
+parseAuctionInternal(memBuf_t *mp, auctionInfo *aip, int quantity, const char *user, char **currently, char **winner)
 {
 	char *line;
 	char *title;
@@ -368,16 +368,16 @@ parseAuctionInternal(FILE *fp, auctionInfo *aip, int quantity, const char *user,
 	/*
 	 * Auction item
 	 */
-	while ((line = getnontag(fp))) {
+	while ((line = getnontag(mp))) {
 		if (!strcmp(line, "Item title:")) {
-			line = getnontag(fp);
+			line = getnontag(mp);
 			break;
 		}
 	}
 	if (!line)
 		return auctionError(aip, ae_notitle, NULL);
 	title = myStrdup(line);
-	while ((line = getnontag(fp))) {
+	while ((line = getnontag(mp))) {
 		char *tmp;
 
 		if (line[strlen(line) - 1] == ':')
@@ -392,14 +392,14 @@ parseAuctionInternal(FILE *fp, auctionInfo *aip, int quantity, const char *user,
 	/*
 	 * Quantity/Current price/Time remaining
 	 */
-	for (; line; line = getnontag(fp)) {
+	for (; line; line = getnontag(mp)) {
 		if (!strcmp("Quantity:", line)) {
-			line = getnontag(fp);
+			line = getnontag(mp);
 			if (!line || (aip->quantity = atoi(line)) < 1)
 				return auctionError(aip, ae_noquantity, NULL);
 			log(("quantity: %d", aip->quantity));
 		} else if (!strcmp("Currently:", line)) {
-			line = getnontag(fp);
+			line = getnontag(mp);
 			if (!line)
 				return auctionError(aip, ae_noprice, NULL);
 			*currently = myStrdup(line);
@@ -408,7 +408,7 @@ parseAuctionInternal(FILE *fp, auctionInfo *aip, int quantity, const char *user,
 			if (aip->price < 0.01)
 				return auctionError(aip, ae_convprice, line);
 		} else if (!strcmp("Time left:", line)) {
-			line = getnontag(fp);
+			line = getnontag(mp);
 			break;
 		}
 	}
@@ -419,7 +419,7 @@ parseAuctionInternal(FILE *fp, auctionInfo *aip, int quantity, const char *user,
 	printLog(stdout, "Time remaining: %s (%ld seconds)\n",
 		line, aip->remain);
 
-	if (!(line = getnontag(fp)))
+	if (!(line = getnontag(mp)))
 		return auctionError(aip, ae_nohighbid, NULL);
 	if (!strcmp("Reserve not met", line))
 		reserve = 1;
@@ -469,18 +469,18 @@ parseAuctionInternal(FILE *fp, auctionInfo *aip, int quantity, const char *user,
 	 *	will be the first entry in the table.
 	 */
 	/* header line */
-	while ((line = getnontag(fp))) {
+	while ((line = getnontag(mp))) {
 		if (!strcmp("User ID", line)) {
-			getnontag(fp);	/* Bid Amount */
+			getnontag(mp);	/* Bid Amount */
 			if (aip->quantity > 1) {
-				getnontag(fp);	/* Quantity wanted */
-				getnontag(fp);	/* Quantity winning */
+				getnontag(mp);	/* Quantity wanted */
+				getnontag(mp);	/* Quantity winning */
 			}
-			getnontag(fp);	/* Date of Bid */
+			getnontag(mp);	/* Date of Bid */
 			break;
 		}
 	}
-	if (!(line = getnontag(fp)))
+	if (!(line = getnontag(mp)))
 		return auctionError(aip, ae_nohighbid, NULL);
 	if (!strcmp("No bids have been placed.", line)) {
 		aip->bids = 0;
@@ -498,11 +498,11 @@ parseAuctionInternal(FILE *fp, auctionInfo *aip, int quantity, const char *user,
 			*winner = myStrdup(line);
 		aip->bids = 1;
 		if (!private) {
-			getnontag(fp);	/* "(" */
-			getnontag(fp);	/* <feedback> */
-			getnontag(fp);	/* ")" */
+			getnontag(mp);	/* "(" */
+			getnontag(mp);	/* <feedback> */
+			getnontag(mp);	/* ")" */
 		}
-		*currently = myStrdup(getnontag(fp));	/* bid amount */
+		*currently = myStrdup(getnontag(mp));	/* bid amount */
 		aip->price = atof(priceFixup(line, aip));
 		if (aip->price < 0.01)
 			return auctionError(aip, ae_convprice, line);
@@ -513,24 +513,24 @@ parseAuctionInternal(FILE *fp, auctionInfo *aip, int quantity, const char *user,
 				     aip->remain < options.bidtime))) ?
 					myStrdup(user) : myStrdup("[private]");
 		}
-		getnontag(fp); /* date */
+		getnontag(mp); /* date */
 		/* count number of bids */
 		for (;;) {
 			if (private) {
-				line = getnontag(fp); /* UserID */
+				line = getnontag(mp); /* UserID */
 				if (!line || strcmp(line, PRIVATE))
 					break;
 			} else {
-				getnontag(fp); /* UserID */
-				line = getnontag(fp); /* "(" */
+				getnontag(mp); /* UserID */
+				line = getnontag(mp); /* "(" */
 				if (!line || strcmp("(", line))
 					break;
-				getnontag(fp); /* <feedback> */
-				getnontag(fp); /* ")" */
+				getnontag(mp); /* <feedback> */
+				getnontag(mp); /* ")" */
 			}
 			++aip->bids;
-			getnontag(fp); /* bid amount */
-			getnontag(fp); /* date */
+			getnontag(mp); /* bid amount */
+			getnontag(mp); /* date */
 		}
 		printf("Currently: %s\n", *currently);
 		printf("# of bids: %d\n", aip->bids);
@@ -555,23 +555,23 @@ parseAuctionInternal(FILE *fp, auctionInfo *aip, int quantity, const char *user,
 				free(*winner);
 				*winner = myStrdup(line);
 			}
-			line = getnontag(fp); /* "(" */
+			line = getnontag(mp); /* "(" */
 			if (strcmp("(", line))
 				break;
 			++aip->bids;
-			getnontag(fp); /* <feedback> */
-			getnontag(fp); /* ")" */
-			getnontag(fp); /* <price> */
+			getnontag(mp); /* <feedback> */
+			getnontag(mp); /* ")" */
+			getnontag(mp); /* <price> */
 			if (!strcasecmp(*winner, user)) {
 				gotMatch = 1;
-				wanted = atoi(getnontag(fp)); /* <quantity wanted> */
-				winning = atoi(getnontag(fp)); /* <quantity winning> */
+				wanted = atoi(getnontag(mp)); /* <quantity wanted> */
+				winning = atoi(getnontag(mp)); /* <quantity winning> */
 			} else {
-				getnontag(fp); /* <quantity wanted> */
-				getnontag(fp); /* <quantity winning> */
+				getnontag(mp); /* <quantity wanted> */
+				getnontag(mp); /* <quantity winning> */
 			}
-			getnontag(fp); /* <date> */
-			line = getnontag(fp); /* <date> */
+			getnontag(mp); /* <date> */
+			line = getnontag(mp); /* <date> */
 		} while (line);
 		printf("# of bids: %d\n", aip->bids);
 		if (!aip->remain)
@@ -588,7 +588,7 @@ parseAuctionInternal(FILE *fp, auctionInfo *aip, int quantity, const char *user,
 	return 0;
 } /* parseAuctionInternal() */
 
-static const char GETINFO[] = "aw-cgi/eBayISAPI.dll?ViewBids&item=";
+static const char GETINFO[] = "http://offer.ebay.com/aw-cgi/eBayISAPI.dll?ViewBids&item=";
 
 /*
  * getInfo(): Get info on auction from bid history page.
@@ -613,20 +613,18 @@ getInfo(auctionInfo *aip, int quantity, const char *user)
 int
 getInfoTiming(auctionInfo *aip, int quantity, const char *user, time_t *timeToFirstByte)
 {
-	FILE *fp;
+	memBuf_t *mp;
 	int ret;
 
 	log(("\n\n*** getInfo auction %s price %s user %s\n", aip->auction, aip->bidPriceStr, user));
 
-	if (!aip->host)
-		aip->host = myStrdup(options.historyHost);
 	if (!aip->query)
 		aip->query = myStrdup2(GETINFO, aip->auction);
-	if (!(fp = httpGet(aip, aip->host, aip->query, NULL, 1)))
+	if (!(mp = httpGet(aip, aip->query)))
 		return 1;
 
-	ret = parseAuction(fp, aip, quantity, user, timeToFirstByte);
-	closeSocket(fp);
+	ret = parseAuction(mp, aip, quantity, user, timeToFirstByte);
+	clearMembuf(mp);
 	return ret;
 }
 
@@ -634,8 +632,9 @@ getInfoTiming(auctionInfo *aip, int quantity, const char *user, time_t *timeToFi
  * Note: quant=1 is just to dupe eBay into allowing the pre-bid to get
  *	 through.  Actual quantity will be sent with bid.
  */
-static const char PRE_BID_URL[] = "ws/eBayISAPI.dll";
-static const char PRE_BID_DATA[] = "MfcISAPICommand=MakeBid&item=%s&maxbid=%s&quant=%s";
+static const char PRE_BID_URL[] = "http://offer.ebay.com/ws/eBayISAPI.dll";
+static const char PRE_BID_DATA[] = "MakeBid&item=%s&maxbid=%s&quant=%s";
+static const char PRE_BID_2_DATA[] = "http://offer.ebay.com/ws/eBayISAPI.dll?MakeBid&item=%s&maxbid=%s&quant=%s";
 
 /*
  * Get key for bid
@@ -645,7 +644,7 @@ static const char PRE_BID_DATA[] = "MfcISAPICommand=MakeBid&item=%s&maxbid=%s&qu
 int
 preBid(auctionInfo *aip)
 {
-	FILE *fp;
+	memBuf_t *mp;
 	size_t dataLen;
 	int quantity = getQuantity(aip->quantity, options.quantity);
 	char quantityStr[12];	/* must hold an int */
@@ -653,21 +652,22 @@ preBid(auctionInfo *aip)
 	int ret = 0;
 
 	sprintf(quantityStr, "%d", quantity);
-	dataLen = sizeof(PRE_BID_DATA) + strlen(aip->auction) + strlen(aip->bidPriceStr) + strlen(quantityStr) - 6;
+	dataLen = sizeof(PRE_BID_2_DATA) + strlen(aip->auction) + strlen(aip->bidPriceStr) + strlen(quantityStr) - 6;
 	data = (char *)myMalloc(dataLen);
-	sprintf(data, PRE_BID_DATA, aip->auction, aip->bidPriceStr, quantityStr);
+	sprintf(data, PRE_BID_2_DATA, aip->auction, aip->bidPriceStr, quantityStr);
 	log(("\n\n*** preBid(): data is %s\n", data));
-	fp = httpPost(aip, options.prebidHost, PRE_BID_URL, "", data, NULL, 0);
+	/* mp = httpPost(aip, PRE_BID_URL, "", data); */
+	mp = httpGet(aip, data);
 	free(data);
-	if (!fp)
+	if (!mp)
 		return 1;
 
-	if (match(fp, "<input type=\"hidden\" name=\"key\" value=\""))
+	if (match(mp, "<input type=\"hidden\" name=\"key\" value=\""))
 		ret = auctionError(aip, ae_bidkey, NULL);
 	else {
 		char *cp, *tmpkey;
 
-		tmpkey = getUntil(fp, '\"');
+		tmpkey = getUntil(mp, '\"');
 		log(("  reported key is: %s\n", tmpkey));
 
 		/* translate key for URL */
@@ -684,8 +684,55 @@ preBid(auctionInfo *aip)
 
 		log(("\n\ntranslated key is: %s\n\n", aip->key));
 	}
-	closeSocket(fp);
+	clearMembuf(mp);
 	return ret;
+}
+
+static const char LOGIN_1_URL[] = "https://signin.ebay.com/ws/eBayISAPI.dll?SignIn";
+static const char LOGIN_2_URL[] = "https://signin.ebay.com/ws/eBayISAPI.dll";
+static const char LOGIN_2_DATA[] = "SignInWelcome&userid=%s&pass=%s&keepMeSignInOption=1";
+static const char LOGIN_3_DATA[] = "https://signin.ebay.com/ws/eBayISAPI.dll?SignInWelcome&userid=%s&pass=%s&keepMeSignInOption=1";
+
+/*
+ * Ebay login
+ *
+ * returns 0 on success, 1 on failure.
+ */
+int
+ebayLogin(auctionInfo *aip)
+{
+   memBuf_t *mp;
+   size_t dataLen;
+   char *data;
+   char *logData;
+   int ret = 0;
+
+   mp = httpGet(aip, LOGIN_1_URL);
+   if (!mp)
+      return 1;
+
+   clearMembuf(mp);
+
+   dataLen = sizeof(LOGIN_3_DATA) + strlen(options.username);
+   data=malloc(dataLen + strlen(getPassword()));
+   logData=malloc(dataLen + 5);
+
+   sprintf(data, LOGIN_3_DATA, options.username, getPassword());
+   sprintf(logData, LOGIN_3_DATA, options.username, "*****");
+
+   /* mp = httpPost(aip, LOGIN_2_URL, data, logData); */
+   mp = httpGet(aip, data);
+
+   if (match(mp, "Welcome to eBay,"))
+   {
+      ret = auctionError(aip, ae_login, NULL);
+   }
+   else
+   {
+      aip->loginTime = time(NULL);
+   }
+   clearMembuf(mp);
+   return ret;
 }
 
 static const char PAGENAME[] = "var pageName = \"";
@@ -698,12 +745,12 @@ static const char PAGENAME[] = "var pageName = \"";
  * 1: error
  */
 static int
-parseBid(FILE *fp, auctionInfo *aip)
+parseBid(memBuf_t *mp, auctionInfo *aip)
 {
 	const char *line;
 
 	aip->bidResult = -1;
-	while ((line = gettag(fp))) {
+	while ((line = gettag(mp))) {
 		char *var, *pagename, *quote;
 
 		if (strncmp(line, "!--", 3) || !(var = strstr(line, PAGENAME)))
@@ -739,8 +786,9 @@ parseBid(FILE *fp, auctionInfo *aip)
 	return 0;	/* prevent another bid */
 } /* parseBid() */
 
-static const char BID_URL[] = "ws/eBayISAPI.dll";
+static const char BID_URL[] = "http://offer.ebay.com/ws/eBayISAPI.dll";
 static const char BID_DATA[] = "MfcISAPICommand=AcceptBid&item=%s&key=%s&maxbid=%s&quant=%s&user=%s&pass=%s&mode=1";
+static const char BID_2_DATA[] = "http://offer.ebay.com/ws/eBayISAPI.dll?AcceptBid&item=%s&key=%s&maxbid=%s&quant=%s&user=%s&pass=%s&mode=1";
 
 /*
  * Place bid.
@@ -752,7 +800,7 @@ static const char BID_DATA[] = "MfcISAPICommand=AcceptBid&item=%s&key=%s&maxbid=
 int
 bid(auctionInfo *aip)
 {
-	FILE *fp;
+	memBuf_t *mp;
 	size_t dataLen, passwordLen;
 	char *data, *logData, *tmpUsername, *tmpPassword, *password;
 	int ret;
@@ -764,9 +812,9 @@ bid(auctionInfo *aip)
 	/* create data */
 	password = getPassword();
 	passwordLen = strlen(password);
-	dataLen = sizeof(BID_DATA) + strlen(aip->auction) + strlen(aip->key) + strlen(aip->bidPriceStr) + strlen(quantityStr) + strlen(options.username) + passwordLen - 12;
+	dataLen = sizeof(BID_2_DATA) + strlen(aip->auction) + strlen(aip->key) + strlen(aip->bidPriceStr) + strlen(quantityStr) + strlen(options.username) + passwordLen - 12;
 	data = (char *)myMalloc(dataLen);
-	sprintf(data, BID_DATA, aip->auction, aip->key, aip->bidPriceStr, quantityStr, options.username, password);
+	sprintf(data, BID_2_DATA, aip->auction, aip->key, aip->bidPriceStr, quantityStr, options.username, password);
 	freePassword(password);
 
 	logData = (char *)myMalloc(dataLen);
@@ -780,11 +828,14 @@ bid(auctionInfo *aip)
 		printLog(stdout, "Bidding disabled\n");
 		log(("\n\nbid(): query data:\n%s\n", logData));
 		ret = aip->bidResult = 0;
-	} else if (!(fp = httpPost(aip, options.bidHost, BID_URL, "", data, logData, 0)))
+	} else if (!(
+                     /* mp = httpPost(aip, BID_URL, data, logData) */
+                     mp = httpGet(aip, data)
+                     ))
 		ret = 1;
 	else {
-		ret = parseBid(fp, aip);
-		closeSocket(fp);
+		ret = parseBid(mp, aip);
+		clearMembuf(mp);
 	}
 	free(data);
 	free(logData);
@@ -812,7 +863,7 @@ watch(auctionInfo *aip)
 		time_t timeToFirstByte = 0;
 		int ret = getInfoTiming(aip, options.quantity, options.username, &timeToFirstByte);
 		time_t end = time(NULL);
-		time_t latency = (end - start) + (timeToFirstByte - start);
+		time_t latency = (timeToFirstByte - start);
 
 		if (ret) {
 			printAuctionError(aip, stderr);
@@ -856,6 +907,16 @@ watch(auctionInfo *aip)
 			return auctionError(aip, ae_bidprice, NULL);
 		else
 			remain = aip->remain - options.bidtime - latency;
+
+		/*
+		 * if we're less than five minutes away and login was 
+       * more than five minutes ago, re-login
+		 */
+		if ((remain <= 300) && ((time(NULL) - aip->loginTime) > 300)) {
+         cleanupCurlStuff();
+         initCurlStuff();
+         ebayLogin(aip);
+      }
 
 		/*
 		 * if we're less than two minutes away,

@@ -30,6 +30,7 @@
 #include "auctioninfo.h"
 #include <stdarg.h>
 #include <stdio.h>
+#include "http.h"
 
 typedef struct {
 	char *host;
@@ -51,9 +52,9 @@ extern void dlog(const char *fmt, ...);
 extern void printLog(FILE *fp, const char *fmt, ...);
 extern void logChar(int c);
 
-extern char *getUntil(FILE *fp, int until);
-extern char *getLine(FILE *fp);
-extern void runout(FILE *fp);
+extern char *getUntil(memBuf_t *mp, int until);
+extern char *getLine(memBuf_t *mp);
+extern void runout(memBuf_t *mp);
 
 extern const char *nullStr(const char *);
 extern char *timestamp(void);

@@ -257,7 +257,7 @@ logChar(int c)
 
 /* read from file until you see the given character. */
 char *
-getUntil(FILE *fp, int until)
+getUntil(memBuf_t *mp, int until)
 {
 	static char *buf = NULL;
 	static size_t bufsize = 0;
@@ -266,7 +266,7 @@ getUntil(FILE *fp, int until)
 
 	log(("\n\ngetUntil('%c')\n\n", until));
 
-	while ((c = getc(fp)) != EOF) {
+	while ((c = memGetc(mp)) != EOF) {
 		if (options.debug)
 			logChar(c);
 		if ((char)c == until) {
@@ -284,9 +284,9 @@ getUntil(FILE *fp, int until)
 
 /* read one complete line, discarding \r and \n */
 char *
-getLine(FILE *fp)
+getLine(memBuf_t *mp)
 {
-	char *line = getUntil(fp, '\n');
+	char *line = getUntil(mp, '\n');
 
 	if (line) {
 		int len = strlen(line);
@@ -299,13 +299,13 @@ getLine(FILE *fp)
 
 /* Runout remainder of file, logging its contents */
 void
-runout(FILE *fp)
+runout(memBuf_t *mp)
 {
 	if (options.debug) {
 		int c, count;
 
 		dlog("\n\nrunout()\n\n");
-		for (count = 0, c = getc(fp); c != EOF; ++count, c = getc(fp))
+		for (count = 0, c = memGetc(mp); c != EOF; ++count, c = memGetc(mp))
 			logChar(c);
 		logChar(EOF);
 		dlog("%d bytes", count);
