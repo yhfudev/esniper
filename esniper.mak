@@ -1,6 +1,6 @@
 # Microsoft Developer Studio Generated NMAKE File, Based on esniper.dsp
 !IF "$(CFG)" == ""
-CFG=esniper - Win32 Debug
+CFG=esniper - Win32 Release
 !MESSAGE No configuration specified. Defaulting to esniper - Win32 Debug.
 !ENDIF 
 
