@@ -39,7 +39,7 @@ HDR = auction.h auctionfile.h auctioninfo.h buffer.h esniper.h options.h util.h
 all: esniper
 
 esniper: $(OBJ)
-	$(CC) -O -o esniper $(OBJ) $(LIBS)
+	$(CC) $(CFLAGS) -o esniper $(OBJ) $(LIBS)
 
 $(OBJ): $(HDR)
 
