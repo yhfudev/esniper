@@ -1,3 +1,6 @@
+2005-01-26
+	* Fix bidding problem that sends esniper to PageReviewBid.
+
 2005-01-21
 	* handle blank time left field in bid history.  This happens in
 	  the last second of an auction
