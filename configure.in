@@ -5,8 +5,6 @@ AC_PROG_MAKE_SET
 
 AC_ARG_WITH(curl-config, [  --with-curl-config=PATH Location of libcurl curl-config []], curl_config="$withval", curl_config="curl-config")
 
-
-AC_MSG_CHECKING(for $curl_config)
 if test -f $curl_config ; then
   CURL_CONFIG=$curl_config
   AC_MSG_RESULT(yes)
@@ -19,23 +17,30 @@ if test "X$CURL_CONFIG" = "X"; then
 cURL is available from http://curl.haxx.se/)
 fi
 
-dnl check version curl_easy_strerror was added in 7.11.2
-dnl check version all other curl_easy were added in 7.1.1
 curl_ver=`$CURL_CONFIG --version | sed -e "s/libcurl //g"`
-curl_ver_mj=`echo $curl_ver|cut -d . -f 1`
-curl_ver_mn=`echo $curl_ver|cut -d . -f 2`
-curl_ver_mn2=`echo $curl_ver|cut -d . -f 3`
+curl_ver_hex=0x`$CURL_CONFIG --vernum`
+curl_ver_dec=`printf "%d" $curl_ver_hex`
+
+dnl check version all other curl_easy were added in 7.1.1
+check_min=7.1.1
+check_min_hex=0x070101
+check_min_dec=`printf "%d" $check_min_hex`
+
+dnl check version curl_easy_strerror was added in 7.11.2
+check_good=7.11.2
+check_good_hex=0x070b02
+check_good_dec=`printf "%d" $check_good_hex`
 
 AC_MSG_CHECKING(for cURL version)
-AC_MSG_RESULT($curl_ver)
-if test $curl_ver_mj -gt 7 -o \( $curl_ver_mj -eq 7 -a \( $curl_ver_mn -gt 11 -o \( $curl_ver_mn -eq 11 -a $curl_ver_mn2 -ge 2 \) \) \);then
-  true
-elif test $curl_ver_mj -gt 7 -o \( $curl_ver_mj -eq 7 -a \( $curl_ver_mn -gt 1 -o \( $curl_ver_mn -eq 1 -a $curl_ver_mn2 -ge 1 \) \) \);then
-  CURL_ADDITIONAL="-D NEED_CURL_EASY_STRERROR"
-else
-  AC_MSG_ERROR(cURL 7.1.1 or newer required
-cURL is available from http://curl.haxx.se/)
+if test $curl_ver_dec -lt $check_min_dec;then
+  AC_MSG_ERROR([cURL $check_min or newer required
+cURL is available from http://curl.haxx.se/])
 fi
+
+if test $curl_ver_dec -lt $check_good_dec;then
+   CURL_ADDITIONAL="-D NEED_CURL_EASY_STRERROR"
+fi
+AC_MSG_RESULT($curl_ver)
 
 dnl check for curl SSL support
 AC_MSG_CHECKING(for cURL SSL support)

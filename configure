@@ -2838,9 +2838,6 @@ else
   curl_config="curl-config"
 fi;
 
-
-echo "$as_me:$LINENO: checking for $curl_config" >&5
-echo $ECHO_N "checking for $curl_config... $ECHO_C" >&6
 if test -f $curl_config ; then
   CURL_CONFIG=$curl_config
   echo "$as_me:$LINENO: result: yes" >&5
@@ -2896,25 +2893,32 @@ cURL is available from http://curl.haxx.se/" >&2;}
 fi
 
 curl_ver=`$CURL_CONFIG --version | sed -e "s/libcurl //g"`
-curl_ver_mj=`echo $curl_ver|cut -d . -f 1`
-curl_ver_mn=`echo $curl_ver|cut -d . -f 2`
-curl_ver_mn2=`echo $curl_ver|cut -d . -f 3`
+curl_ver_hex=0x`$CURL_CONFIG --vernum`
+curl_ver_dec=`printf "%d" $curl_ver_hex`
+
+check_min=7.1.1
+check_min_hex=0x070101
+check_min_dec=`printf "%d" $check_min_hex`
+
+check_good=7.11.2
+check_good_hex=0x070b02
+check_good_dec=`printf "%d" $check_good_hex`
 
 echo "$as_me:$LINENO: checking for cURL version" >&5
 echo $ECHO_N "checking for cURL version... $ECHO_C" >&6
-echo "$as_me:$LINENO: result: $curl_ver" >&5
-echo "${ECHO_T}$curl_ver" >&6
-if test $curl_ver_mj -gt 7 -o \( $curl_ver_mj -eq 7 -a \( $curl_ver_mn -gt 11 -o \( $curl_ver_mn -eq 11 -a $curl_ver_mn2 -ge 2 \) \) \);then
-  true
-elif test $curl_ver_mj -gt 7 -o \( $curl_ver_mj -eq 7 -a \( $curl_ver_mn -gt 1 -o \( $curl_ver_mn -eq 1 -a $curl_ver_mn2 -ge 1 \) \) \);then
-  CURL_ADDITIONAL="-D NEED_CURL_EASY_STRERROR"
-else
-  { { echo "$as_me:$LINENO: error: cURL 7.1.1 or newer required
+if test $curl_ver_dec -lt $check_min_dec;then
+  { { echo "$as_me:$LINENO: error: cURL $check_min or newer required
 cURL is available from http://curl.haxx.se/" >&5
-echo "$as_me: error: cURL 7.1.1 or newer required
+echo "$as_me: error: cURL $check_min or newer required
 cURL is available from http://curl.haxx.se/" >&2;}
    { (exit 1); exit 1; }; }
 fi
+
+if test $curl_ver_dec -lt $check_good_dec;then
+   CURL_ADDITIONAL="-D NEED_CURL_EASY_STRERROR"
+fi
+echo "$as_me:$LINENO: result: $curl_ver" >&5
+echo "${ECHO_T}$curl_ver" >&6
 
 echo "$as_me:$LINENO: checking for cURL SSL support" >&5
 echo $ECHO_N "checking for cURL SSL support... $ECHO_C" >&6
