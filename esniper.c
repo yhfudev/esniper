@@ -31,7 +31,7 @@
  * For updates, bug reports, etc, please go to esniper.sourceforge.net.
  */
 
-static const char version[]="esniper version 1.3";
+static const char version[]="esniper version 1.3.1";
 static const char blurb[]="Please visit http://esniper.sourceforge.net/ for updates and bug reports";
 
 #if defined(unix) || defined (__unix) || defined (__MACH__)
@@ -1067,6 +1067,20 @@ sigTerm(int sig)
 }
 
 /*
+ * Current date/time
+ */
+static char *
+timestamp()
+{
+	static char buf[80];	/* much larger than needed */
+	time_t t = time(0);
+	struct tm *tmp = localtime(&t);
+
+	strftime(buf, 80, "%a %b %e %T", tmp);
+	return buf;
+}
+
+/*
  * watchItem(): watch item until it is time to bid
  *
  * returns:
@@ -1142,6 +1156,7 @@ watchItem(char *item, char *quantity, char *amount, char *user, long bidtime, it
 		else			/* knock off one day */
 			sleepTime = 86400;
 
+		printf("%s: ", timestamp());
 		if (sleepTime >= 86400)
 			printf("Sleeping for a day\n");
 		else if (sleepTime >= 3600)
