@@ -462,6 +462,14 @@ getseconds(char *timestr)
 	long accum = 0;
 	long num;
 
+	/* Time is blank in transition between "Time left: 1 seconds" and
+	 * "Time left: auction has ended".  I don't know if blank means
+	 * the auction is over, or it still running with less than 1 second.
+	 * I'll make the safer assumption and say that there is 1 second
+	 * remaining.
+	 */
+	if (!*timestr)
+		return 1;
 	if (strstr(timestr, ended))
 		return 0;
 	while (*timestr) {
