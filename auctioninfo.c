@@ -255,7 +255,7 @@ newAuctionInfo(const char *auction, const char *bidPriceStr)
 	aip->currency = NULL;
 	aip->bidResult = -1;
 	aip->won = -1;
-	aip->winning = -1;
+	aip->winning = 0;
 	aip->auctionError = ae_none;
 	aip->auctionErrorDetail = NULL;
 	aip->loginTime = 0;
