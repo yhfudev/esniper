@@ -36,7 +36,7 @@
 #if defined(WIN32)
 #	include <stdlib.h>
 #	define strcasecmp(s1, s2) stricmp((s1), (s2))
-#	define sleep(t) _sleep((t))
+#	define sleep(t) _sleep((t) * 1000)
 #else
 #	include <unistd.h>
 #endif

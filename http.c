@@ -38,7 +38,7 @@
 #	include <winsock.h>
 #	include <io.h>
 #	include <fcntl.h>
-#	define sleep(t) _sleep((t))
+#	define sleep(t) _sleep((t) * 1000)
 #	define strcasecmp(s1, s2) stricmp((s1), (s2))
 #	define strncasecmp(s1, s2, n) strnicmp((s1), (s2), (n))
 #else
