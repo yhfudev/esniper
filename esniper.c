@@ -433,12 +433,13 @@ main(int argc, char *argv[])
 		int olddebug = options.debug;
 		switch (c) {
 		case 'd': /* debug */
+			if (!olddebug)
+				logOpen(progname, NULL);
+			/* fall through */
 		case 'h': /* long help */
 		case 'n': /* don't bid */
 		case '?': /* unknown -> help */
 			parseGetoptValue(c, NULL, optiontab);
-			if (!olddebug && options.debug)
-				logOpen(progname, NULL);
 			break;
 		case 'c': /* config file */
 		case 'f': /* auction file */
