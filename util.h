@@ -75,4 +75,13 @@ extern char *dirname(char *);
 #include <libgen.h>
 #endif
 
+#if defined(WIN32)
+extern int	opterr;
+extern int	optind;
+extern int	optopt;
+extern char	*optarg;
+
+extern int getopt(int argc, char *const *argv, const char *opts);
+#endif
+
 #endif /* UTIL_H_INCLUDED */

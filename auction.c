@@ -1008,6 +1008,7 @@ preBid(auctionInfo *aip)
 	memBuf_t *mp;
 	int quantity = getQuantity(aip->quantity, options.quantity);
 	char quantityStr[12];	/* must hold an int */
+	char *pageName;
 	size_t urlLen;
 	char *url;
 	int ret = 0;
@@ -1022,6 +1023,23 @@ preBid(auctionInfo *aip)
 	free(url);
 	if (!mp)
 		return 1;
+
+	/*
+	 * Check pagename for error.  There are lots of errors, but
+	 * hopefully the only one we'll get is due to the auction being over.
+	 * If this becomes a problem, search through the page for
+	 *	class="error"
+	 * The next non-tag is the error text.
+	 */
+	pageName = getPageName(mp);
+	if (!strcmp(pageName, "MakeBidError")) {
+		clearMembuf(mp);
+		return auctionError(aip, ae_ended, NULL);
+	}
+	/*
+	 * Correct pagename is probably PageReviewBidBottomButton, but
+	 * don't check for this (in case it changes).
+	 */
 
 	while (found < 7 && !match(mp, "<input type=\"hidden\" name=\"")) {
 		if (!strncmp(mp->readptr, "key\"", 4)) {
