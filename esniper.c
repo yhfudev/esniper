@@ -48,6 +48,9 @@ static const char blurb[]="Please visit http://esniper.sourceforge.net/ for upda
 #include <unistd.h>
 #include <signal.h>
 #include <time.h>
+#ifdef __linux
+#include <sys/time.h>
+#endif
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <netinet/in.h>
