@@ -414,7 +414,7 @@ main(int argc, char *argv[])
    {NULL,       "f", (void*)&options.auctfilename, OPTION_STRING,   0,
                                                                &CheckFilename},
    {"reduce",  NULL, (void*)&options.reduce,       OPTION_BOOL,     0, NULL},
-   {NULL,      ,"r", (void*)&options.reduce,       OPTION_BOOL_NEG, 0, NULL},
+   {NULL,       "r", (void*)&options.reduce,       OPTION_BOOL_NEG, 0, NULL},
    {NULL,       "n", (void*)&options.bid,          OPTION_BOOL_NEG, 0, NULL},
    {"bid",     NULL, (void*)&options.bid,          OPTION_BOOL,     0, NULL},
    {"debug",    "d", (void*)&options.debug,        OPTION_BOOL,     0, NULL},
