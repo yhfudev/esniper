@@ -515,7 +515,7 @@ static char *
 getTableCell(memBuf_t *mp)
 {
 	int nesting = 1;
-	const char *cp, *start = NULL, *end = NULL;
+	const char *cp, *start = mp->readptr, *end = NULL;
 	static char *buf = NULL;
 	static size_t bufsize = 0;
 	size_t count = 0;
@@ -697,7 +697,15 @@ parseAuction(memBuf_t *mp, auctionInfo *aip, const char *user, time_t *timeToFir
 			if (aip->price < 0.01)
 				return auctionError(aip, ae_convprice, line);
 		} else if (!strcmp("Time left:", line)) {
-			line = getNonTag(mp);
+			/* Use getTableCell() instead of getNonTag(), because
+			 * for about a second at the end of an auction the
+			 * time is left blank.  getTableCell() will give you
+			 * a cell, even if it is empty.  getNonTag() will
+			 * happily skip over to the next real text (like
+			 * "Reserve not met", or whatever).
+			 */
+			getTableCell(mp); /* end of "Time left:" cell */
+			line = getNonTagFromString(getTableCell(mp));
 			break;
 		}
 	}
@@ -706,6 +714,7 @@ parseAuction(memBuf_t *mp, auctionInfo *aip, const char *user, time_t *timeToFir
 	if ((remain = getseconds(line)) < 0)
 		return auctionError(aip, ae_badtime, line);
 	printLog(stdout, "Time remaining: %s (%ld seconds)\n", line, remain);
+	free(line); /* allocated in "Time left:" getNonTagFromString() */
 	aip->endTime = remain + time(NULL);
 	/* no \n needed -- ctime returns a string with \n at the end */
 	printLog(stdout, "End time: %s", ctime(&(aip->endTime)));

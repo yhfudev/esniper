@@ -1011,12 +1011,12 @@ main(int argc, char *argv[])
 
 		/* view auction after bid */
 		if (options.bidtime > 0 && options.bidtime < 60) {
-			time_t seconds = auctions[i]->endTime - time(NULL);
+			/* extra 2 seconds to make sure it really is over */
+			time_t seconds = auctions[i]->endTime - time(NULL) + 2;
 			if (seconds < 0)
 				seconds = 0;
 			printLog(stdout, "Auction %s: Waiting %d seconds for auction to complete...\n", auctions[i]->auction, seconds);
-			/* make sure it really is over */
-			sleep((unsigned int)seconds + 1);
+			sleep((unsigned int)seconds);
 		}
 
 		printLog(stdout, "\nAuction %s: Post-bid info:\n",
