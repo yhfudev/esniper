@@ -297,7 +297,7 @@ compareAuctionInfo(const void *p1, const void *p2)
 	/* if end time is the same we compare the current price
            and use the lower price first */
 	if (a1->endTime == a2->endTime)
-		/* comparison function must return an integer so we 
+		/* comparison function must return an integer so we
 		 * convert the price to cent or whatever it's called
 		 */
 		return (int)((a1->price * 100.0) - (a2->price * 100.0));
