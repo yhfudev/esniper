@@ -407,13 +407,13 @@ main(int argc, char *argv[])
                                                                &CheckQuantity},
    {NULL,       "p", (void*)&options.password,     OPTION_SPECIAL,  0,
                                                                 &ReadPassword},
-   {NULL,       "U", (void*)&options.password,     OPTION_SPECIAL,  0,
+   {NULL,       "U", (void*)&options.user,         OPTION_SPECIAL,  0,
                                                                 &ReadUsername},
    {NULL,       "c", (void*)&options.conffilename, OPTION_STRING,   0,
                                                                &CheckFilename},
    {NULL,       "f", (void*)&options.auctfilename, OPTION_STRING,   0,
                                                                &CheckFilename},
-   {"reduce",  NULL,(void*)&options.reduce,       OPTION_BOOL_NEG, 0, NULL},
+   {"reduce",  NULL, (void*)&options.reduce,       OPTION_BOOL,     0, NULL},
    {"dontreduce","r",(void*)&options.reduce,       OPTION_BOOL_NEG, 0, NULL},
    {"dontbid",  "n", (void*)&options.bid,          OPTION_BOOL_NEG, 0, NULL},
    {"bid",     NULL, (void*)&options.bid,          OPTION_BOOL,     0, NULL},
@@ -430,7 +430,7 @@ main(int argc, char *argv[])
 
 	atexit(cleanup);
 
-	/* first, check for debug, no-bid, config file and auction file
+	/* first, check for debug, config file and auction file
 	 * options but accept all other options to avoid error messages
 	 */
 	while ((c = getopt(argc, argv, optionstring)) != EOF) {
@@ -568,21 +568,20 @@ main(int argc, char *argv[])
 			printLog(stderr, "Error: auctions and prices must be specified in pairs.\n");
 			options.usage = 1;
 		}
-	}
-
-	if (!options.usage && !options.user) {
-		if (options.batch) {
-			printLog(stderr, "Error: no username specified.\n");
-			options.usage = 1;
-		} else
-			parseGetoptValue('U', NULL, optiontab);
-	}
-	if (!options.usage && !options.password) {
-		if (options.batch) {
-			printLog(stderr, "Error: no password specified.\n");
-			options.usage = 1;
-		} else
-			parseGetoptValue('p', NULL, optiontab);
+		if (!options.user) {
+			if (options.batch) {
+				printLog(stderr, "Error: no username specified.\n");
+				options.usage = 1;
+			} else
+				parseGetoptValue('U', NULL, optiontab);
+		}
+		if (!options.password) {
+			if (options.batch) {
+				printLog(stderr, "Error: no password specified.\n");
+				options.usage = 1;
+			} else
+				parseGetoptValue('p', NULL, optiontab);
+		}
 	}
 
 	if (options.usage) {
