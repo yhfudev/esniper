@@ -173,6 +173,10 @@ auctionError(auctionInfo *aip, enum auctionErrorCode pe, const char *details)
 
 /*
  * isValidBidPrice(): Determine if the bid price is valid.
+ *
+ * If there are no bids, there is no increment, just the minimum price.
+ * If there are bids, then the increment depends on the current price.
+ * See http://pages.ebay.com/help/basics/g-bid-increment.html for details.
  */
 int
 isValidBidPrice(const auctionInfo *aip)
@@ -183,7 +187,7 @@ isValidBidPrice(const auctionInfo *aip)
 		int i;
 
 		for (i = 0; increments[i] > 0; i += 2) {
-			if (aip->bidPrice < increments[i])
+			if (aip->price < increments[i])
 				break;
 		}
 		increment = increments[i+1];
