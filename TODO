@@ -1,5 +1,5 @@
 Proxy support
-- squid, etc
+- authentication, proxy connection keep-alive
 
 Languages (German, French, ...)
 - output only.  Handling input in multiple languages (i.e. reading from
