@@ -913,7 +913,7 @@ preBidItem(char *item, char *amount, itemInfo *iip)
 
 	log(("sent pre-bid\n"));
 
-	if (match(fp, "<input type=hidden name=key value=\""))
+	if (match(fp, "<input type=\"hidden\" name=\"key\" value=\""))
 		ret = 1;
 	else {
 		tmpkey = getuntilchar(fp, '\"');
@@ -971,7 +971,7 @@ bidItem(int bid, const char *item, const char *amount, const char *quantity, con
 	int i;
 	char *line;
 
-	log(("\n\n*** bidItem item %s amount %s quantity %s user %s password %s\n", item, amount, quantity, user, password));
+	log(("\n\n*** bidItem item %s amount %s quantity %s user %s\n", item, amount, quantity, user));
 
 	if (!bid) {
 		printLog(stdout, "Bidding disabled\n");
@@ -1263,7 +1263,8 @@ main(int argc, char *argv[])
 	if (debug)
 		logOpen(item);
 
-	log(("item %s amount %s quantity %s user %s password %s bidtime %ld\n", item, amount, quantity, user, password, bidtime));
+	log(("item %s amount %s quantity %s user %s bidtime %ld\n",
+		item, amount, quantity, user, bidtime));
 
 	signal(SIGALRM, sigAlarm);
 	signal(SIGHUP, SIG_IGN);
@@ -1296,7 +1297,8 @@ main(int argc, char *argv[])
 		exit(1);
 	}
 
-	log(("*** BIDDING!!! item %s amount %s quantity %s user %s password %s\n", item, amount, quantity, user, password));
+	log(("*** BIDDING!!! item %s amount %s quantity %s user %s\n",
+		item, amount, quantity, user));
 
 	for (retryCount = 0; retryCount < 3; retryCount++) {
 		ret = bidItem(bid, item, amount, quantity, user, password,iip);
