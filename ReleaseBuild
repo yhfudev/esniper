@@ -68,7 +68,9 @@ Build esniper on Sun, and HP and Cygwin, strip and copy to release directory:
 		cd incoming
 		bin
 		prompt
-		mput cygwin1.dll esniper* ../sample*
+		mput cygwin1.dll esniper*
+		put ../sample_auction.txt sample_auction.txt
+		put ../sample_config.txt sample_config.txt
 
 Build other versions on sourceforge:
 
@@ -77,6 +79,9 @@ Build other versions on sourceforge:
 
 	For each build system:
 		makeit
+
+	(note: make certain that all updates have made it to the systems
+	you build on.  cvs seems to take a while to propagate)
 
 Then login to shell.sourceforge.net:
 
