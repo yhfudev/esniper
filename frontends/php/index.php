@@ -24,7 +24,7 @@ function zeige(logID,alles) {
 }
 function erstesAufbauen() {
     dieLogs = document.getElementsByName('logs');
-    for(i=0;i<=dieLogs.length;i++) {
+    for(i=0;i<dieLogs.length;i++) {
 	layouten(dieLogs[i]);
     }
 }
@@ -144,13 +144,17 @@ printf("</strong>");
 
 //Zum filtern der Auktionenliste nach einer Gruppe
 printf("<form action=\"index.php\" method=\"get\">");
-printf(html_GruppenFilternListe($filtergruppe,$db));
+if ($filtergruppe >= 0 && $zutun==4) {
+	printf(html_GruppenFilternListe($filtergruppe,$db));
+} else {
+	printf(html_GruppenFilternListe(-1,$db));
+}
 printf("<input type=\"submit\" value=\"Gruppe filtern\">");
 printf("<input type=\"hidden\" name=\"zutun\" value=\"4\">");
-if ($filtergruppe >= 0 && $zutun=4) {
+if ($filtergruppe >= 0 && $zutun==4) {
 	$sql="SELECT count(*) FROM snipe WHERE gruppe = \"".$filtergruppe."\"";
 	$aAnzahl = $db->get_var($sql);
-	printf(" Auktionen: ".$aAnzahl);
+	printf(" gefiltert: ".$aAnzahl);
 }
 printf("</form>");
 

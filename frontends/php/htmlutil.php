@@ -57,7 +57,7 @@ function html_Gruppenliste($artnr,$db) {
 function html_GruppenFilternListe($gruppeID,$db) {
 //Baut eine Auswahlliste für die Gruppen zusammen
     $temp = "<select name=\"filtergruppe\" size=\"1\">";
-    if ($gruppeID == -1) {
+    if ($gruppeID == -1 || empty($gruppeID)) {
     	$temp .= "<option value=\"-1\" selected=\"selected\">Alles</option>";
     } else {
     	$temp .= "<option value=\"-1\">Alles</option>";
