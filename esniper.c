@@ -37,7 +37,7 @@
 #include "options.h"
 #include "util.h"
 
-static const char version[]="esniper version 2.6.0";
+static const char version[]="esniper version 2.6.1";
 static const char blurb[]="Please visit http://esniper.sf.net/ for updates and bug reports.";
 
 #include <errno.h>

@@ -99,17 +99,25 @@ readConfigFile(const char *filename, optionTable_t *table)
 			addchar(buf, bufsize, count, '\0');
 			name = buf;
 
-			if (c != EOF && c != '\n') {
+			if (c != EOF && c != '\n' && c != '\r') {
 				do {
 					c = getc(fp);
-				} while (c == '=' || c == ' ' || c == '\t');
+				} while (c == ' ' || c == '\t');
+				if (c == '=') {
+					do {
+						c = getc(fp);
+					} while (c == ' ' || c == '\t');
+				}
 
-				if (c != EOF && c != '\n') {
+				if (c != EOF && c != '\n' && c != '\r') {
 					value = &buf[count];
 					do {
 						addchar(buf, bufsize, count, c);
 						c = getc(fp);
-					} while (c != EOF && c != '\n');
+					} while (c != EOF && c != '\n' && c != '\r');
+					/* strip trailing whitespace */
+					while (isspace((int)(buf[count - 1])))
+						--count;
 					term(buf, bufsize, count);
 				}
 			}
@@ -164,7 +172,8 @@ parseConfigValue(const char *name, const char *value,
 	const char *tablename;
 	int ret = 0;
 
-	log(("parsing name %s value %s\n", name, nullStr(value)));
+	if (strcmp(name, "password"))
+		log(("parsing name %s value %s\n", name, nullStr(value)));
 	/* lookup name in table */
 	for (tableptr=table; tableptr->value; tableptr++) {
 		if (filename)

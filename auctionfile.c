@@ -73,12 +73,12 @@ readAuctionFile(const char *filename, auctionInfo ***aip)
 			do {
 				addchar(buf, bufsize, count, c);
 			} while (isdigit(c = getc(fp)));
-			for (; isspace(c) && c != '\n'; c = getc(fp))
-				;
+			while (isspace(c) && c != '\n' && c != '\r')
+				c = getc(fp);
 			if (c == '#')	/* comment? */
 				c = skipline(fp);
 			/* no price? */
-			if (c == EOF || c == '\n') {
+			if (c == EOF || c == '\n' || c == '\r') {
 				/* use price of previous auction */
 				if (numAuctions == 1) {
 					fprintf(stderr, "Cannot find price on first auction\n");
@@ -89,11 +89,11 @@ readAuctionFile(const char *filename, auctionInfo ***aip)
 				/* get price */
 				for (; isdigit(c) || c == '.'; c = getc(fp))
 					addchar(buf, bufsize, count, c);
-				for (; isspace(c) && c != '\n'; c = getc(fp))
-					;
+				while (isspace(c) && c != '\n' && c != '\r')
+					c = getc(fp);
 				if (c == '#')	/* comment? */
 					c = skipline(fp);
-				if (c != EOF && c != '\n') {
+				if (c != EOF && c != '\n' && c != '\r') {
 					term(buf, bufsize, count);
 					fprintf(stderr, "Invalid auction line: %s\n", &buf[line]);
 					numAuctions = -1;
@@ -104,7 +104,7 @@ readAuctionFile(const char *filename, auctionInfo ***aip)
 			fprintf(stderr, "Invalid auction line: ");
 			do {
 				putc(c, stderr);
-			} while ((c = getc(fp)) != EOF && c != '\n');
+			} while ((c = getc(fp)) != EOF && c != '\n' && c != '\r');
 			putc('\n', stderr);
 			numAuctions = -1;
 		}

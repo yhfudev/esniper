@@ -264,7 +264,7 @@ getUntil(FILE *fp, int until)
 	size_t count = 0;
 	int c;
 
-	log(("\n\ngetUntilChar('%c')\n\n", until));
+	log(("\n\ngetUntil('%c')\n\n", until));
 
 	while ((c = getc(fp)) != EOF) {
 		if (options.debug)
@@ -348,7 +348,7 @@ skipline(FILE *fp)
 {
 	int c;
 
-	for (c = getc(fp); c != EOF && c != '\n'; c = getc(fp))
+	for (c = getc(fp); c != EOF && c != '\n' && c != '\r'; c = getc(fp))
 		;
 	return c;
 }
@@ -394,7 +394,7 @@ prompt(const char *p, int noecho)
 	}
 
 	/* read value */
-	for (c = getc(stdin); c != EOF && c != '\n'; c = getc(stdin))
+	for (c = getc(stdin); c != EOF && c != '\n' && c != '\r'; c = getc(stdin))
 		addcharinc(buf, size, count, c, (size_t)20);
 	terminc(buf, size, count, (size_t)20);
 
