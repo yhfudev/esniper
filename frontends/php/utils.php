@@ -1,8 +1,5 @@
 <?php
-define("EZSQL_DB_USER", "esniper");
-define("EZSQL_DB_PASSWORD", "esniper");
-define("EZSQL_DB_NAME", "esniper");
-define("EZSQL_DB_HOST", "linux.home");
+require 'config.inc';
 require 'ez_sql.php';
 require 'phpLinkCheck.php';
 
@@ -24,7 +21,7 @@ function startEsniper($artnr) {
     touch($fnl);
     chmod($fnl, 0666);
     $pid =
-    exec("./esniperstart.sh $fn $fnl > /dev/null & echo \$!", $results,$status);
+    exec("./esniperstart.sh $fn $fnl PATH_TO_ESNIPER> /dev/null & echo \$!", $results,$status);
     return($pid);
 }
 
