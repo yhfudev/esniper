@@ -40,14 +40,14 @@
 #define addchar(buf, bufsize, count, c) \
 	do {\
 		if (count >= bufsize)\
-			buf = resize(buf, &bufsize, 1024);\
+			buf = resize(buf, &bufsize, (size_t)1024);\
 		buf[count++] = c;\
 	} while (0)
 
 #define term(buf, bufsize, count) \
 	do {\
 		if (count >= bufsize)\
-			buf = resize(buf, &bufsize, 1024);\
+			buf = resize(buf, &bufsize, (size_t)1024);\
 		buf[count] = '\0';\
 	} while (0)
 

@@ -103,7 +103,7 @@ verboseConnect(const char *host, unsigned int retryTime, int retryCount)
 
 	memset(&servAddr, 0, sizeof(servAddr));
 	servAddr.sin_family = AF_INET;
-	memcpy(&servAddr.sin_addr.s_addr, entry->h_addr, 4);
+	memcpy(&servAddr.sin_addr.s_addr, entry->h_addr, (size_t)4);
 	servAddr.sin_port = htons((unsigned short)80);
 
 	log(("connect"));
@@ -116,7 +116,7 @@ verboseConnect(const char *host, unsigned int retryTime, int retryCount)
 		alarmAction.sa_flags &= ~SA_RESTART;
 		sigaction(SIGALRM, &alarmAction, NULL);
 		alarm(retryTime);
-		rc = connect(sockfd, (struct sockaddr *)&servAddr, sizeof(struct sockaddr_in));
+		rc = connect(sockfd, (struct sockaddr *)&servAddr, (size_t)sizeof(struct sockaddr_in));
 		saveErrno = errno;
 		alarm(0);
 		alarmAction.sa_flags |= SA_RESTART;
@@ -636,7 +636,7 @@ getInfo(auctionInfo *aip, int quantity, const char *user)
 	line = getuntilchar(fp, '\n');
 	s1 = strtok(line, " \t");
 	s2 = strtok(NULL, " \t");
-	if (s1 && s2 && !strncmp("HTTP/", s1, 5) &&
+	if (s1 && s2 && !strncmp("HTTP/", s1, (size_t)5) &&
 	    (!strcmp("301", s2) || !strcmp("302", s2))) {
 		char *newHost;
 		char *newQuery;

@@ -242,7 +242,7 @@ timestamp()
 	if (t != saveTime) {
 		struct tm *tmp = localtime(&t);
 
-		strftime(buf, 80, "%c", tmp);
+		strftime(buf, (size_t)sizeof(buf), "%c", tmp);
 		saveTime = t;
 	}
 	return buf;
@@ -290,8 +290,8 @@ prompt(const char *p, int noecho)
 
 	/* read value */
 	for (c = getc(stdin); c != EOF && c != '\n'; c = getc(stdin))
-		addcharinc(buf, size, count, c, 20);
-	terminc(buf, size, count, 20);
+		addcharinc(buf, size, count, c, (size_t)20);
+	terminc(buf, size, count, (size_t)20);
 
 	if (noecho) {
 		/* echo on */

@@ -137,7 +137,7 @@ sortAuctions(auctionInfo **auctions, int numAuctions, char *user, int *quantity)
 	if (numAuctions > 1) {
 		printLog(stdout, "Sorting auctions...\n");
 		/* sort by end time */
-		qsort(auctions, (unsigned int)numAuctions,
+		qsort(auctions, (size_t)numAuctions,
 		      sizeof(auctionInfo *), compareAuctionInfo);
 	}
 

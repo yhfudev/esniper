@@ -3,13 +3,16 @@ CFLAGS = -O
 # System dependencies
 
 # Solaris (2.6 and newer)
-#LIBS=-lsocket -lnsl
+#LIBS = -lsocket -lnsl
 
 # Solaris 2.5.1
-#LIBS=-lsocket -lnsl -lgen
+#LIBS = -lsocket -lnsl -lgen
 
 # HP-UX 10.20
-#CFLAGS=-O -D_XOPEN_SOURCE_EXTENDED
+#CFLAGS = -O -D_XOPEN_SOURCE_EXTENDED
+
+# Digital UNIX (OSF1 V4.0)
+#CFLAGS = -O -D_XOPEN_SOURCE_EXTENDED
 
 # install is typically in /usr/bin or /usr/sbin
 #INSTALL=/usr/bin/install
@@ -45,7 +48,7 @@ install: esniper
 
 # Simple portability check - look for no warnings
 check:
-	gcc -c $(CHECKFLAGS) $(SRC)
+	gcc -c $(CFLAGS) $(CHECKFLAGS) $(SRC)
 
 clean:
 	rm -f esniper $(OBJ) esniper.log.* core
