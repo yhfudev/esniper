@@ -80,6 +80,8 @@ Build esniper on Sun, and HP and Cygwin, strip and copy to release directory:
 		mput esniper*
 		put ../sample_auction.txt sample_auction.txt
 		put ../sample_config.txt sample_config.txt
+		put ../esniper.1 esniper.1
+		put ../esniper_man.html esniper_man.html
 
 Build other versions on sourceforge:
 
