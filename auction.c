@@ -45,9 +45,10 @@ static int match(FILE *fp, const char *str);
 static const char *gettag(FILE *fp);
 static char *getnontag(FILE *fp);
 static long getseconds(char *timestr);
+static int getInfoTiming(auctionInfo *aip, int quantity, const char *user, time_t *timeToFirstByte);
 
 static int getQuantity(int want, int available);
-static int parseAuction(FILE *fp, auctionInfo *aip, int quantity, const char *user);
+static int parseAuction(FILE *fp, auctionInfo *aip, int quantity, const char *user, time_t *timeToFirstByte);
 static int parseAuctionInternal(FILE *fp, auctionInfo *aip, int quantity, const char *user, char **currently, char **winner);
 static int parseBid(FILE *fp, auctionInfo *aip);
 
@@ -326,7 +327,7 @@ getseconds(char *timestr)
  *	1 error (badly formatted page, etc) - sets auctionError
  */
 static int
-parseAuction(FILE *fp, auctionInfo *aip, int quantity, const char *user)
+parseAuction(FILE *fp, auctionInfo *aip, int quantity, const char *user, time_t *timeToFirstByte)
 {
 	char *line, *currently = NULL, *winner = NULL;
 	int ret;
@@ -337,6 +338,10 @@ parseAuction(FILE *fp, auctionInfo *aip, int quantity, const char *user)
 	 * Auction title
 	 */
 	while ((line = getnontag(fp))) {
+		if (timeToFirstByte) {
+			*timeToFirstByte = time(NULL);
+			timeToFirstByte = NULL;
+		}
 		if (!strcmp(line, "Bid History"))
 			break;
 		if (!strcmp(line, "Unknown Item"))
@@ -595,6 +600,19 @@ static const char GETINFO[] = "aw-cgi/eBayISAPI.dll?ViewBids&item=";
 int
 getInfo(auctionInfo *aip, int quantity, const char *user)
 {
+	return getInfoTiming(aip, quantity, user, NULL);
+}
+
+/*
+ * getInfoTiming(): Get info on auction from bid history page.
+ *
+ * returns:
+ *	0 OK
+ *	1 error (badly formatted page, etc) set auctionError
+ */
+int
+getInfoTiming(auctionInfo *aip, int quantity, const char *user, time_t *timeToFirstByte)
+{
 	FILE *fp;
 	int ret;
 
@@ -607,7 +625,7 @@ getInfo(auctionInfo *aip, int quantity, const char *user)
 	if (!(fp = httpGet(aip, aip->host, aip->query, NULL, 1)))
 		return 1;
 
-	ret = parseAuction(fp, aip, quantity, user);
+	ret = parseAuction(fp, aip, quantity, user, timeToFirstByte);
 	closeSocket(fp);
 	return ret;
 }
@@ -791,8 +809,10 @@ watch(auctionInfo *aip)
 
 	for (;;) {
 		time_t start = time(NULL);
-		int ret = getInfo(aip, options.quantity, options.username);
-		time_t latency = time(NULL) - start;
+		time_t timeToFirstByte = 0;
+		int ret = getInfoTiming(aip, options.quantity, options.username, &timeToFirstByte);
+		time_t end = time(NULL);
+		time_t latency = (end - start) + (timeToFirstByte - start);
 
 		if (ret) {
 			printAuctionError(aip, stderr);
@@ -803,7 +823,7 @@ watch(auctionInfo *aip)
 			 */
 			if (aip->auctionError == ae_unavailable) {
 				if (remain >= 0)
-					remain -= sleepTime + (latency * 2);
+					remain -= sleepTime + latency;
 				if (remain == LONG_MIN || remain > 86400) {
 					/* typical eBay maintenance period
 					 * is two hours.  Sleep for half that
@@ -821,7 +841,7 @@ watch(auctionInfo *aip)
 					ret = getInfo(aip, options.quantity,
 						      options.username);
 				if (!ret)
-					remain = aip->remain - options.bidtime - (latency * 2);
+					remain = aip->remain - options.bidtime - latency;
 				else
 					return 1;
 			} else {
@@ -830,12 +850,12 @@ watch(auctionInfo *aip)
 				if (errorCount > 50)
 					return auctionError(aip, ae_toomany, NULL);
 				printLog(stdout, "Cannot find auction - internet or eBay problem?\nWill try again after sleep.\n");
-				remain -= sleepTime + (latency * 2);
+				remain -= sleepTime + latency;
 			}
 		} else if (!isValidBidPrice(aip))
 			return auctionError(aip, ae_bidprice, NULL);
 		else
-			remain = aip->remain - options.bidtime - (latency * 2);
+			remain = aip->remain - options.bidtime - latency;
 
 		/* it's time!!! */
 		if (remain < 0)
@@ -858,7 +878,7 @@ watch(auctionInfo *aip)
 				printLog(stderr, "Cannot get bid key\n");
 				return 1;
 			}
-			keyLatency = time(NULL) - start - latency;
+			keyLatency = time(NULL) - end;
 			remain -= keyLatency;
 		}
 
