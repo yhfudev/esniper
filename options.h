@@ -33,23 +33,25 @@
 #define OPTION_BOOL     3
 #define OPTION_BOOL_NEG 4
 /* OPTION_SPECIAL does not specify data type, the checking function,
-   which is mandatory here, must know what to do. The parsing function
-   will provide the string value or NULL to the checking function */
+ * which is mandatory here, must know what to do. The parsing function
+ * will provide the string value or NULL to the checking function
+ */
 #define OPTION_SPECIAL  5
 
 /* table to describe all option or configuration values */
 typedef struct optionTable optionTable_t;
 
 struct optionTable {
-   const char *configname; /* keyword in configuration files */
-   const char *optionname; /* option without '-' */
-   void *value;            /* variable to store value */
-   int type;               /* data type of expected value or option argument */
-   /* This function will be called to check and copy value if specified.
-      It can get the value by other means than converting the string
-      found in configuration file or on command line. */
-   int (*checkfunc)(const void* valueptr, const optionTable_t* tableptr,
-                    const char* filename, const char *line);
+	const char *configname;	/* keyword in configuration files */
+	const char *optionname;	/* option without '-' */
+	void *value;		/* variable to store value */
+	int type;		/* data type of expected value or option arg */
+	/* This function will be called to check and copy value if specified.
+	 * It can get the value by other means than converting the string
+	 * found in configuration file or on command line.
+	 */
+	int (*checkfunc)(const void* valueptr, const optionTable_t* tableptr,
+			 const char* filename, const char *line);
 };
 
 extern int readConfigFile(const char *filename, optionTable_t *table);

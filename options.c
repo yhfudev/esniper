@@ -41,20 +41,20 @@
 #include <string.h>
 
 static int parseConfigValue(const char *name, const char *value,
-                            const optionTable_t *table, const char *filename,
-                            const char *line);
+			    const optionTable_t *table, const char *filename,
+			    const char *line);
 static int parseBoolValue(const char *name, const char *value,
-                          const optionTable_t *tableptr, const char *filename,
-                          const char *line, int neg);
+			  const optionTable_t *tableptr, const char *filename,
+			  const char *line, int neg);
 static int parseStringValue(const char *name, const char *value,
-                            const optionTable_t *tableptr, const char *filename,
-                            const char *line);
+			    const optionTable_t *tableptr, const char *filename,
+			    const char *line);
 static int parseIntValue(const char *name, const char *value,
-                         const optionTable_t *tableptr, const char *filename,
-                         const char *line);
+			 const optionTable_t *tableptr, const char *filename,
+			 const char *line);
 static int parseSpecialValue(const char *name, const char *value,
-                             const optionTable_t *tableptr,
-                             const char *filename, const char *line);
+			     const optionTable_t *tableptr,
+			     const char *filename, const char *line);
 
 /*
  * readConfigFile(): read configuration from file, skipping auctions
@@ -159,8 +159,7 @@ parseGetoptValue(int option, const char *optval, optionTable_t *table)
 
 /*
  * parseConfigValue(): lookup command line or configuration option in option
- *                     table and call appropriate function according to table
- *		       entry
+ *		table and call appropriate function according to table entry.
  *
  * returns: 0 = OK, else error
  */
@@ -203,17 +202,12 @@ parseConfigValue(const char *name, const char *value,
 				line);
 			break;
 		default:
-			printLog(stderr,
-			    "Internal error: invalid type in option table (%s)",
-			    tableptr->configname ? tableptr->configname
-						 : tableptr->optionname);
+			printLog(stderr, "Internal error: invalid type in option table (%s)", tableptr->configname ? tableptr->configname : tableptr->optionname);
 			ret = 1;
 		}
 	} else {
 		if (filename)
-			printLog(stderr,
-			      "Unknown configuration entry \"%s\" in file %s\n",
-			      line, filename);
+			printLog(stderr, "Unknown configuration entry \"%s\" in file %s\n", line, filename);
 		else
 			printLog(stderr, "Unknown command line option -%s\n",
 				 line);
@@ -278,13 +272,13 @@ parseStringValue(const char *name, const char *value,
 
 /*
  * parseSpecialValue(): parse a special value, which is is not interpreted here
- *                      A checking func is required to convert/check value.
+ *			A checking func is required to convert/check value.
  *
  * returns: 0 = OK, else error
  */
 static int
 parseSpecialValue(const char *name, const char *value,
-        const optionTable_t *tableptr, const char *filename, const char *line)
+	const optionTable_t *tableptr, const char *filename, const char *line)
 {
 	if (tableptr->checkfunc) { /* check value with check function */
 		if ((*tableptr->checkfunc)(value, tableptr, filename, line))

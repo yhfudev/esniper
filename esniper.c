@@ -49,15 +49,13 @@ static const char DEFAULT_CONF_FILE[] = ".esniper";
 #include <stdlib.h>
 #include <string.h>
 #if defined(WIN32)
+#	include "getopt.h"
 #	include <io.h>
 #	define access(name, mode) _access((name), (mode))
 #	define sleep(t)	_sleep((t) * 1000)
 #	define R_OK 0x04
-	extern int getopt(int, char *const *, const char *);
-	extern int opterr, optind, optopt;
-	extern char *optarg;
 #else
-#       include <unistd.h>
+#	include <unistd.h>
 #endif
 
 /* minimum bid time, in seconds before end of auction */
@@ -70,24 +68,24 @@ static const char DEFAULT_CONF_FILE[] = ".esniper";
 #define DEFAULT_BID_HOST "offer.ebay.com"
 
 option_t options = {
-	NULL,             /* user */
-	NULL,             /* password */
-	DEFAULT_BIDTIME,  /* bidtime */
-	1,                /* quantity */
-	NULL,             /* configuration file */
-	NULL,             /* auction file */
-	1,                /* bid */
-	1,                /* reduce quantity */
-	0,                /* debug */
-	0,                /* usage */
-	0,		  /* get my eBay items */
-	0,                /* batch */
-	0,                /* password encrypted? */
-	{ NULL, 0 },      /* proxy host & port */
-	NULL,             /* log directory */
-	NULL,             /* historyHost */
-	NULL,             /* prebidHost */
-	NULL,             /* bidHost */
+	NULL,		/* user */
+	NULL,		/* password */
+	DEFAULT_BIDTIME,/* bidtime */
+	1,		/* quantity */
+	NULL,		/* configuration file */
+	NULL,		/* auction file */
+	1,		/* bid */
+	1,		/* reduce quantity */
+	0,		/* debug */
+	0,		/* usage */
+	0,		/* get my eBay items */
+	0,		/* batch */
+	0,		/* password encrypted? */
+	{ NULL, 0 },	/* proxy host & port */
+	NULL,		/* log directory */
+	NULL,		/* historyHost */
+	NULL,		/* prebidHost */
+	NULL,		/* bidHost */
 };
 
 /* support functions */
@@ -96,7 +94,7 @@ static void sigAlarm(int sig);
 #endif
 static void sigTerm(int sig);
 static int sortAuctions(auctionInfo **auctions, int numAuctions, char *user,
-                        int *quantity);
+			int *quantity);
 static void cleanup(void);
 static int usage(int helptype);
 #define USAGE_SUMMARY	0x01
@@ -105,39 +103,41 @@ static int usage(int helptype);
 int main(int argc, char *argv[]);
 
 /* used for option table */
-static int CheckDebug(const void* valueptr, const optionTable_t* tableptr,
-                      const char* filename, const char *line);
-static int CheckSecs(const void* valueptr, const optionTable_t* tableptr,
-                     const char* filename, const char *line);
-static int CheckQuantity(const void* valueptr, const optionTable_t* tableptr,
-                         const char* filename, const char *line);
-static int ReadUser(const void* valueptr, const optionTable_t* tableptr,
-                    const char* filename, const char *line);
-static int ReadPass(const void* valueptr, const optionTable_t* tableptr,
-                    const char* filename, const char *line);
-static int CheckAuctionFile(const void* valueptr, const optionTable_t* tableptr,
-                            const char* filename, const char *line);
-static int CheckConfigFile(const void* valueptr, const optionTable_t* tableptr,
-                           const char* filename, const char *line);
-static int CheckProxy(const void* valueptr, const optionTable_t* tableptr,
-                     const char* filename, const char *line);
-static int SetLongHelp(const void* valueptr, const optionTable_t* tableptr,
-                       const char* filename, const char *line);
-static int SetConfigHelp(const void* valueptr, const optionTable_t* tableptr,
-                         const char* filename, const char *line);
+static int CheckDebug(const void *valueptr, const optionTable_t *tableptr,
+		      const char *filename, const char *line);
+static int CheckSecs(const void *valueptr, const optionTable_t *tableptr,
+		     const char *filename, const char *line);
+static int CheckQuantity(const void *valueptr, const optionTable_t *tableptr,
+			 const char *filename, const char *line);
+static int ReadUser(const void *valueptr, const optionTable_t *tableptr,
+		    const char *filename, const char *line);
+static int ReadPass(const void *valueptr, const optionTable_t *tableptr,
+		    const char *filename, const char *line);
+static int CheckAuctionFile(const void *valueptr, const optionTable_t *tableptr,
+			    const char *filename, const char *line);
+static int CheckConfigFile(const void *valueptr, const optionTable_t *tableptr,
+			   const char *filename, const char *line);
+static int CheckProxy(const void *valueptr, const optionTable_t *tableptr,
+		      const char *filename, const char *line);
+static int SetLongHelp(const void *valueptr, const optionTable_t *tableptr,
+		       const char *filename, const char *line);
+static int SetConfigHelp(const void *valueptr, const optionTable_t *tableptr,
+			 const char *filename, const char *line);
 
 /* called by CheckAuctionFile, CheckConfigFile */
-static int CheckFile(const void* valueptr, const optionTable_t* tableptr,
-                     const char* filename, const char *line,
-                     const char *fileType);
+static int CheckFile(const void *valueptr, const optionTable_t *tableptr,
+		     const char *filename, const char *line,
+		     const char *fileType);
 
 
-const char *getVersion(void)
+const char *
+getVersion(void)
 {
 	return version;
 }
 
-const char *getProgname(void)
+const char *
+getProgname(void)
 {
 	return progname ? progname : "esniper";
 }
@@ -248,8 +248,8 @@ cleanup()
  * returns: 0 = OK, else error
  */
 static int
-CheckDebug(const void* valueptr, const optionTable_t* tableptr,
-           const char* filename, const char *line)
+CheckDebug(const void *valueptr, const optionTable_t *tableptr,
+	   const char *filename, const char *line)
 {
 	int val = *((const int*)valueptr);
 
@@ -265,58 +265,51 @@ CheckDebug(const void* valueptr, const optionTable_t* tableptr,
  * returns: 0 = OK, else error
  */
 static int
-CheckSecs(const void* valueptr, const optionTable_t* tableptr,
-          const char* filename, const char *line)
+CheckSecs(const void *valueptr, const optionTable_t *tableptr,
+	  const char *filename, const char *line)
 {
-   int intval;
-   char *endptr;
+	int intval;
+	char *endptr;
 
-   /* value specified? */
-   if(!valueptr) {
-      if(filename)
-         printLog(stderr,
-       "Configuration option \"%s\" in file %s needs an integer value or \"now\"\n",
-                  line, filename);
-      else
-         printLog(stderr,
-                  "Option -%s needs an integer value or \"now\"\n",
-                  line);
-   }
-   /* specific string value "now" */
-   if(!strcmp((const char*)valueptr, "now")) {
-      /* copy value to target option */
-      *(int*)(tableptr->value)=0;
-      log(("seconds value is %d (now)", *(int*)(tableptr->value)));
-      return 0;
-   }
+	/* value specified? */
+	if (!valueptr) {
+		if (filename)
+			printLog(stderr, "Configuration option \"%s\" in file %s needs an integer value or \"now\"\n", line, filename);
+		else
+			printLog(stderr, "Option -%s needs an integer value or \"now\"\n", line);
+	}
+	/* specific string value "now" */
+	if (!strcmp((const char *)valueptr, "now")) {
+		/* copy value to target option */
+		*(int *)(tableptr->value)=0;
+		log(("seconds value is %d (now)", *(int *)(tableptr->value)));
+		return 0;
+	}
 
-   /* else must be integer value */
-   intval = strtol((const char*)valueptr, &endptr, 10);
-   if(*endptr != '\0') {
-      if(filename)
-         printLog(stderr, "Configuration option \"%s\" in file %s", line, filename);
-      else
-         printLog(stderr, "Option -%s", line);
-      printLog(stderr, "accepts integer values greater than %d or \"now\"\n",
-               MIN_BIDTIME - 1);
-      return 1;
-   }
-   /* check minimum */
-   if(intval < MIN_BIDTIME) {
-      if(filename)
-         printLog(stderr, "Value at configuration option \"%s\" in file %s",
-                  line, filename);
-      else
-         printLog(stderr, "Value %d at option -%s", intval, line);
-      printLog(stderr, " too small, using minimum value of %d seconds\n",
-               MIN_BIDTIME);
-      intval = MIN_BIDTIME;
-   }
+	/* else must be integer value */
+	intval = strtol((const char*)valueptr, &endptr, 10);
+	if (*endptr != '\0') {
+		if (filename)
+			printLog(stderr, "Configuration option \"%s\" in file %s", line, filename);
+		else
+			printLog(stderr, "Option -%s", line);
+		printLog(stderr, "accepts integer values greater than %d or \"now\"\n", MIN_BIDTIME - 1);
+		return 1;
+	}
+	/* check minimum */
+	if (intval < MIN_BIDTIME) {
+		if (filename)
+			printLog(stderr, "Value at configuration option \"%s\" in file %s", line, filename);
+		else
+			printLog(stderr, "Value %d at option -%s", intval, line);
+		printLog(stderr, " too small, using minimum value of %d seconds\n", MIN_BIDTIME);
+		intval = MIN_BIDTIME;
+	}
 
-   /* copy value to target option */
-   *(int*)(tableptr->value) = intval;
-   log(("seconds value is %d\n", *(const int*)(tableptr->value)));
-   return 0;
+	/* copy value to target option */
+	*(int *)(tableptr->value) = intval;
+	log(("seconds value is %d\n", *(const int *)(tableptr->value)));
+	return 0;
 }
 
 /*
@@ -325,23 +318,22 @@ CheckSecs(const void* valueptr, const optionTable_t* tableptr,
  * returns: 0 = OK, else error
  */
 static int
-CheckPass(const void* valueptr, const optionTable_t* tableptr,
-          const char* filename, const char *line)
+CheckPass(const void *valueptr, const optionTable_t *tableptr,
+	  const char *filename, const char *line)
 {
-   if(!valueptr) {
-      if(filename)
-         printLog(stderr,
-                  "Invalid password at \"%s\" in file %s\n",
-                  line, filename);
-      else
-         printLog(stderr,
-                  "Invalid password at option -%s\n",
-                  line);
-      return 1;
-   }
-   setPassword(myStrdup((const char *)valueptr));
-   log(("password has been set\n"));
-   return 0;
+	if (!valueptr) {
+		if (filename)
+			printLog(stderr,
+				 "Invalid password at \"%s\" in file %s\n",
+				 line, filename);
+		else
+			printLog(stderr, "Invalid password at option -%s\n",
+				 line);
+		return 1;
+	}
+	setPassword(myStrdup((const char *)valueptr));
+	log(("password has been set\n"));
+	return 0;
 }
 
 /*
@@ -350,24 +342,22 @@ CheckPass(const void* valueptr, const optionTable_t* tableptr,
  * returns: 0 = OK, else error
  */
 static int
-CheckQuantity(const void* valueptr, const optionTable_t* tableptr,
-              const char* filename, const char *line)
+CheckQuantity(const void *valueptr, const optionTable_t *tableptr,
+	      const char *filename, const char *line)
 {
-   if(*(const int*)valueptr <= 0) {
-      if(filename)
-         printLog(stderr,
-                  "Quantity must be positive at \"%s\" in file %s\n",
-                  line, filename);
-      else
-         printLog(stderr,
-                  "Quantity must be positive at option -%s\n",
-                  line);
-      return 1;
-   }
-   /* copy value to target option */
-   *(int*)(tableptr->value) = *(const int*)valueptr;
-   log(("quantity is %d\n", *(const int*)(tableptr->value)));
-   return 0;
+	if (*(const int*)valueptr <= 0) {
+		if (filename)
+			printLog(stderr, "Quantity must be positive at \"%s\" in file %s\n", line, filename);
+		else
+			printLog(stderr,
+				 "Quantity must be positive at option -%s\n",
+				 line);
+		return 1;
+	}
+	/* copy value to target option */
+	*(int *)(tableptr->value) = *(const int *)valueptr;
+	log(("quantity is %d\n", *(const int *)(tableptr->value)));
+	return 0;
 }
 
 /*
@@ -376,23 +366,20 @@ CheckQuantity(const void* valueptr, const optionTable_t* tableptr,
  * returns: 0 = OK, else error
  */
 static int
-CheckUser(const void* valueptr, const optionTable_t* tableptr,
-          const char* filename, const char *line)
+CheckUser(const void *valueptr, const optionTable_t *tableptr,
+	  const char *filename, const char *line)
 {
-   if(!valueptr) {
-      if(filename)
-         printLog(stderr,
-                  "Invalid user at \"%s\" in file %s\n",
-                  line, filename);
-      else
-         printLog(stderr,
-                  "Invalid user at option -%s\n",
-                  line);
-      return 1;
-   }
-   setUsername(myStrdup((const char *)valueptr));
-   log(("user has been set\n"));
-   return 0;
+	if (!valueptr) {
+		if (filename)
+			printLog(stderr, "Invalid user at \"%s\" in file %s\n",
+				 line, filename);
+		else
+			printLog(stderr, "Invalid user at option -%s\n", line);
+		return 1;
+	}
+	setUsername(myStrdup((const char *)valueptr));
+	log(("user has been set\n"));
+	return 0;
 }
 
 /*
@@ -404,8 +391,8 @@ CheckUser(const void* valueptr, const optionTable_t* tableptr,
  * returns: 0 = OK, else error
  */
 static int
-ReadUser(const void* valueptr, const optionTable_t* tableptr,
-         const char* filename, const char *line)
+ReadUser(const void *valueptr, const optionTable_t *tableptr,
+	 const char *filename, const char *line)
 {
 	char *username = prompt("Enter eBay username: ", 0);
 
@@ -415,7 +402,7 @@ ReadUser(const void* valueptr, const optionTable_t* tableptr,
 	}
 
 	setUsername(myStrdup(username));
-	log(("username is %s\n", *(char**)(tableptr->value)));
+	log(("username is %s\n", *(char **)(tableptr->value)));
 	return 0;
 }
 
@@ -425,8 +412,8 @@ ReadUser(const void* valueptr, const optionTable_t* tableptr,
  * returns: 0 = OK, else error
  */
 static int
-ReadPass(const void* valueptr, const optionTable_t* tableptr,
-         const char* filename, const char *line)
+ReadPass(const void *valueptr, const optionTable_t *tableptr,
+	 const char *filename, const char *line)
 {
 	char *passwd = prompt("Enter eBay password: ", 1);
 
@@ -446,10 +433,10 @@ ReadPass(const void* valueptr, const optionTable_t* tableptr,
  *
  * returns: 0 = OK, else error
  */
-static int CheckAuctionFile(const void* valueptr, const optionTable_t* tableptr,
-                            const char* filename, const char *line)
+static int CheckAuctionFile(const void *valueptr, const optionTable_t *tableptr,
+			    const char *filename, const char *line)
 {
-   return CheckFile(valueptr, tableptr, filename, line, "Auction");
+	return CheckFile(valueptr, tableptr, filename, line, "Auction");
 }
 
 /*
@@ -457,10 +444,10 @@ static int CheckAuctionFile(const void* valueptr, const optionTable_t* tableptr,
  *
  * returns: 0 = OK, else error
  */
-static int CheckConfigFile(const void* valueptr, const optionTable_t* tableptr,
-                           const char* filename, const char *line)
+static int CheckConfigFile(const void *valueptr, const optionTable_t *tableptr,
+			   const char *filename, const char *line)
 {
-   return CheckFile(valueptr, tableptr, filename, line, "Config");
+	return CheckFile(valueptr, tableptr, filename, line, "Config");
 }
 
 /*
@@ -468,18 +455,19 @@ static int CheckConfigFile(const void* valueptr, const optionTable_t* tableptr,
  *
  * returns: 0 = OK, else error
  */
-static int CheckFile(const void* valueptr, const optionTable_t* tableptr,
-                     const char* filename, const char *line,
-                     const char *filetype)
+static int CheckFile(const void *valueptr, const optionTable_t *tableptr,
+		     const char *filename, const char *line,
+		     const char *filetype)
 {
-   if(access((const char*)valueptr, R_OK)) {
-      printLog(stderr, "%s file \"%s\" is not readable: %s\n",
-               filetype, nullStr((const char*)valueptr), strerror(errno));
-      return 1;
-   }
-   free(*(char**)(tableptr->value));
-   *(char**)(tableptr->value) = myStrdup(valueptr);
-   return 0;
+	if (access((const char*)valueptr, R_OK)) {
+		printLog(stderr, "%s file \"%s\" is not readable: %s\n",
+			 filetype, nullStr((const char*)valueptr),
+			 strerror(errno));
+		return 1;
+	}
+	free(*(char **)(tableptr->value));
+	*(char **)(tableptr->value) = myStrdup(valueptr);
+	return 0;
 }
 
 /*
@@ -487,21 +475,20 @@ static int CheckFile(const void* valueptr, const optionTable_t* tableptr,
  *
  * returns: 0 = OK, else error
  */
-static int CheckProxy(const void* valueptr, const optionTable_t* tableptr,
-                      const char* filename, const char *line)
+static int CheckProxy(const void *valueptr, const optionTable_t *tableptr,
+		      const char *filename, const char *line)
 {
-   if (parseProxy((const char *)valueptr, (proxy_t *)(tableptr->value))) {
-      if(filename)
-         printLog(stderr,
-                "Proxy specified in \"%s\" in file %s is not valid\n",
-                  line, filename);
-      else
-         printLog(stderr,
-                  "Proxy \"%s\" specified at option -%s is not valid\n",
-                  nullStr((const char*)valueptr), line);
-      return 1;
-   }
-   return 0;
+	if (!parseProxy((const char *)valueptr, (proxy_t *)(tableptr->value)))
+		return 0;
+	if (filename)
+		printLog(stderr,
+			 "Proxy specified in \"%s\" in file %s is not valid\n",
+			 line, filename);
+	else
+		printLog(stderr,
+			 "Proxy \"%s\" specified at option -%s is not valid\n",
+			 nullStr((const char *)valueptr), line);
+	return 1;
 }
 
 /*
@@ -509,12 +496,12 @@ static int CheckProxy(const void* valueptr, const optionTable_t* tableptr,
  *
  * returns: 0 = OK
  */
-static int SetLongHelp(const void* valueptr, const optionTable_t* tableptr,
-                       const char* filename, const char *line)
+static int SetLongHelp(const void *valueptr, const optionTable_t *tableptr,
+		       const char *filename, const char *line)
 {
-   /* copy value to target option */
-   *(int*)(tableptr->value) |= USAGE_SUMMARY | USAGE_LONG;
-   return 0;
+	/* copy value to target option */
+	*(int *)(tableptr->value) |= USAGE_SUMMARY | USAGE_LONG;
+	return 0;
 }
 
 /*
@@ -522,17 +509,18 @@ static int SetLongHelp(const void* valueptr, const optionTable_t* tableptr,
  *
  * returns: 0 = OK
  */
-static int SetConfigHelp(const void* valueptr, const optionTable_t* tableptr,
-                         const char* filename, const char *line)
+static int SetConfigHelp(const void *valueptr, const optionTable_t *tableptr,
+			 const char *filename, const char *line)
 {
-   /* copy value to target option */
-   *(int*)(tableptr->value) = USAGE_CONFIG;
-   return 0;
+	/* copy value to target option */
+	*(int *)(tableptr->value) = USAGE_CONFIG;
+	return 0;
 }
 
 static const char usageSummary[] =
-  "usage: %s [-bdhHnmPrUv] [-c conf_file] [-l logdir] [-p proxy] [-q quantity]\n"  "       [-s secs|now] [-u user] (auction_file | [auction price ...])\n"
-  "\n";
+ "usage: %s [-bdhHnmPrUv] [-c conf_file] [-l logdir] [-p proxy] [-q quantity]\n"
+ "       [-s secs|now] [-u user] (auction_file | [auction price ...])\n"
+ "\n";
 
 /* split in two to prevent gcc portability warning.  maximum length is 509 */
 static const char usageLong1[] =
@@ -861,7 +849,7 @@ main(int argc, char *argv[])
 #if DEBUG
 	    if (!XFlag) {
 #endif
-	      if (!options.myitems && (!options.auctfilename && argc < 2)) {
+		if (!options.myitems && (!options.auctfilename && argc < 2)) {
 			printLog(stderr, "Error: no auctions specified.\n");
 			options.usage |= USAGE_SUMMARY;
 		}

@@ -615,7 +615,7 @@ parseAuctionInternal(memBuf_t *mp, auctionInfo *aip, int quantity, const char *u
 	char *line;
 	char *title;
 	int reserve = 0;	/* 1 = reserve not met */
-        long remain;		/* time until auction ends */
+	long remain;		/* time until auction ends */
 
 	/*
 	 * Auction item
@@ -669,7 +669,7 @@ parseAuctionInternal(memBuf_t *mp, auctionInfo *aip, int quantity, const char *u
 	if ((remain = getseconds(line)) < 0)
 		return auctionError(aip, ae_badtime, line);
 	printLog(stdout, "Time remaining: %s (%ld seconds)\n", line, remain);
-        aip->endTime = remain + time(NULL);
+	aip->endTime = remain + time(NULL);
 	/* no \n needed -- ctime returns a string with \n at the end */
 	printLog(stdout, "End time: %s", ctime(&(aip->endTime)));
 
@@ -1134,7 +1134,7 @@ watch(auctionInfo *aip)
 		tmpLatency = (timeToFirstByte - start);
 		if ((tmpLatency >= 0) && (tmpLatency < 600))
 			aip->latency = tmpLatency;
-	        printLog(stdout, "Latency: %d seconds\n", aip->latency);
+		printLog(stdout, "Latency: %d seconds\n", aip->latency);
 
 		if (ret) {
 			printAuctionError(aip, stderr);
@@ -1156,17 +1156,19 @@ watch(auctionInfo *aip)
 					sleep(sleepTime);
 					continue;
 				}
-			} else if (remain == LONG_MIN) { /* first time */
+			} else if (remain == LONG_MIN) {
+				/* first time through?  Give it 3 chances then
+				 * make the error fatal.
+				 */
 				int j;
 
 				for (j = 0; ret && j < 3 && aip->auctionError == ae_notitle; ++j) {
 					ret = getInfo(aip, options.quantity,
 						      options.username);
-                                }
-				if (!ret)
-					remain = newRemain(aip);
-				else
+				}
+				if (ret)
 					return 1;
+				remain = newRemain(aip);
 			} else {
 				/* non-fatal error */
 				log(("ERROR %d!!!\n", ++errorCount));

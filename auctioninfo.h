@@ -93,7 +93,7 @@ extern int compareAuctionInfo(const void *p1, const void *p2);
 extern void printAuctionError(auctionInfo *aip, FILE *fp);
 extern void resetAuctionError(auctionInfo *aip);
 extern int auctionError(auctionInfo *aip, enum auctionErrorCode pe,
-                        const char *details);
+			const char *details);
 extern int isValidBidPrice(const auctionInfo *aip);
 
 #endif /* AUCTIONINFO_H_INCLUDED */

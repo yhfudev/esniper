@@ -68,13 +68,13 @@ httpPost(auctionInfo *aip, const char *url, const char *data, const char *logDat
 memBuf_t *
 strToMemBuf(const char *s)
 {
-        static memBuf_t m;
+	static memBuf_t m;
 
-        m.timeToFirstByte = time(NULL);
-        m.memory = myStrdup(s);
-        m.readptr = m.memory;
-        m.size = s ? strlen(s) + 1 : 0;
-        return &m;
+	m.timeToFirstByte = time(NULL);
+	m.memory = myStrdup(s);
+	m.readptr = m.memory;
+	m.size = s ? strlen(s) + 1 : 0;
+	return &m;
 }
 
 /*
@@ -193,7 +193,7 @@ initCurlStuff(void)
 	if ((curlrc = curl_easy_setopt(easyhandle, CURLOPT_FOLLOWLOCATION, 1)))
 		initCurlStuffFailed(curlrc);
 
-	/* send all data to this function  */
+	/* send all data to this function */
 	if ((curlrc = curl_easy_setopt(easyhandle, CURLOPT_WRITEFUNCTION, WriteMemoryCallback)))
 		initCurlStuffFailed(curlrc);
 
@@ -327,9 +327,9 @@ static const char *curlErrorTable[] = {
 	"CURLE_BAD_CALLING_ORDER", /* CURLE_BAD_CALLING_ORDER */
 	"failed binding local connection end", /* CURLE_INTERFACE_FAILED */
 	"CURLE_BAD_PASSWORD_ENTERED", /* CURLE_BAD_PASSWORD_ENTERED */
-	"number of redirects hit maximum amount", /* CURLE_TOO_MANY_REDIRECTS  */
+	"number of redirects hit maximum amount", /* CURLE_TOO_MANY_REDIRECTS */
 	"User specified an unknown option", /* CURLE_UNKNOWN_TELNET_OPTION */
-	"Malformed telnet option", /* CURLE_TELNET_OPTION_SYNTAX  */
+	"Malformed telnet option", /* CURLE_TELNET_OPTION_SYNTAX */
 	"CURLE_OBSOLETE", /* CURLE_OBSOLETE */
 	"SSL peer certificate was not ok", /* CURLE_SSL_PEER_CERTIFICATE */
 	"server returned nothing (no headers, no data)", /* CURLE_GOT_NOTHING */

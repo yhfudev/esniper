@@ -168,7 +168,7 @@ logOpen(const auctionInfo *aip, const char *logdir)
 	}
 	logClose();
 	if (!(logfile = fopen(logfilename, "a"))) {
-                /* non-fatal error! */
+		/* non-fatal error! */
 		fprintf(stderr, "Unable to open log file %s: %s\n",
 			logfilename, strerror(errno));
 	} else
@@ -460,41 +460,34 @@ prompt(const char *p, int noecho)
 
 /*
  * Converts string to boolean.
- *  returns 0 (false), 1 (true), or -1 (invalid).  NULL is true.
+ * returns 0 (false), 1 (true), or -1 (invalid).  NULL is true.
  */
 int
 boolValue(const char *value)
 {
-   static const char* boolvalues[] =
-      {
-         "0",
-         "1",
-         "n",
-         "y",
-         "no",
-         "yes",
-         "off",
-         "on",
-         "false",
-         "true",
-         "disabled",
-         "enabled",
-         NULL
-      };
-   int i;
-   char *buf;
+	static const char* boolvalues[] = {
+		"0", "1",
+		"n", "y",
+		"no", "yes",
+		"off", "on",
+		"false", "true",
+		"disabled", "enabled",
+		NULL
+	};
+	int i;
+	char *buf;
 
-   if (!value)
-      return 1;
+	if (!value)
+		return 1;
 
-   buf = myStrdup(value);
-   toLowerString(buf);
-   for (i = 0; boolvalues[i]; i++) {
-      if (!strcmp(buf, boolvalues[i]))
-         break;
-   }
-   free(buf);
-   return boolvalues[i] ? i % 2 : -1;
+	buf = myStrdup(value);
+	toLowerString(buf);
+	for (i = 0; boolvalues[i]; i++) {
+		if (!strcmp(buf, boolvalues[i]))
+			break;
+	}
+	free(buf);
+	return boolvalues[i] ? i % 2 : -1;
 }
 
 /*
@@ -724,7 +717,8 @@ basename(char *name)
 	int len;
 	char *cp;
 
-        if (!name) return name;
+	if (!name)
+		return name;
 
 	len = strlen(name);
 	if (len == 0)

@@ -286,7 +286,7 @@ freeAuction(auctionInfo *aip)
 int
 compareAuctionInfo(const void *p1, const void *p2)
 {
-	const auctionInfo * a1,  * a2;
+	const auctionInfo * a1, * a2;
 
 	a1 = *((const auctionInfo * const *)p1);
 	a2 = *((const auctionInfo * const *)p2);
@@ -295,7 +295,8 @@ compareAuctionInfo(const void *p1, const void *p2)
 	if (a1->winning != a2->winning)
 		return a1->winning > a2->winning ? -1 : 1;
 	/* if end time is the same we compare the current price
-           and use the lower price first */
+	 * and use the lower price first
+	 */
 	if (a1->endTime == a2->endTime)
 		/* comparison function must return an integer so we
 		 * convert the price to cent or whatever it's called
