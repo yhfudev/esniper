@@ -71,7 +71,7 @@ static pageInfo_t *getPageInfo(memBuf_t *mp);
 static void freePageInfo(pageInfo_t *pp);
 
 static int getQuantity(int want, int available);
-static int parseAuction(memBuf_t *mp, auctionInfo *aip, const char *user, time_t *timeToFirstByte);
+static int parseAuction(memBuf_t *mp, auctionInfo *aip, const char *user, time_t start, time_t *timeToFirstByte);
 static int parseBid(memBuf_t *mp, auctionInfo *aip);
 
 static void printMyItemsRow(char **row, int line);
@@ -634,7 +634,7 @@ static const char PRIVATE[] = "private auction - bidders' identities protected";
  *	1 error (badly formatted page, etc) - sets auctionError
  */
 static int
-parseAuction(memBuf_t *mp, auctionInfo *aip, const char *user, time_t *timeToFirstByte)
+parseAuction(memBuf_t *mp, auctionInfo *aip, const char *user, time_t start, time_t *timeToFirstByte)
 {
 	char *line;
 	char *title;
@@ -723,7 +723,7 @@ parseAuction(memBuf_t *mp, auctionInfo *aip, const char *user, time_t *timeToFir
 		return auctionError(aip, ae_badtime, line);
 	printLog(stdout, "Time remaining: %s (%ld seconds)\n", line, remain);
 	free(line); /* allocated in "Time left:" getNonTagFromString() */
-	aip->endTime = remain + time(NULL);
+	aip->endTime = start + remain;
 	/* no \n needed -- ctime returns a string with \n at the end */
 	printLog(stdout, "End time: %s", ctime(&(aip->endTime)));
 
@@ -976,15 +976,17 @@ getInfoTiming(auctionInfo *aip, const char *user, time_t *timeToFirstByte)
 {
 	memBuf_t *mp;
 	int ret;
+	time_t start;
 
 	log(("\n\n*** getInfo auction %s price %s user %s\n", aip->auction, aip->bidPriceStr, user));
 
 	if (!aip->query)
 		aip->query = myStrdup2(GETINFO, aip->auction);
+	start = time(NULL);
 	if (!(mp = httpGet(aip->query, NULL)))
 		return 1;
 
-	ret = parseAuction(mp, aip, user, timeToFirstByte);
+	ret = parseAuction(mp, aip, user, start, timeToFirstByte);
 	clearMembuf(mp);
 	return ret;
 }
@@ -1467,7 +1469,7 @@ testParser(int flag)
 	    {
 		/* run through bid history parser */
 		auctionInfo *aip = newAuctionInfo("1", "2");
-		int ret = parseAuction(mp, aip, options.username, NULL);
+		int ret = parseAuction(mp, aip, options.username, time(NULL), NULL);
 
 		printf("ret = %d\n", ret);
 		printAuctionError(aip, stdout);
