@@ -36,19 +36,10 @@ static const char blurb[]="Please visit http://esniper.sourceforge.net/ for upda
 
 #if defined(unix) || defined (__unix)
 #	include <unistd.h>
+#	include <netinet/in.h>
 #	include <sys/socket.h>
-#	ifdef __CYGWIN__
-#		include <netinet/in.h>
-#	elif defined(__linux)
-#		include <netinet/in.h>
-#		include <sys/time.h>
-#	elif defined(__hpux)
-		/* nothing special yet */
-#	elif defined(sun)
-		/* nothing special yet */
-#	endif
-#elif defined(WIN32)
-	/* TODO */
+#	include <sys/time.h>
+#elif defined(WIN32) /* TODO */
 #	include <winsock.h>
 #endif
 #include <ctype.h>
