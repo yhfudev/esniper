@@ -177,10 +177,13 @@ sortAuctions(auctionInfo **auctions, int numAuctions, char *user, int *quantity)
 	for (i = 0; i < numAuctions; ++i) {
 		auctionInfo *aip = auctions[i];
 
-		if (aip->auctionError != ae_none) {
-			if (aip->won > 0)
-				*quantity -= aip->won;
-		} else if (!isValidBidPrice(aip))
+		if (aip->won > 0)
+			*quantity -= aip->won;
+		else if (aip->auctionError != ae_none)
+			;
+		else if (aip->remain == 0)
+			;
+		else if (!isValidBidPrice(aip))
 			auctionError(aip, ae_bidprice, NULL);
 		else if (i > 0 && auctions[i-1] &&
 			 !strcmp(aip->auction, auctions[i-1]->auction))
