@@ -46,7 +46,7 @@ extern int initCurlStuff(void);
 extern void cleanupCurlStuff(void);
 extern void resetCurlStuff(void);
 
-extern memBuf_t *httpGet(auctionInfo *aip, const char *url);
+extern memBuf_t *httpGet(auctionInfo *aip, const char *url, const char *logUrl);
 extern memBuf_t *httpPost(auctionInfo *aip, const char *url, const char *data, const char *logData);
 extern void clearMembuf(memBuf_t *mp);
 

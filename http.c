@@ -62,21 +62,25 @@
 
 enum requestType {GET, POST};
 
-static memBuf_t *httpRequest(auctionInfo *, const char *url, const char *data, const char *logData, enum requestType);
+static memBuf_t *httpRequest(auctionInfo *, const char *url, const char *logUrl, const char *data, const char *logData, enum requestType);
 static size_t WriteMemoryCallback(void *ptr, size_t size, size_t nmemb, void *data);
+
+#ifdef NEED_CURL_EASY_STRERROR
+static const char *curl_easy_strerror(CURLcode error);
+#endif
 
 /* returns open socket, or NULL on error */
 memBuf_t *
-httpGet(auctionInfo *aip, const char *url)
+httpGet(auctionInfo *aip, const char *url, const char *logUrl)
 {
-	return httpRequest(aip, url, "", NULL, GET);
+	return httpRequest(aip, url, logUrl, "", NULL, GET);
 }
 
 /* returns open socket, or NULL on error */
 memBuf_t *
 httpPost(auctionInfo *aip, const char *url, const char *data, const char *logData)
 {
-	return httpRequest(aip, url, data, logData, POST);
+	return httpRequest(aip, url, NULL, data, logData, POST);
 }
 
 static const char UNAVAILABLE[] = "unavailable/";
@@ -87,7 +91,7 @@ char globalErrorbuf[CURL_ERROR_SIZE];
 static int curlInitDone=0;
 
 static memBuf_t *
-httpRequest(auctionInfo *aip, const char *url, const char *data, const char *logData, enum requestType rt)
+httpRequest(auctionInfo *aip, const char *url, const char *logUrl, const char *data, const char *logData, enum requestType rt)
 {
    const char *nonNullData = data ? data : "";
 
@@ -138,7 +142,7 @@ httpRequest(auctionInfo *aip, const char *url, const char *data, const char *log
       }
    }
 
-   log((url));
+   log((logUrl ? logUrl : url));
    curlrc=curl_easy_setopt(easyhandle, CURLOPT_URL, url);
    if(curlrc)
    {
@@ -161,11 +165,11 @@ httpRequest(auctionInfo *aip, const char *url, const char *data, const char *log
 void
 clearMembuf(memBuf_t *mp)
 {
-   free(mp->memory);
-      mp->memory=NULL;
-      mp->size=0;
-      mp->readptr=NULL;
-      mp->timeToFirstByte=0;
+	free(mp->memory);
+	mp->memory=NULL;
+	mp->size=0;
+	mp->readptr=NULL;
+	mp->timeToFirstByte=0;
 }
 
 int initCurlStuff(void)
@@ -262,11 +266,6 @@ void cleanupCurlStuff(void)
    curlInitDone=0;
 }
 
-void resetCurlStuff(void)
-{
-   curl_easy_reset(easyhandle);
-}
-
 static size_t WriteMemoryCallback(void *ptr, size_t size, size_t nmemb, void *data)
 {
    register size_t realsize = size * nmemb;
@@ -307,3 +306,87 @@ time_t getTimeToFirstByte(memBuf_t *mp)
 {
 	return mp->timeToFirstByte;
 }
+
+#ifdef NEED_CURL_EASY_STRERROR
+/*
+ * This is only needed if we are using libcurl that doesn't have its own
+ * curl_easy_strerror.  curl_easy_strerror was added in 7.11.2.
+ */
+static const char *curlErrorTable[] = {
+	"no error", /* CURLE_OK */
+	"unsupported protocol", /* CURLE_UNSUPPORTED_PROTOCOL */
+	"failed init", /* CURLE_FAILED_INIT */
+	"URL using bad/illegal format or missing URL", /* CURLE_URL_MALFORMAT */
+	"CURLE_URL_MALFORMAT_USER", /* CURLE_URL_MALFORMAT_USER */
+	"couldnt resolve proxy name", /* CURLE_COULDNT_RESOLVE_PROXY */ 
+	"couldnt resolve host name", /* CURLE_COULDNT_RESOLVE_HOST */ 
+	"couldn't connect to server", /* CURLE_COULDNT_CONNECT */ 
+	"FTP: weird server reply", /* CURLE_FTP_WEIRD_SERVER_REPLY */ 
+	"FTP: access denied", /* CURLE_FTP_ACCESS_DENIED */
+	"FTP: user and/or password incorrect", /* CURLE_FTP_USER_PASSWORD_INCORRECT */
+	"FTP: unknown PASS reply", /* CURLE_FTP_WEIRD_PASS_REPLY */
+	"FTP: unknown USER reply", /* CURLE_FTP_WEIRD_USER_REPLY */
+	"FTP: unknown PASV reply", /* CURLE_FTP_WEIRD_PASV_REPLY */
+	"FTP: unknown 227 response format", /* CURLE_FTP_WEIRD_227_FORMAT */
+	"FTP: can't figure out the host in the PASV response", /* CURLE_FTP_CANT_GET_HOST */
+	"FTP: can't connect to server the response code is unknown", /* CURLE_FTP_CANT_RECONNECT */
+	"FTP: couldn't set binary mode", /* CURLE_FTP_COULDNT_SET_BINARY */
+	"Transferred a partial file", /* CURLE_PARTIAL_FILE */
+	"FTP: couldn't retrieve (RETR failed) the specified file", /* CURLE_FTP_COULDNT_RETR_FILE */
+	"FTP: the post-transfer acknowledge response was not OK", /* CURLE_FTP_WRITE_ERROR */
+	"FTP: a quote command returned error", /* CURLE_FTP_QUOTE_ERROR */
+	"HTTP response code said error", /* CURLE_HTTP_RETURNED_ERROR */
+	"failed writing received data to disk/application", /* CURLE_WRITE_ERROR */
+	"CURLE_MALFORMAT_USER", /* CURLE_MALFORMAT_USER */
+	"failed FTP upload (the STOR command)", /* CURLE_FTP_COULDNT_STOR_FILE */
+	"failed to open/read local data from file/application", /* CURLE_READ_ERROR */
+	"out of memory", /* CURLE_OUT_OF_MEMORY */
+	"a timeout was reached", /* CURLE_OPERATION_TIMEOUTED */
+	"FTP could not set ASCII mode (TYPE A)", /* CURLE_FTP_COULDNT_SET_ASCII */
+	"FTP command PORT failed", /* CURLE_FTP_PORT_FAILED */
+	"FTP command REST failed", /* CURLE_FTP_COULDNT_USE_REST */
+	"FTP command SIZE failed", /* CURLE_FTP_COULDNT_GET_SIZE */
+	"a range was requested but the server did not deliver it", /* CURLE_HTTP_RANGE_ERROR */
+	"internal problem setting up the POST", /* CURLE_HTTP_POST_ERROR */
+	"SSL connect error", /* CURLE_SSL_CONNECT_ERROR */
+	"couldn't resume FTP download", /* CURLE_FTP_BAD_DOWNLOAD_RESUME */
+	"couldn't read a file:// file", /* CURLE_FILE_COULDNT_READ_FILE */
+	"LDAP: cannot bind", /* CURLE_LDAP_CANNOT_BIND */
+	"LDAP: search failed", /* CURLE_LDAP_SEARCH_FAILED */
+	"a required shared library was not found", /* CURLE_LIBRARY_NOT_FOUND */
+	"a required function in the shared library was not found", /* CURLE_FUNCTION_NOT_FOUND */
+	"the operation was aborted by an application callback", /* CURLE_ABORTED_BY_CALLBACK */
+	"a libcurl function was given a bad argument", /* CURLE_BAD_FUNCTION_ARGUMENT */
+	"CURLE_BAD_CALLING_ORDER", /* CURLE_BAD_CALLING_ORDER */
+	"failed binding local connection end", /* CURLE_INTERFACE_FAILED */
+	"CURLE_BAD_PASSWORD_ENTERED", /* CURLE_BAD_PASSWORD_ENTERED */
+	"number of redirects hit maximum amount", /* CURLE_TOO_MANY_REDIRECTS  */
+	"User specified an unknown option", /* CURLE_UNKNOWN_TELNET_OPTION */
+	"Malformed telnet option", /* CURLE_TELNET_OPTION_SYNTAX  */
+	"CURLE_OBSOLETE", /* CURLE_OBSOLETE */
+	"SSL peer certificate was not ok", /* CURLE_SSL_PEER_CERTIFICATE */
+	"server returned nothing (no headers, no data)", /* CURLE_GOT_NOTHING */
+	"SSL crypto engine not found", /* CURLE_SSL_ENGINE_NOTFOUND */
+	"can not set SSL crypto engine as default", /* CURLE_SSL_ENGINE_SETFAILED */
+	"failed sending data to the peer", /* CURLE_SEND_ERROR */
+	"failure when receiving data from the peer", /* CURLE_RECV_ERROR */
+	"share is already in use", /* CURLE_SHARE_IN_USE */
+	"problem with the local SSL certificate", /* CURLE_SSL_CERTPROBLEM */
+	"couldn't use specified SSL cipher", /* CURLE_SSL_CIPHER */
+	"problem with the SSL CA cert (path? access rights?)", /* CURLE_SSL_CACERT */
+	"Unrecognized HTTP Content-Encoding", /* CURLE_BAD_CONTENT_ENCODING */
+	"Invalid LDAP URL", /* CURLE_LDAP_INVALID_URL */
+	"Maximum file size exceeded", /* CURLE_FILESIZE_EXCEEDED */
+	"Requested FTP SSL level failed", /* CURLE_FTP_SSL_FAILED */
+};
+
+static const char *
+curl_easy_strerror(CURLcode error)
+{
+	if (error < 0 || error >= CURL_LAST ||
+	    error >= (sizeof(curlErrorTable) / sizeof(const char *)))
+
+		return "unknown error";
+	return curlErrorTable[error];
+}
+#endif

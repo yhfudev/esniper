@@ -30,11 +30,11 @@
 #include <ctype.h>
 #include <limits.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
 #include <time.h>
 #if defined(WIN32)
-#	include <stdlib.h>
 #	define strcasecmp(s1, s2) stricmp((s1), (s2))
 #	define sleep(t) _sleep((t) * 1000)
 #else
@@ -624,7 +624,7 @@ getInfoTiming(auctionInfo *aip, int quantity, const char *user, time_t *timeToFi
 
 	if (!aip->query)
 		aip->query = myStrdup2(GETINFO, aip->auction);
-	if (!(mp = httpGet(aip, aip->query)))
+	if (!(mp = httpGet(aip, aip->query, NULL)))
 		return 1;
 
 	ret = parseAuction(mp, aip, quantity, user, timeToFirstByte);
@@ -636,9 +636,7 @@ getInfoTiming(auctionInfo *aip, int quantity, const char *user, time_t *timeToFi
  * Note: quant=1 is just to dupe eBay into allowing the pre-bid to get
  *	 through.  Actual quantity will be sent with bid.
  */
-static const char PRE_BID_URL[] = "http://offer.ebay.com/ws/eBayISAPI.dll";
-static const char PRE_BID_DATA[] = "MakeBid&item=%s&maxbid=%s&quant=%s";
-static const char PRE_BID_2_DATA[] = "http://offer.ebay.com/ws/eBayISAPI.dll?MakeBid&item=%s&maxbid=%s&quant=%s";
+static const char PRE_BID_URL[] = "http://offer.ebay.com/ws/eBayISAPI.dll?MakeBid&item=%s&maxbid=%s&quant=%s";
 
 /*
  * Get key for bid
@@ -649,20 +647,19 @@ int
 preBid(auctionInfo *aip)
 {
 	memBuf_t *mp;
-	size_t dataLen;
 	int quantity = getQuantity(aip->quantity, options.quantity);
 	char quantityStr[12];	/* must hold an int */
-	char *data;
+	size_t urlLen;
+	char *url;
 	int ret = 0;
 
 	sprintf(quantityStr, "%d", quantity);
-	dataLen = sizeof(PRE_BID_2_DATA) + strlen(aip->auction) + strlen(aip->bidPriceStr) + strlen(quantityStr) - 6;
-	data = (char *)myMalloc(dataLen);
-	sprintf(data, PRE_BID_2_DATA, aip->auction, aip->bidPriceStr, quantityStr);
-	log(("\n\n*** preBid(): data is %s\n", data));
-	/* mp = httpPost(aip, PRE_BID_URL, "", data); */
-	mp = httpGet(aip, data);
-	free(data);
+	urlLen = sizeof(PRE_BID_URL) + strlen(aip->auction) + strlen(aip->bidPriceStr) + strlen(quantityStr) - 6;
+	url = (char *)myMalloc(urlLen);
+	sprintf(url, PRE_BID_URL, aip->auction, aip->bidPriceStr, quantityStr);
+	log(("\n\n*** preBid(): url is %s\n", url));
+	mp = httpGet(aip, url, NULL);
+	free(url);
 	if (!mp)
 		return 1;
 
@@ -693,9 +690,7 @@ preBid(auctionInfo *aip)
 }
 
 static const char LOGIN_1_URL[] = "https://signin.ebay.com/ws/eBayISAPI.dll?SignIn";
-static const char LOGIN_2_URL[] = "https://signin.ebay.com/ws/eBayISAPI.dll";
-static const char LOGIN_2_DATA[] = "SignInWelcome&userid=%s&pass=%s&keepMeSignInOption=1";
-static const char LOGIN_3_DATA[] = "https://signin.ebay.com/ws/eBayISAPI.dll?SignInWelcome&userid=%s&pass=%s&keepMeSignInOption=1";
+static const char LOGIN_2_URL[] = "https://signin.ebay.com/ws/eBayISAPI.dll?SignInWelcome&userid=%s&pass=%s&keepMeSignInOption=1";
 
 /*
  * Ebay login
@@ -705,38 +700,34 @@ static const char LOGIN_3_DATA[] = "https://signin.ebay.com/ws/eBayISAPI.dll?Sig
 int
 ebayLogin(auctionInfo *aip)
 {
-   memBuf_t *mp;
-   size_t dataLen;
-   char *data;
-   char *logData;
-   int ret = 0;
+	memBuf_t *mp;
+	size_t urlLen;
+	char *url, *logUrl;
+	int ret = 0;
 
-   mp = httpGet(aip, LOGIN_1_URL);
-   if (!mp)
-      return 1;
+	mp = httpGet(aip, LOGIN_1_URL, NULL);
+	if (!mp)
+		return 1;
 
-   clearMembuf(mp);
+	clearMembuf(mp);
 
-   dataLen = sizeof(LOGIN_3_DATA) + strlen(options.username);
-   data=malloc(dataLen + strlen(getPassword()));
-   logData=malloc(dataLen + 5);
+	urlLen = sizeof(LOGIN_2_URL) + strlen(options.username);
+	url = malloc(urlLen + strlen(getPassword()));
+	logUrl = malloc(urlLen + 5);
 
-   sprintf(data, LOGIN_3_DATA, options.username, getPassword());
-   sprintf(logData, LOGIN_3_DATA, options.username, "*****");
+	sprintf(url, LOGIN_2_URL, options.username, getPassword());
+	sprintf(logUrl, LOGIN_2_URL, options.username, "*****");
 
-   /* mp = httpPost(aip, LOGIN_2_URL, data, logData); */
-   mp = httpGet(aip, data);
+	mp = httpGet(aip, url, logUrl);
+	free(url);
+	free(logUrl);
 
-   if (match(mp, "Welcome to eBay,"))
-   {
-      ret = auctionError(aip, ae_login, NULL);
-   }
-   else
-   {
-      aip->loginTime = time(NULL);
-   }
-   clearMembuf(mp);
-   return ret;
+	if (match(mp, "Welcome to eBay,"))
+		ret = auctionError(aip, ae_login, NULL);
+	else
+		aip->loginTime = time(NULL);
+	clearMembuf(mp);
+	return ret;
 }
 
 static const char PAGENAME[] = "var pageName = \"";
@@ -772,7 +763,8 @@ parseBid(memBuf_t *mp, auctionInfo *aip)
 		log(("parseBid(): pagename = %s\n", pagename));
 		if (!strcmp(pagename, "AcceptBid_HighBidder"))
 			return aip->bidResult = 0;
-		else if (!strcmp(pagename, "AcceptBid_Outbid"))
+		else if (!strcmp(pagename, "AcceptBid_Outbid") ||
+			 !strcmp(pagename, "AcceptBid_Outbid_rebid"))
 			return aip->bidResult = auctionError(aip, ae_outbid, NULL);
 		else if (!strcmp(pagename, "MakeBidErrorMinBid"))
 			return aip->bidResult = auctionError(aip, ae_bidprice, NULL);
@@ -790,9 +782,7 @@ parseBid(memBuf_t *mp, auctionInfo *aip)
 	return 0;	/* prevent another bid */
 } /* parseBid() */
 
-static const char BID_URL[] = "http://offer.ebay.com/ws/eBayISAPI.dll";
-static const char BID_DATA[] = "MfcISAPICommand=AcceptBid&item=%s&key=%s&maxbid=%s&quant=%s&user=%s&pass=%s&mode=1";
-static const char BID_2_DATA[] = "http://offer.ebay.com/ws/eBayISAPI.dll?AcceptBid&item=%s&key=%s&maxbid=%s&quant=%s&user=%s&pass=%s&mode=1";
+static const char BID_URL[] = "http://offer.ebay.com/ws/eBayISAPI.dll?AcceptBid&item=%s&key=%s&maxbid=%s&quant=%s&user=%s&pass=%s&mode=1";
 
 /*
  * Place bid.
@@ -805,44 +795,41 @@ int
 bid(auctionInfo *aip)
 {
 	memBuf_t *mp;
-	size_t dataLen, passwordLen;
-	char *data, *logData, *tmpUsername, *tmpPassword, *password;
+	size_t urlLen, passwordLen;
+	char *url, *logUrl, *tmpUsername, *tmpPassword, *password;
 	int ret;
 	int quantity = getQuantity(aip->quantity, options.quantity);
 	char quantityStr[12];	/* must hold an int */
 
 	sprintf(quantityStr, "%d", quantity);
 
-	/* create data */
+	/* create url */
 	password = getPassword();
 	passwordLen = strlen(password);
-	dataLen = sizeof(BID_2_DATA) + strlen(aip->auction) + strlen(aip->key) + strlen(aip->bidPriceStr) + strlen(quantityStr) + strlen(options.username) + passwordLen - 12;
-	data = (char *)myMalloc(dataLen);
-	sprintf(data, BID_2_DATA, aip->auction, aip->key, aip->bidPriceStr, quantityStr, options.username, password);
+	urlLen = sizeof(BID_URL) + strlen(aip->auction) + strlen(aip->key) + strlen(aip->bidPriceStr) + strlen(quantityStr) + strlen(options.username) + passwordLen - 12;
+	url = (char *)myMalloc(urlLen);
+	sprintf(url, BID_URL, aip->auction, aip->key, aip->bidPriceStr, quantityStr, options.username, password);
 	freePassword(password);
 
-	logData = (char *)myMalloc(dataLen);
+	logUrl = (char *)myMalloc(urlLen);
 	tmpUsername = stars(strlen(options.username));
 	tmpPassword = stars(passwordLen);
-	sprintf(logData, BID_DATA, aip->auction, aip->key, aip->bidPriceStr, quantityStr, tmpUsername, tmpPassword);
+	sprintf(logUrl, BID_URL, aip->auction, aip->key, aip->bidPriceStr, quantityStr, tmpUsername, tmpPassword);
 	free(tmpUsername);
 	free(tmpPassword);
 
 	if (!options.bid) {
 		printLog(stdout, "Bidding disabled\n");
-		log(("\n\nbid(): query data:\n%s\n", logData));
+		log(("\n\nbid(): query url:\n%s\n", logUrl));
 		ret = aip->bidResult = 0;
-	} else if (!(
-                     /* mp = httpPost(aip, BID_URL, data, logData) */
-                     mp = httpGet(aip, data)
-                     ))
+	} else if (!(mp = httpGet(aip, url, NULL))) {
 		ret = 1;
-	else {
+	} else {
 		ret = parseBid(mp, aip);
 		clearMembuf(mp);
 	}
-	free(data);
-	free(logData);
+	free(url);
+	free(logUrl);
 	return ret;
 } /* bid() */
 
