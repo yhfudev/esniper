@@ -475,7 +475,10 @@ parseAuctionNew(FILE *fp, auctionInfo *aip, int quantity, const char *user)
 		if (!line)
 			return auctionError(aip, ae_nohighbid, NULL);
 		if (!strcmp(line, "private auction -- bidders' identities protected")) {
-			if (aip->bidResult == 0 && aip->price <= aip->bidPrice)
+			if (aip->price <= aip->bidPrice &&
+			    (aip->bidResult == 0 ||
+			     (aip->bidResult == -1 &&
+			      aip->remain < options.bidtime)))
 				winner = user;
 			else
 				winner = "[private]";
@@ -640,7 +643,10 @@ parseAuctionOld(FILE *fp, auctionInfo *aip, int quantity, const char *user)
 		if (!line || !(line = getnontag(fp)))
 			return auctionError(aip, ae_nohighbid, NULL);
 		if (strstr(line, "private auction")) {
-			if (aip->bidResult == 0 && aip->price <= aip->bidPrice)
+			if (aip->price <= aip->bidPrice &&
+			    (aip->bidResult == 0 ||
+			     (aip->bidResult == -1 &&
+			      aip->remain < options.bidtime)))
 				winner = user;
 			else
 				winner = "[private]";
@@ -826,27 +832,20 @@ parseBid(FILE *fp, auctionInfo *aip)
 
 		*quote = '\0';
 		log(("parseBid(): pagename = %s\n", pagename));
-		if (!strcmp(pagename, "AcceptBid_HighBidder")) {
-			aip->bidResult = 0;
-			return 0;
-		} else if (!strcmp(pagename, "AcceptBid_Outbid")) {
-			aip->bidResult = auctionError(aip, ae_outbid, NULL);
-			return 1;
-		} else if (!strcmp(pagename, "MakeBidErrorMinBid")) {
-			aip->bidResult = auctionError(aip, ae_bidprice, NULL);
-			return 1;
-		} else if (!strcmp(pagename, "AcceptBid_ReserveNotMet")) {
-			aip->bidResult = auctionError(aip, ae_reservenotmet, NULL);
-			return 1;
-		} else if (!strcmp(pagename, "MakeBidErrorPassword") ||
+		if (!strcmp(pagename, "AcceptBid_HighBidder"))
+			return aip->bidResult = 0;
+		else if (!strcmp(pagename, "AcceptBid_Outbid"))
+			return aip->bidResult = auctionError(aip, ae_outbid, NULL);
+		else if (!strcmp(pagename, "MakeBidErrorMinBid"))
+			return aip->bidResult = auctionError(aip, ae_bidprice, NULL);
+		else if (!strcmp(pagename, "AcceptBid_ReserveNotMet"))
+			return aip->bidResult = auctionError(aip, ae_reservenotmet, NULL);
+		else if (!strcmp(pagename, "MakeBidErrorPassword") ||
 			   !strcmp(pagename, "PageMakeBid") ||
-			   !strcmp(pagename, "PageMakeBid_signin")) {
-			aip->bidResult = auctionError(aip, ae_badpass, NULL);
-			return 1;
-		} else if (!strcmp(pagename, "MakeBidError")) {
-			aip->bidResult = auctionError(aip, ae_ended, NULL);
-			return 1;
-		}
+			   !strcmp(pagename, "PageMakeBid_signin"))
+			return aip->bidResult = auctionError(aip, ae_badpass, NULL);
+		else if (!strcmp(pagename, "MakeBidError"))
+			return aip->bidResult = auctionError(aip, ae_ended, NULL);
 		break;
 	}
 	printLog(stdout, "Cannot determine result of bid\n");
