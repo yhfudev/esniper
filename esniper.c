@@ -34,7 +34,7 @@
 static const char version[]="esniper version 1.0";
 static const char blurb[]="Please visit http://esniper.sourceforge.net/ for updates and bug reports";
 
-#if defined(unix) || defined (__unix)
+#if defined(unix) || defined (__unix) || defined (__MACH__)
 #	include <unistd.h>
 #	include <netinet/in.h>
 #	include <sys/socket.h>
@@ -100,7 +100,8 @@ logOpen(const char *item)
 static void
 vlog(const char *fmt, va_list arglist)
 {
-	struct timeval	tv;
+	struct timeval tv;
+	time_t t;
 	char timebuf[TIME_BUF_SIZE];
 
 	if (!logfile) {
@@ -109,7 +110,8 @@ vlog(const char *fmt, va_list arglist)
 	}
 
 	gettimeofday(&tv, NULL);
-	strftime(timebuf, TIME_BUF_SIZE, "\n\n*** %Y-%m-%d %H:%M:%S", localtime(&tv.tv_sec));
+	t = (time_t)(tv.tv_sec);
+	strftime(timebuf, TIME_BUF_SIZE, "\n\n*** %Y-%m-%d %H:%M:%S", localtime(&t));
 	fprintf(logfile, "%s.%06ld ", timebuf, tv.tv_usec);
 	vfprintf(logfile, fmt, arglist);
 	fflush(logfile);
