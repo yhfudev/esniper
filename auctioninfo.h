@@ -73,7 +73,8 @@ typedef struct {
 	char *host;	/* bid history host */
 #endif
 	char *query;	/* bid history query */
-	char *key;	/* bid key */
+	char *bidkey;	/* bid key */
+	char *bidpass;	/* bid password */
 	int quantity;	/* number of items available */
 	int bids;	/* number of bids made */
 	double price;	/* current price */

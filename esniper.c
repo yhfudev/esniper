@@ -977,7 +977,7 @@ main(int argc, char *argv[])
 			printLog(stdout, "\nAuction %s: Bidding...\n",
 				 auctions[i]->auction);
 
-		if (!auctions[i]->key && options.bid) {
+		if (!auctions[i]->bidkey && options.bid) {
 			printLog(stderr, "Auction %s: Problem with bid.  No bid placed.\n", auctions[i]->auction);
 			continue;
 		}

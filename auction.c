@@ -774,7 +774,7 @@ getInfoTiming(auctionInfo *aip, int quantity, const char *user, time_t *timeToFi
 static const char PRE_BID_URL[] = "http://offer.ebay.com/ws/eBayISAPI.dll?MakeBid&item=%s&maxbid=%s&quant=%s";
 
 /*
- * Get key for bid
+ * Get bid key
  *
  * returns 0 on success, 1 on failure.
  */
@@ -798,17 +798,19 @@ preBid(auctionInfo *aip)
 	if (!mp)
 		return 1;
 
-	if (match(mp, "<input type=\"hidden\" name=\"key\" value=\""))
+	if (match(mp, "<input type=\"hidden\" name=\"key\" value=\"")) {
 		ret = auctionError(aip, ae_bidkey, NULL);
-	else {
+		bugReport("preBid", __FILE__, __LINE__, mp, "cannot find bid key");
+	} else {
 		char *cp, *tmpkey;
 
 		tmpkey = getUntil(mp, '\"');
 		log(("  reported key is: %s\n", tmpkey));
 
 		/* translate key for URL */
-		aip->key = (char *)myMalloc(strlen(tmpkey)*3 + 1);
-		for (cp = aip->key; *tmpkey; ++tmpkey) {
+		free(aip->bidkey);
+		aip->bidkey = (char *)myMalloc(strlen(tmpkey)*3 + 1);
+		for (cp = aip->bidkey; *tmpkey; ++tmpkey) {
 			if (*tmpkey == '$') {
 				*cp++ = '%';
 				*cp++ = '2';
@@ -818,8 +820,18 @@ preBid(auctionInfo *aip)
 		}
 		*cp = '\0';
 
-		log(("\n\ntranslated key is: %s\n\n", aip->key));
+		log(("\n\ntranslated key is: %s\n\n", aip->bidkey));
 	}
+
+	free(aip->bidpass);
+	if (match(mp, "<input type=\"hidden\" name=\"pass\" value=\"")) {
+		log(("preBid(): cannot find bid password, will use user's password instead"));
+		aip->bidpass = NULL;
+	} else {
+		aip->bidpass = myStrdup(getUntil(mp, '\"'));
+		log(("preBid(): bidpass is \"%s\"", aip->bidpass));
+	}
+
 	clearMembuf(mp);
 	return ret;
 }
@@ -939,17 +951,18 @@ bid(auctionInfo *aip)
 	sprintf(quantityStr, "%d", quantity);
 
 	/* create url */
-	password = getPassword();
+	password = aip->bidpass ? aip->bidpass : getPassword();
 	passwordLen = strlen(password);
-	urlLen = sizeof(BID_URL) + strlen(aip->auction) + strlen(aip->key) + strlen(aip->bidPriceStr) + strlen(quantityStr) + strlen(options.username) + passwordLen - 12;
+	urlLen = sizeof(BID_URL) + strlen(aip->auction) + strlen(aip->bidkey) + strlen(aip->bidPriceStr) + strlen(quantityStr) + strlen(options.username) + passwordLen - 12;
 	url = (char *)myMalloc(urlLen);
-	sprintf(url, BID_URL, aip->auction, aip->key, aip->bidPriceStr, quantityStr, options.username, password);
-	freePassword(password);
+	sprintf(url, BID_URL, aip->auction, aip->bidkey, aip->bidPriceStr, quantityStr, options.username, password);
+	if (!aip->bidpass)
+		freePassword(password);
 
 	logUrl = (char *)myMalloc(urlLen);
 	tmpUsername = stars(strlen(options.username));
 	tmpPassword = stars(passwordLen);
-	sprintf(logUrl, BID_URL, aip->auction, aip->key, aip->bidPriceStr, quantityStr, tmpUsername, tmpPassword);
+	sprintf(logUrl, BID_URL, aip->auction, aip->bidkey, aip->bidPriceStr, quantityStr, tmpUsername, tmpPassword);
 	free(tmpUsername);
 	free(tmpPassword);
 
@@ -957,7 +970,7 @@ bid(auctionInfo *aip)
 		printLog(stdout, "Bidding disabled\n");
 		log(("\n\nbid(): query url:\n%s\n", logUrl));
 		ret = aip->bidResult = 0;
-	} else if (!(mp = httpGet(aip, url, NULL))) {
+	} else if (!(mp = httpGet(aip, url, logUrl))) {
 		ret = 1;
 	} else {
 		ret = parseBid(mp, aip);
@@ -1053,10 +1066,9 @@ watch(auctionInfo *aip)
 		}
 
 		/*
-		 * if we're less than two minutes away,
-		 * get key for bid
+		 * if we're less than two minutes away, get bid key
 		 */
-		if (remain <= 150 && !aip->key) {
+		if (remain <= 150 && !aip->bidkey) {
 			int i;
 
 			printf("\n");

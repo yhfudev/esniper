@@ -41,6 +41,7 @@
 #	define sleep(t) _sleep((t) * 1000)
 #	define strcasecmp(s1, s2) stricmp((s1), (s2))
 #	define strncasecmp(s1, s2, n) strnicmp((s1), (s2), (n))
+#	define DEVNULL "nul"
 #else
 #	include <signal.h>
 #	include <unistd.h>
@@ -53,6 +54,7 @@
 #	if defined(__aix)
 #		include <strings.h>	/* AIX 4.2 strcasecmp() */
 #	endif
+#	define DEVNULL "/dev/null"
 #endif
 
 #include <curl/curl.h>
@@ -63,7 +65,9 @@
 enum requestType {GET, POST};
 
 static memBuf_t *httpRequest(auctionInfo *, const char *url, const char *logUrl, const char *data, const char *logData, enum requestType);
+static memBuf_t *httpRequestFailed(CURLcode curlrc);
 static size_t WriteMemoryCallback(void *ptr, size_t size, size_t nmemb, void *data);
+static int initCurlStuffFailed(CURLcode curlrc);
 
 #ifdef NEED_CURL_EASY_STRERROR
 static const char *curl_easy_strerror(CURLcode error);
@@ -84,225 +88,165 @@ httpPost(auctionInfo *aip, const char *url, const char *data, const char *logDat
 }
 
 static const char UNAVAILABLE[] = "unavailable/";
-
-static CURL *easyhandle=NULL;
+static CURL *easyhandle = NULL;
+static int curlInitDone = 0;
 char globalErrorbuf[CURL_ERROR_SIZE];
-
-static int curlInitDone=0;
 
 static memBuf_t *
 httpRequest(auctionInfo *aip, const char *url, const char *logUrl, const char *data, const char *logData, enum requestType rt)
 {
-   const char *nonNullData = data ? data : "";
+	const char *nonNullData = data ? data : "";
+	static memBuf_t membuf = { NULL, 0, NULL, 0 };
+	CURLcode curlrc;
 
-   static memBuf_t membuf = { NULL, 0, NULL, 0 };
+	if (!curlInitDone && initCurlStuff())
+	return NULL;
 
-   CURLcode curlrc;
+	if (membuf.memory)
+		clearMembuf(&membuf);
 
-   if(!curlInitDone)
-   {
-      if(initCurlStuff())
-      {
-         return NULL;
-      }
-   }
+	if ((curlrc = curl_easy_setopt(easyhandle, CURLOPT_WRITEDATA, (void *)&membuf)))
+		return httpRequestFailed(curlrc);
 
-   if(membuf.memory)
-   {
-      clearMembuf(&membuf);
-   }
+	if (rt == GET) {
+		if ((curlrc = curl_easy_setopt(easyhandle, CURLOPT_HTTPGET, 1)))
+			return httpRequestFailed(curlrc);
+	} else {
+		log(("%s", logData ? logData : nonNullData));
+		if ((curlrc = curl_easy_setopt(easyhandle, CURLOPT_POSTFIELDS, nonNullData)))
+			return httpRequestFailed(curlrc);
+	}
 
-   curlrc=curl_easy_setopt(easyhandle, CURLOPT_WRITEDATA, (void *)&membuf);
-   if(curlrc)
-   {
-      log((curl_easy_strerror(curlrc)));
-      log((globalErrorbuf));
-      return NULL;
-   }
+	log(("%s", logUrl ? logUrl : url));
+	if ((curlrc = curl_easy_setopt(easyhandle, CURLOPT_URL, url)))
+		return httpRequestFailed(curlrc);
 
-   if(rt == GET)
-   {
-      curlrc=curl_easy_setopt(easyhandle, CURLOPT_HTTPGET, 1);
-      if(curlrc)
-      {
-         log((curl_easy_strerror(curlrc)));
-         log((globalErrorbuf));
-         return NULL;
-      }
-   }
-   else
-   {
-      log((logData ? logData : nonNullData));
-      curlrc= curl_easy_setopt(easyhandle, CURLOPT_POSTFIELDS, nonNullData);
-      if(curlrc)
-      {
-         log((curl_easy_strerror(curlrc)));
-         log((globalErrorbuf));
-         return NULL;
-      }
-   }
+	if ((curlrc = curl_easy_perform(easyhandle)))
+		return httpRequestFailed(curlrc);
 
-   log((logUrl ? logUrl : url));
-   curlrc=curl_easy_setopt(easyhandle, CURLOPT_URL, url);
-   if(curlrc)
-   {
-      log((curl_easy_strerror(curlrc)));
-      log((globalErrorbuf));
-      return NULL;
-   }
+	return &membuf;
+}
 
-   curlrc=curl_easy_perform(easyhandle);
-   if(curlrc)
-   {
-      log((curl_easy_strerror(curlrc)));
-      log((globalErrorbuf));
-      return NULL;
-   }
-
-   return &membuf;
+static memBuf_t *
+httpRequestFailed(CURLcode curlrc)
+{
+	log(("%s", curl_easy_strerror(curlrc)));
+	log(("%s", globalErrorbuf));
+	return NULL;
 }
 
 void
 clearMembuf(memBuf_t *mp)
 {
 	free(mp->memory);
-	mp->memory=NULL;
-	mp->size=0;
-	mp->readptr=NULL;
-	mp->timeToFirstByte=0;
+	mp->memory = mp->readptr = NULL;
+	mp->size = 0;
+	mp->timeToFirstByte = 0;
 }
 
-int initCurlStuff(void)
+int
+initCurlStuff(void)
 {
-   /* list for custom headers */
-   struct curl_slist *slist=NULL;
-   CURLcode curlrc;
+	/* list for custom headers */
+	struct curl_slist *slist=NULL;
+	CURLcode curlrc;
 
-   curl_global_init(CURL_GLOBAL_ALL);
+	curl_global_init(CURL_GLOBAL_ALL);
 
-   /* init the curl session */
-   easyhandle = curl_easy_init();
+	/* init the curl session */
+	if (!(easyhandle = curl_easy_init()))
+		return -1;
 
-   if(!easyhandle) return -1;
+	/* buffer for error messages */
+	if ((curlrc = curl_easy_setopt(easyhandle, CURLOPT_ERRORBUFFER, globalErrorbuf)))
+		initCurlStuffFailed(curlrc);
 
-   /* buffer for error messages */
-   curlrc=curl_easy_setopt(easyhandle, CURLOPT_ERRORBUFFER, globalErrorbuf);
-   if(curlrc)
-   {
-      log((curl_easy_strerror(curlrc)));
-      return -1;
-   }
+	/* debug output, show what libcurl does */
+	if (options.curldebug &&
+	    (curlrc = curl_easy_setopt(easyhandle, CURLOPT_VERBOSE, 1)))
+		initCurlStuffFailed(curlrc);
 
-   if(options.curldebug)
-   {
-      /* debug output, show what libcurl does */
-      curl_easy_setopt(easyhandle, CURLOPT_VERBOSE, 1);
-      if(curlrc)
-      {
-         log((curl_easy_strerror(curlrc)));
-         log((globalErrorbuf));
-         return -1;
-      }
-   }
+	/* follow all redirects */
+	if ((curlrc = curl_easy_setopt(easyhandle, CURLOPT_FOLLOWLOCATION, 1)))
+		initCurlStuffFailed(curlrc);
 
-   /* follow all redirects */
-   curl_easy_setopt(easyhandle, CURLOPT_FOLLOWLOCATION, 1);
-   if(curlrc)
-   {
-      log((curl_easy_strerror(curlrc)));
-      log((globalErrorbuf));
-      return -1;
-   }
+	/* send all data to this function  */
+	if ((curlrc = curl_easy_setopt(easyhandle, CURLOPT_WRITEFUNCTION, WriteMemoryCallback)))
+		initCurlStuffFailed(curlrc);
 
-   /* send all data to this function  */
-   curl_easy_setopt(easyhandle, CURLOPT_WRITEFUNCTION, WriteMemoryCallback);
-   if(curlrc)
-   {
-      log((curl_easy_strerror(curlrc)));
-      log((globalErrorbuf));
-      return -1;
-   }
+	/* some servers don't like requests that are made without a user-agent
+	 * field, so we provide one */
+	if ((curlrc = curl_easy_setopt(easyhandle, CURLOPT_USERAGENT, "Mozilla/4.7 [en] (X11; U; Linux 2.2.12 i686)")))
+		initCurlStuffFailed(curlrc);
 
-   /* some servers don't like requests that are made without a user-agent
-      field, so we provide one */
-   curlrc=curl_easy_setopt(easyhandle, CURLOPT_USERAGENT, 
-                    "Mozilla/4.7 [en] (X11; U; Linux 2.2.12 i686)");
-   if(curlrc)
-   {
-      log((curl_easy_strerror(curlrc)));
-      log((globalErrorbuf));
-      return -1;
-   }
+	slist = curl_slist_append(slist, "Accept: text/*");
+	slist = curl_slist_append(slist, "Accept-Language: en");
+	slist = curl_slist_append(slist, "Accept-Charset: iso-8859-1,*,utf-8");
+	slist = curl_slist_append(slist, "Cache-Control: no-cache");
+	if ((curlrc = curl_easy_setopt(easyhandle, CURLOPT_HTTPHEADER, slist)))
+		initCurlStuffFailed(curlrc);
 
-   slist = curl_slist_append(slist, "Accept: text/*");
-   slist = curl_slist_append(slist, "Accept-Language: en");
-   slist = curl_slist_append(slist, "Accept-Charset: iso-8859-1,*,utf-8");
-   slist = curl_slist_append(slist, "Cache-Control: no-cache");
-   curlrc=curl_easy_setopt(easyhandle, CURLOPT_HTTPHEADER, slist);
-   if(curlrc)
-   {
-      log((curl_easy_strerror(curlrc)));
-      log((globalErrorbuf));
-      return -1;
-   }
+	if ((curlrc = curl_easy_setopt(easyhandle, CURLOPT_COOKIEFILE, DEVNULL)))
+		initCurlStuffFailed(curlrc);
 
-   curlrc=curl_easy_setopt(easyhandle, CURLOPT_COOKIEFILE, "/dev/null");
-   if(curlrc)
-   {
-      log((curl_easy_strerror(curlrc)));
-      log((globalErrorbuf));
-      return -1;
-   }
-
-   curlInitDone=1;
-
-   return 0;
+	curlInitDone = 1;
+	return 0;
 }
 
-void cleanupCurlStuff(void)
+static int
+initCurlStuffFailed(CURLcode curlrc)
 {
-   curl_easy_cleanup(easyhandle);
-   easyhandle=NULL;
-   curlInitDone=0;
+	log(("%s", curl_easy_strerror(curlrc)));
+	log(("%s", globalErrorbuf));
+	return -1;
 }
 
-static size_t WriteMemoryCallback(void *ptr, size_t size, size_t nmemb, void *data)
+void
+cleanupCurlStuff(void)
 {
-   register size_t realsize = size * nmemb;
-   memBuf_t *mp = (memBuf_t *)data;
-
-   if(!mp->timeToFirstByte)
-   {
-      mp->timeToFirstByte = time(NULL);
-   }
-    
-   mp->memory = (char *)realloc(mp->memory, mp->size + realsize + 1);
-   if (mp->memory) {
-      mp->readptr=mp->memory;
-      memcpy(&(mp->memory[mp->size]), ptr, realsize);
-      mp->size += realsize;
-      mp->memory[mp->size] = 0;
-   }
-   return realsize;
+	curl_easy_cleanup(easyhandle);
+	easyhandle = NULL;
+	curlInitDone = 0;
 }
 
-int memEof(memBuf_t *mp)
+static size_t
+WriteMemoryCallback(void *ptr, size_t size, size_t nmemb, void *data)
+{
+	register size_t realsize = size * nmemb;
+	memBuf_t *mp = (memBuf_t *)data;
+
+	if (!mp->timeToFirstByte)
+		mp->timeToFirstByte = time(NULL);
+
+	mp->memory = (char *)myRealloc(mp->memory, mp->size + realsize + 1);
+	mp->readptr = mp->memory;
+	memcpy(&(mp->memory[mp->size]), ptr, realsize);
+	mp->size += realsize;
+	mp->memory[mp->size] = 0;
+	return realsize;
+}
+
+int
+memEof(memBuf_t *mp)
 {
 	return (!mp || !mp->size || mp->readptr == (mp->memory + mp->size));
 }
 
-int memGetc(memBuf_t *mp)
+int
+memGetc(memBuf_t *mp)
 {
 	return memEof(mp) ? EOF : (int)(*(unsigned char *)(mp->readptr++));
 }
 
-void memUngetc(int c, memBuf_t *mp)
+void
+memUngetc(int c, memBuf_t *mp)
 {
 	if (mp->readptr > mp->memory)
 		mp->readptr--;
 }
 
-time_t getTimeToFirstByte(memBuf_t *mp)
+time_t
+getTimeToFirstByte(memBuf_t *mp)
 {
 	return mp->timeToFirstByte;
 }
@@ -318,10 +262,10 @@ static const char *curlErrorTable[] = {
 	"failed init", /* CURLE_FAILED_INIT */
 	"URL using bad/illegal format or missing URL", /* CURLE_URL_MALFORMAT */
 	"CURLE_URL_MALFORMAT_USER", /* CURLE_URL_MALFORMAT_USER */
-	"couldnt resolve proxy name", /* CURLE_COULDNT_RESOLVE_PROXY */ 
-	"couldnt resolve host name", /* CURLE_COULDNT_RESOLVE_HOST */ 
-	"couldn't connect to server", /* CURLE_COULDNT_CONNECT */ 
-	"FTP: weird server reply", /* CURLE_FTP_WEIRD_SERVER_REPLY */ 
+	"couldnt resolve proxy name", /* CURLE_COULDNT_RESOLVE_PROXY */
+	"couldnt resolve host name", /* CURLE_COULDNT_RESOLVE_HOST */
+	"couldn't connect to server", /* CURLE_COULDNT_CONNECT */
+	"FTP: weird server reply", /* CURLE_FTP_WEIRD_SERVER_REPLY */
 	"FTP: access denied", /* CURLE_FTP_ACCESS_DENIED */
 	"FTP: user and/or password incorrect", /* CURLE_FTP_USER_PASSWORD_INCORRECT */
 	"FTP: unknown PASS reply", /* CURLE_FTP_WEIRD_PASS_REPLY */
