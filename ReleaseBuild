@@ -70,12 +70,10 @@ Copy files to sourceforge:
 	ftp upload.sourceforge.net -> anonymous
 		cd incoming
 		bin
-		prompt
-		mput esniper*.tgz
-		put ../sample_auction.txt sample_auction.txt
-		put ../sample_config.txt sample_config.txt
-		put ../esniper.1 esniper.1
-		put ../esniper_man.html esniper_man.html
+		put $CURRFILE.tgz
+
+	scp $CURRFILE/sample* $CURRFILE/esniper.1 $CURRFILE/*.html \
+		esniper@shell.sf.net:/home/groups/e/es/esniper/htdocs
 
 Edit the web page:
 
@@ -90,7 +88,7 @@ Go to www.sourceforge.net:
 	- click on admin, then file releases, then add release
 	- type in release number and click "create this release"
 	- cut/paste notes and changes, ensure "preserve text" is selected
-	- select files to import
+	- select file(s) to import
 	- mark each type (one at a time...)
 	- click "send notice"
 
