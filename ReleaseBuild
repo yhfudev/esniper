@@ -17,10 +17,13 @@ First, setup environment variables:
 	CURRFILE=esniper-$MAJOR-$MINOR-$STEP
 	CURRTAG=Version_${MAJOR}_${MINOR}_${STEP}
 
-Make sure automake dependencies are checked in in the correct date order.
-Files listed in ascendng date order (oldest to newest).  Files on the same
-line don't have to be the same time, just newer than the previous line and
-older than the next:
+Ensure the version is correct in configure.in.
+
+After rebuilding the automake files, make sure automake dependencies are
+checked in in the correct date order.  You will need to use cvs ci -f to
+force checkin for files that have no changed.  Files listed in ascending date
+order (oldest to newest).  Files on the same line don't have to be the same
+time, just newer than the previous line and older than the next:
 
 	configure.in
 	aclocal.m4 Makefile.am
@@ -62,92 +65,22 @@ Edit Changes and Notes (change version # for source file in Notes):
 
 	(Changes can be just an edit of ../ChangeLog)
 
-Build esniper on Sun, and HP and Cygwin, strip and copy to release directory:
-
-	Sun:
-		make
-		strip esniper
-		mv esniper $CURRENT/esniper-solaris-sparc
-
-	Linux:
-		cd esniper
-		rcp sparky:esniper/\*.[ch] sparky:esniper/Makefile .
-		# ensure Makefile has Sun dependencies turned off
-		make clean all
-		strip esniper
-		rcp esniper sparky:esniper/$CURRENT/esniper-linux-x86
-		CFLAGS="-static -O" make -e clean all
-		strip esniper
-		rcp esniper sparky:esniper/$CURRENT/esniper-linux-x86-static
-
-	Cygwin:
-		cd esniper
-		rcp sparky:esniper/\*.[ch] sparky:esniper/Makefile .
-		# ensure Makefile has Sun dependencies turned off
-		make clean all
-		strip esniper.exe
-		rcp esniper.exe sparky:esniper/$CURRENT/esniper-cygwin.exe
-
-	Windows:
-		cd esniper
-		# the following is in Visual Studio's VC98\Bin directory.
-		vcvars32
-		rcp sparky:esniper/*.[ch] sparky:esniper/esniper.mak .
-		nmake /f esniper.mak
-		rcp -b Release/esniper.exe sparky:esniper/$CURRENT/esniper.exe
+Copy files to sourceforge:
 
 	ftp upload.sourceforge.net -> anonymous
 		cd incoming
 		bin
 		prompt
-		mput esniper*
+		mput esniper*.tgz
 		put ../sample_auction.txt sample_auction.txt
 		put ../sample_config.txt sample_config.txt
 		put ../esniper.1 esniper.1
 		put ../esniper_man.html esniper_man.html
 
-Build other versions on sourceforge:
-
-	scp $CURRFILE.tgz esniper@shell.sf.net:
-
-	ssh -l esniper cf-shell.sourceforge.net
-		<enter password>
-
-	(note: list of hosts is in /etc/compilefarm-hosts)
-	(note: makeit must be updated to run ./configure)
-
-	FreeBSD:
-		ssh x86-freebsd1
-		(note: CURRFILE isn't defined, you must expand it yourself)
-		(note: Cannot rely on CVS being up-to-date on internal systems)
-		scp shell.sourceforge.net:$CURRFILE.tgz .
-		gunzip <$CURRFILE.tgz | tar xvf -
-		rm -rf esniper
-		ln -s $CURRFILE esniper
-		makeit
-			<enter password>
-		logout
-
-	OS-X:
-		ssh ppc-osx2
-		makeit
-			<enter password>
-		logout
-
-Then login to shell.sourceforge.net:
+Edit the web page:
 
 	ssh -l esniper shell.sourceforge.net
 		<enter password>
-	rm -f *.tgz
-	mkdir $CURRENT
-	mv esniper-* $CURRENT
-	cd $CURRENT
-	ftp upload
-		(log in as anonymous)
-		cd incoming
-		bin
-		prompt
-		mput esniper*
 	vi $PROJECT/htdocs/index.html
 		change tgz file to current release (two places)
 

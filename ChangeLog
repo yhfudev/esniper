@@ -1,18 +1,21 @@
+2005-01-31
+	* 2.10.0 released
+
 2005-01-26
-	* Fix bidding problem that sends esniper to PageReviewBid.
+	* Fix bidding problem that sends esniper to PageReviewBid
 
 2005-01-21
 	* handle blank time left field in bid history.  This happens in
 	  the last second of an auction
 
 2005-01-19
-	* code cleanup thanks to lint and valgrind 
+	* code cleanup thanks to lint and valgrind
 	* rewrote bid history parsing to use table parsing code.  This should
 	  resolve many little problems with bid history parsing, especially
 	  with dutch auctions
 
 2004-12-29
-	* recognize AcceptBid_HighBidder_rebid 
+	* recognize AcceptBid_HighBidder_rebid
 	* added table parsing
 	* added -m option, reads myebay watch list
 	* removed us-ascii kludge that knocked off high bit on text
