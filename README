@@ -1,5 +1,8 @@
 For more information, see <http://esniper.sf.net/>.
 
+NOTE: This is an Alpha release.  Major changes to esniper have been made
+to accommodate eBay's switch to SSL login.  Bugs are to be expected.
+
 This project is so simple, I didn't even bother to use autoconf.  For most
 systems, just type "make", then "make install" (perhaps as root).  If you
 have a problem, you might want to uncomment the LIBS line in the Makefile
@@ -7,4 +10,5 @@ and try again.
 
 A MS Visual C++ workspace (esniper.dsw), project (esniper.dsp) and
 makefile (esniper.mak) are available for building the native Windows
-version.
+version.  NOTE: the Windows build files have not been modified to
+use libcurl.
