@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002, 2003, Scott Nicol <esniper@users.sf.net>
+ * Copyright (c) 2002, 2003, 2004, Scott Nicol <esniper@users.sf.net>
  * All rights reserved
  *
  * Redistribution and use in source and binary forms, with or without

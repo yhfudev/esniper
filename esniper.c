@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002, 2003, 2004 Scott Nicol <esniper@users.sf.net>
+ * Copyright (c) 2002, 2003, 2004, Scott Nicol <esniper@users.sf.net>
  * All rights reserved
  *
  * Redistribution and use in source and binary forms, with or without
@@ -62,7 +62,7 @@ option_t options = {
 	NULL,             /* password */
 	DEFAULT_BIDTIME,  /* bidtime */
 	1,                /* quantity */
-	NULL,             /* config file */
+	NULL,             /* configuration file */
 	NULL,             /* auction file */
 	1,                /* bid */
 	1,                /* reduce quantity */
@@ -248,7 +248,7 @@ CheckSecs(const void* valueptr, const optionTable_t* tableptr,
    if(!valueptr) {
       if(filename)
          printLog(stderr,
-       "Config entry \"%s\" in file %s needs an integer value or \"now\"\n",
+       "Configuration option \"%s\" in file %s needs an integer value or \"now\"\n",
                   line, filename);
       else
          printLog(stderr,
@@ -257,7 +257,7 @@ CheckSecs(const void* valueptr, const optionTable_t* tableptr,
    }
    /* specific string value "now" */
    if(!strcmp((const char*)valueptr, "now")) {
-      /* copy value to target variable */
+      /* copy value to target option */
       *(int*)(tableptr->value)=0;
       log(("seconds value is %d (now)", *(int*)(tableptr->value)));
       return 0;
@@ -267,7 +267,7 @@ CheckSecs(const void* valueptr, const optionTable_t* tableptr,
    intval = strtol((const char*)valueptr, &endptr, 10);
    if(*endptr != '\0') {
       if(filename)
-         printLog(stderr, "Config entry \"%s\" in file %s", line, filename);
+         printLog(stderr, "Configuration option \"%s\" in file %s", line, filename);
       else
          printLog(stderr, "Option -%s", line);
       printLog(stderr, "accepts integer values greater than %d or \"now\"\n",
@@ -277,7 +277,7 @@ CheckSecs(const void* valueptr, const optionTable_t* tableptr,
    /* check minimum */
    if(intval < MIN_BIDTIME) {
       if(filename)
-         printLog(stderr, "Value at config entry \"%s\" in file %s",
+         printLog(stderr, "Value at configuration option \"%s\" in file %s",
                   line, filename);
       else
          printLog(stderr, "Value %d at option -%s", intval, line);
@@ -286,7 +286,7 @@ CheckSecs(const void* valueptr, const optionTable_t* tableptr,
       intval = MIN_BIDTIME;
    }
 
-   /* copy value to target variable */
+   /* copy value to target option */
    *(int*)(tableptr->value) = intval;
    log(("seconds value is %d\n", *(const int*)(tableptr->value)));
    return 0;
@@ -337,7 +337,7 @@ CheckQuantity(const void* valueptr, const optionTable_t* tableptr,
                   line);
       return 1;
    }
-   /* copy value to target variable */
+   /* copy value to target option */
    *(int*)(tableptr->value) = *(const int*)valueptr;
    log(("quantity is %d\n", *(const int*)(tableptr->value)));
    return 0;
@@ -485,7 +485,7 @@ static int CheckProxy(const void* valueptr, const optionTable_t* tableptr,
 static int SetLongHelp(const void* valueptr, const optionTable_t* tableptr,
                        const char* filename, const char *line)
 {
-   /* copy value to target variable */
+   /* copy value to target option */
    *(int*)(tableptr->value) |= USAGE_SUMMARY | USAGE_LONG;
    return 0;
 }
@@ -498,7 +498,7 @@ static int SetLongHelp(const void* valueptr, const optionTable_t* tableptr,
 static int SetConfigHelp(const void* valueptr, const optionTable_t* tableptr,
                          const char* filename, const char *line)
 {
-   /* copy value to target variable */
+   /* copy value to target option */
    *(int*)(tableptr->value) = USAGE_CONFIG;
    return 0;
 }
@@ -511,35 +511,35 @@ static const char usageSummary[] =
 static const char usageLong1[] =
  "where:\n"
  "-b: batch mode, don't prompt for password or username if not specified\n"
+#if defined(WIN32)
+ "-c: configuration file (default is \"My Documents/.esniper\" and, if auction\n"
+#else
+ "-c: configuration file (default is \"$HOME/.esniper\" and, if auction\n"
+#endif
+ "    file is specified, .esniper in auction file's directory)\n"
  "-d: write debug output to file\n"
  "-h: command line options help\n"
- "-H: config and auction file help\n"
- "-n: do not place bid\n"
- "-P: prompt for password\n"
- "-r: do not reduce quantity on startup if already won item(s)\n"
- "-U: prompt for ebay username\n"
- "-v: print version and exit\n"
-#if defined(WIN32)
- "-c: config file (default is \"My Documents/.esniper\" and, if auction file is\n"
-#else
- "-c: config file (default is \"$HOME/.esniper\" and, if auction file is\n"
-#endif
- "    specified, .esniper in auction file's directory)\n";
-static const char usageLong2[] =
+ "-H: configuration and auction file help\n"
  "-l: log directory (default: ., or directory of auction file, if specified)\n"
+ "-n: do not place bid\n"
  "-p: http proxy (default: http_proxy environment variable, format is\n"
- "    http://host:port/)\n"
+ "    http://host:port/)\n";
+static const char usageLong2[] =
+ "-P: prompt for password\n"
  "-q: quantity to buy (default is 1)\n"
+ "-r: do not reduce quantity on startup if already won item(s)\n"
  "-s: time to place bid which may be \"now\" or seconds before end of auction\n"
  "    (default is %d seconds before end of auction)\n"
  "-u: ebay username\n"
+ "-U: prompt for ebay username\n"
+ "-v: print version and exit\n"
  "\n"
- "You must specify either an auction file or <auction> <price> pair[s].\n"
- "Options on the command line override settings in config and auction files.\n";
+ "You must specify an auction file or <auction> <price> pair[s].  Options\n"
+ "on the command line override settings in auction and configuration files.\n";
 
 /* split in two to prevent gcc portability warning.  maximum length is 509 */
 static const char usageConfig1[] =
- "Config variables (values shown are default):\n"
+ "Configuration options (values shown are default):\n"
  "  Boolean: (valid values: true,y,yes,on,1,enabled  false,n,no,off,0,disabled)\n"
  "    batch = false\n"
  "    bid = true\n"
@@ -555,13 +555,13 @@ static const char usageConfig1[] =
  "    seconds = %d\n"
  "\n";
 static const char usageConfig2[] =
- "A config file consists of variable settings, blank lines, and comment lines.\n"
- "Comment lines begin with #\n"
+ "A configuration file consists of option settings, blank lines, and comment\n"
+ "lines.  Comment lines begin with #\n"
  "\n"
- "An auction file is similar to a config file, but it also has one or more\n"
- "auction lines.  An auction line contains an auction number, optionally followed\n"
- "by a bid price.  If no bid price is given, the auction number uses the bid\n"
- "price of the first prior auction line that contains a bid price.\n";
+ "An auction file is similar to a configuration file, but it also has one or\n"
+ "more auction lines.  An auction line contains an auction number, optionally\n"
+ "followed by a bid price.  If no bid price is given, the auction number uses\n"
+ "the bid price of the first prior auction line that contains a bid price.\n";
 
 static int
 usage(int helplevel)
@@ -599,6 +599,10 @@ main(int argc, char *argv[])
    {NULL,       "P", (void*)&options.password,     OPTION_STRING,   &ReadPass},
    {NULL,       "U", (void*)&options.username,     OPTION_STRING,   &ReadUser},
    {NULL,       "c", (void*)&options.conffilename, OPTION_STRING,   &CheckConfigFile},
+   /*
+    * -f can't be entered from command line, it's just a convenient way
+    * to integrate auction filename processing with option processing.
+    */
    {NULL,       "f", (void*)&options.auctfilename, OPTION_STRING,   &CheckAuctionFile},
    {"reduce",  NULL, (void*)&options.reduce,       OPTION_BOOL,     NULL},
    {NULL,       "r", (void*)&options.reduce,       OPTION_BOOL_NEG, NULL},
@@ -628,7 +632,7 @@ main(int argc, char *argv[])
 	if (parseProxy(getenv("http_proxy"), &options.proxy))
 		printLog(stderr, "http_proxy environment variable invalid\n");
 
-	/* first, check for debug, config file and auction file
+	/* first, check for debug, configuration file and auction file
 	 * options but accept all other options to avoid error messages
 	 */
 	while ((c = getopt(argc, argv, optionstring)) != EOF) {
@@ -639,12 +643,12 @@ main(int argc, char *argv[])
 			 */
 		case 'd': /* debug */
 		case 'h': /* command-line options help */
-		case 'H': /* config and auction file help */
+		case 'H': /* configuration and auction file help */
 		case '?': /* unknown -> help */
 			if (parseGetoptValue(c, NULL, optiontab))
 				options.usage |= USAGE_SUMMARY;
 			break;
-		case 'c': /* config file */
+		case 'c': /* configuration file */
 		case 'l': /* log directory */
 			if (parseGetoptValue(c, optarg, optiontab))
 				options.usage |= USAGE_SUMMARY;
@@ -660,7 +664,7 @@ main(int argc, char *argv[])
 			break;
 		default:
 			/* ignore other options, these will be parsed
-			 * after config files
+			 * after configuration and auction files.
 			 */
 			break;
 		}
@@ -677,8 +681,9 @@ main(int argc, char *argv[])
 		}
 	}
 
-	/* if config file specified assume one specific file
-	 * including directory
+	/*
+	 * if configuration file is specified don't try to load any other
+	 * configuration file (i.e. $HOME/.esniper, etc).
 	 */
 	if (options.conffilename) {
 		if (readConfigFile(options.conffilename, optiontab) > 1)
@@ -748,7 +753,10 @@ main(int argc, char *argv[])
 
 	/* skip back to first arg */
 	optind = 1;
-	/* check options which may overwrite settings from config file */
+	/*
+	 * check options which may overwrite settings from configuration
+	 * or auction file.
+	 */
 	while ((c = getopt(argc, argv, optionstring)) != EOF) {
 		switch (c) {
 		case 'l': /* log directory */
@@ -777,7 +785,7 @@ main(int argc, char *argv[])
 			break;
 		default:
 			/* ignore other options, these have been parsed
-			 * before config files
+			 * before configuration and auction files.
 			 */
 			break;
 		}

@@ -61,8 +61,9 @@ readAuctionFile(const char *filename, auctionInfo ***aip)
 	while (numAuctions != -1 && (c = getc(fp)) != EOF) {
 		if (isspace(c))
 			continue;
-		/* skip comments and anything starting with a letter,
-		 * assuming this is a config entry */
+		/* skip comments and anything starting with a letter
+		 * (assume it is a configuration option)
+		 */
 		if ((c == '#') || isalpha(c))
 			c = skipline(fp);
 		else if (isdigit(c)) {

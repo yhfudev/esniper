@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002, 2003, Scott Nicol <esniper@users.sf.net>
+ * Copyright (c) 2002, 2003, 2004, Scott Nicol <esniper@users.sf.net>
  * All rights reserved
  *
  * Redistribution and use in source and binary forms, with or without
@@ -27,7 +27,7 @@
 #ifndef OPTIONS_H_INCLUDED
 #define OPTIONS_H_INCLUDED
 
-/* data types for option or config values */
+/* data types for option or configuration values */
 #define OPTION_STRING   1
 #define OPTION_INT      2
 #define OPTION_BOOL     3
@@ -37,17 +37,17 @@
    will provide the string value or NULL to the checking function */
 #define OPTION_SPECIAL  5
 
-/* table to describe all option or config values */
+/* table to describe all option or configuration values */
 typedef struct optionTable optionTable_t;
 
 struct optionTable {
-   const char *configname; /* keyword in config files */
+   const char *configname; /* keyword in configuration files */
    const char *optionname; /* option without '-' */
    void *value;            /* variable to store value */
    int type;               /* data type of expected value or option argument */
    /* This function will be called to check and copy value if specified.
       It can get the value by other means than converting the string
-      found in config file or on command line. */
+      found in configuration file or on command line. */
    int (*checkfunc)(const void* valueptr, const optionTable_t* tableptr,
                     const char* filename, const char *line);
 };

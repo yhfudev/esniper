@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002, 2003, Scott Nicol <esniper@users.sf.net>
+ * Copyright (c) 2002, 2003, 2004, Scott Nicol <esniper@users.sf.net>
  * All rights reserved
  *
  * Redistribution and use in source and binary forms, with or without
@@ -60,7 +60,7 @@ static int parseSpecialValue(const char *name, const char *value,
  * readConfigFile(): read configuration from file, skipping auctions
  *
  * returns:
- *	0 file successfully read, even if no config entries found
+ *	0 file successfully read, even if no configuration options found
  *	1 file not found
  *	2 other error
  */
@@ -142,7 +142,7 @@ parseGetoptValue(int option, const char *optval, optionTable_t *table)
 	char optstr[] = { '\0', '\0' };
 
 	optstr[0] = (char)option;
-	/* optval "" should be handled the same as empty config value */
+	/* optval "" should be handled the same as empty configuration option */
 	if (optval && !*optval)
 		optval = NULL;
 	/* filename NULL means command line option */
@@ -150,8 +150,9 @@ parseGetoptValue(int option, const char *optval, optionTable_t *table)
 }
 
 /*
- * parseConfigValue(): lookup config entry or option in option table
- *                     and parse witch functions according to table entry
+ * parseConfigValue(): lookup command line or configuration option in option
+ *                     table and call appropriate function according to table
+ *		       entry
  *
  * returns: 0 = OK, else error
  */
@@ -194,7 +195,7 @@ parseConfigValue(const char *name, const char *value,
 			break;
 		default:
 			printLog(stderr,
-			    "Internal error: invalid type in config table (%s)",
+			    "Internal error: invalid type in option table (%s)",
 			    tableptr->configname ? tableptr->configname
 						 : tableptr->optionname);
 			ret = 1;
@@ -280,7 +281,7 @@ parseSpecialValue(const char *name, const char *value,
 		if ((*tableptr->checkfunc)(value, tableptr, filename, line))
 			return 1;
 	} else {
-		printLog(stderr, "Internal error: special type needs check function in config table (%s)", tableptr->configname ? tableptr->configname : tableptr->optionname);
+		printLog(stderr, "Internal error: special type needs check function in option table (%s)", tableptr->configname ? tableptr->configname : tableptr->optionname);
 		return 1;
 	}
 	return 0;
@@ -300,7 +301,7 @@ parseIntValue(const char *name, const char *value,
 
 	if (!value) {
 		if(filename)
-			printLog(stderr, "Config entry \"%s\" in file %s needs an integer value\n", line, filename);
+			printLog(stderr, "Configuration option \"%s\" in file %s needs an integer value\n", line, filename);
 		else
 			printLog(stderr, "Option -%s needs an integer value\n",
 				 line);
@@ -309,7 +310,7 @@ parseIntValue(const char *name, const char *value,
 	intval = strtol(value, &endptr, 10);
 	if (*endptr != '\0') {
 		if (filename)
-			printLog(stderr, "Invalid integer value at config entry \"%s\" in file %s\n", line, filename);
+			printLog(stderr, "Invalid integer value at configuration option \"%s\" in file %s\n", line, filename);
 		else
 			printLog(stderr, "Invalid integer value \"%s\" at command line option -%s\n", value, line);
 		return 1;

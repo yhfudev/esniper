@@ -78,7 +78,8 @@ read from configuration or auction files, esniper will fail.
 
 <DD>
 Specifies a configuration file to read.
-All options can be set either by command-line flags or in the config file.
+All options can be set either by command-line flags or in the
+configuration file.
 See the <B>CONFIGURATION FILE</B> section for details.
 The default configuration file is $HOME/.esniper
 (or $USERPROFILE/My Documents/.esniper in Windows).
@@ -89,7 +90,7 @@ Enable debug mode.
 The corresponding configuration option is debug, default value is false.
 Log files are named esniper.&lt;auction_num&gt;.log and esniper.log, and are
 written to the current working directory.
-If the -l option or logdir config variable is used, log files are
+If the -l option or logdir configuration option is used, log files are
 written to the specified directory.
 <DT><B>-h</B>
 
@@ -104,8 +105,9 @@ Show configuration and auction file help.
 <DD>
 Set the directory where log files will be written.
 The corresponding configuration option is logdir, default value is the
-current working directory.
-The directory must exist.
+current working directory, or if an auction file is specified the directory
+of the auction file.
+The directory must exist and be writeable.
 Log files are written when the -d option is used.
 <DT><B>-n</B>
 
@@ -127,17 +129,17 @@ The proxy should be of the form <A HREF="http://host:port/.">http://host:port/.<
 <DD>
 Prompt the user for their ebay password.  This overrides the password set in
 any configuration or auction file.
-<DT><B>-r</B>
-
-<DD>
-Do not reduce quantity on startup for items you have already won.
-The corresponding configuration option is reduce, default value is true.
 <DT><B>-q</B>
 
 <DD>
 Set the quantity.
 The corresponding configuration option is quantity, default value is 1.
 esniper will quit when it has won enough items.
+<DT><B>-r</B>
+
+<DD>
+Do not reduce quantity on startup for items you have already won.
+The corresponding configuration option is reduce, default value is true.
 <DT><B>-s</B>
 
 <DD>
@@ -221,23 +223,24 @@ An example of a configuration file:
 
 
 <PRE>
-# A config file contains variable settings, blank
-# lines, and comments (begin with #).  The default
-# configuration file is $HOME/.esniper, and if you
-# specify an auction file, .esniper in the auction
-# file's directory as well.  If you specify a
+# A configuration file contains option settings,
+# blank lines, and comments (begin with #).  The
+# default configuration file is $HOME/.esniper, and
+# if you specify an auction file, .esniper in the
+# auction file's directory as well.  If you specify a
 # configuration file using the -c command-line option,
 # then that configuration file will be the only one
 # read.
 #
-# If you set your password in a config file and you
-# are on a unix system, you should be the owner of
-# the file, and you should set the permissions so
-# that it is readable only by the owner.
+# If you set your password in a configuration file
+# and you are on a unix system, you should be the
+# owner of the file, and you should set the
+# permissions so that it is readable only by the
+# owner.
 #
-# Here are all the variables.  Note that if the
+# Here are all the options.  Note that if the
 # default (as defined in esniper -H) is fine, you
-# don't need to specify it in a config file
+# don't need to specify it in a configuration file.
 
 # boolean parameters can be set to:
 #       true, y, yes, on, 1, enabled
@@ -271,8 +274,8 @@ An example of an auction file:
 
 <PRE>
 # An auction file may contain any line that is valid
-# in a config file (see sample_config.txt for details),
-# plus it may also have auction lines.
+# in a configuration file (see sample_config.txt for
+# details), plus it may also have auction lines.
 #
 # An auction line contains an auction number, optionally
 # followed by a price.  If a price isn't specified, the
@@ -280,7 +283,7 @@ An example of an auction file:
 #
 # You should have one auction file for each type of item
 # you are bidding on, so that you can change the quantity,
-# username, or other variables to suit the item you are
+# username, or other options to suit the item you are
 # bidding on.  For instance, you may want to buy up to 10
 # laser print cartridges, but only one digital camera.
 
@@ -397,6 +400,6 @@ All rights reserved.
 This document was created by
 <A HREF="http://localhost/cgi-bin/man/man2html">man2html</A>,
 using the manual pages.<BR>
-Time: 11:00:27 GMT, May 06, 2004
+Time: 13:20:34 GMT, May 06, 2004
 </BODY>
 </HTML>
