@@ -1,7 +1,34 @@
 For more information, see <http://esniper.sf.net/>.
 
-Bitte Daten in config.inc anpassen.
-Please change configuration in config.inc
+Es werden nicht alle Features von esniper genutzt, einige wurden Aufgrund der Verwaltung 
+über PHP abgebildet.
+
+You must use the esniper file that is provided in this folder. Changes of the original esniper will
+be done soon.
 
 Zugriff auf /tmp für temporäre Dateien notwendig.
 Need access to /tmp for temporaly fileactions.
+
+
+Schritte für die Installation:
+
+1. Dateien in einem durch z.B. Apache gehosteten Ordner kopieren.
+2. Datenbank in MySQL anlegen und die esniper.sql importieren.
+3. Einen User in MySQL für die Datenbank anlegen (oder den Root-User nutzen)
+4. In der Datei config.inc die Einstellungen anpassen.
+   !Es muss auf die Dateien refereneziert werden: z.B./usr/bin/esniper
+5. Die reload.php in die crontab eintragen und am besten jede Stunde laufen lassen.
+   Die reload.php prüft, ob noch alle Snipe-Prozesse laufen, bzw. beendet fehlerhafte.
+6. Schön aus dem Web snipern.
+
+
+
+installation steps:
+
+1. Copy files in a Apache hosted folder.
+2. Create a database in MySQL and import the esniper.sql structure.
+3. Create a user in MySQL for the database (or use the root-user).
+4. Adapt the confic.inc to your installation properties.
+5. Put the reload.php in the crontab to run every hour.
+   The reload.php stops unknown esniper processes and starts missings.
+6. Sniper from the Web. 
