@@ -12,7 +12,7 @@ Need access to /tmp for temporaly fileactions.
 
 Schritte für die Installation:
 
-1. Dateien in einem durch z.B. Apache gehosteten Ordner kopieren.
+1. Dateien in einem durch z.B. Apache gehosteten Ordner kopieren und setperms.sh in dem Ordner ausführen.
 2. Datenbank in MySQL anlegen und die esniper.sql importieren.
 3. Einen User in MySQL für die Datenbank anlegen (oder den Root-User nutzen)
 4. In der Datei config.inc die Einstellungen anpassen.
@@ -25,7 +25,7 @@ Schritte für die Installation:
 
 installation steps:
 
-1. Copy files in a Apache hosted folder.
+1. Copy files in a Apache hosted folder and execute setperms.sh from this folder.
 2. Create a database in MySQL and import the esniper.sql structure.
 3. Create a user in MySQL for the database (or use the root-user).
 4. Adapt the confic.inc to your installation properties.
