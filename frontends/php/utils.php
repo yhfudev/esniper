@@ -2,7 +2,7 @@
 /*
  * Copyright (c) 2005 Nils Rottgardt <nils@rottgardt.org>
  * All rights reserved
- * 
+ *
  * Published under BSD-licence
  *
  * Redistribution and use in source and binary forms, with or without
@@ -34,7 +34,7 @@ global $db;
 $db = new db(EZSQL_DB_USER, EZSQL_DB_PASSWORD, EZSQL_DB_NAME, EZSQL_DB_HOST);
 
 function genAuctionfile($artnr,$bid) {
-    $fn="/tmp/$artnr.ebaysnipe";
+    $fn=TMP_FOLDER."/".$artnr.".ebaysnipe";
     $text="$artnr $bid\n";
     $fp=fopen($fn,"w");
     fwrite($fp,$text);
@@ -43,8 +43,8 @@ function genAuctionfile($artnr,$bid) {
 }
 
 function startEsniper($artnr) {
-    $fn="/tmp/".$artnr.".ebaysnipe";
-    $fnl="/tmp/".$artnr.".ebaysnipelog";
+    $fn=TMP_FOLDER."/".$artnr.".ebaysnipe";
+    $fnl=TMP_FOLDER."/".$artnr.".ebaysnipelog";
     touch($fnl);
     chmod($fnl, 0666);
     $pid = exec("./esniperstart.sh $fn $fnl ".PATH_TO_ESNIPER." ".PATH_TO_ESNIPERCONFIG." > /dev/null & echo \$!", $results,$status);
@@ -52,7 +52,7 @@ function startEsniper($artnr) {
 }
 
 function auktionBeendet($artnr) {
-    $fn="/tmp/".$artnr.".ebaysnipelog";
+    $fn=TMP_FOLDER."/".$artnr.".ebaysnipelog";
     if (file_exists($fn)) {
 	$fp=fopen($fn,"r");
 	$text=fread($fp, filesize ($fn));
@@ -139,7 +139,7 @@ function killSniper($artnr,$db) {
 //	printf("Sniperprozess mit PID ".$snipe->pid."beendet.");
 	    exec("kill -15 ".getEsniperPid($snipe->pid));
     }
-    exec("rm /tmp/".$artnr.".*");
+    exec("rm ".TMP_FOLDER."/".$artnr.".*");
 }
 
 function getPids() {
@@ -177,7 +177,7 @@ function fileList($dir) {
 
 
 function getLogData($artnr) {
-	$fn="/tmp/".$artnr.".ebaysnipelog";
+	$fn=TMP_FOLDER."/".$artnr.".ebaysnipelog";
 	if (file_exists($fn)) {
 		$fp=fopen($fn,"r");
 		$text=fread($fp, filesize ($fn));
@@ -254,10 +254,10 @@ function collectGarbage($db) {
 	//Logs löschen, von Snipes, welche nicht in der Datenbank sind.
     $sql = "SELECT artnr FROM snipe";
     $snipeArtnr = $db->get_col($sql);
-    $dateien = fileList("/tmp");
+    $dateien = fileList(TMP_FOLDER);
     foreach($dateien as $datei) {
 	if (!in_Array(substr($datei,0,10),$snipeArtnr)) {
-	    exec("rm /tmp/".$datei);
+	    exec("rm ".TMP_FOLDER."/".$datei);
 	}
     }
     foreach($snipeArtnr as $artnr) {
