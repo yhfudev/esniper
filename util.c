@@ -555,7 +555,7 @@ priceFixup(char *price, auctionInfo *aip)
 		aip->currency = myStrdup(price);
 		price[start] = tmp;
 	}
-	for (; start < len && !isdigit((int)price[start]); ++start)
+	for (; start < len && !isdigit((int)price[start]) && price[start] != ',' && price[start] != '.'; ++start)
 		;
 	for (i = start; i < len; ++i) {
 		if (isdigit((int)price[i]))

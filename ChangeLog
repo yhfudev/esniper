@@ -1,3 +1,6 @@
+2005-03-09
+	* rewrote error handling in prebid and bid history
+
 2005-02-05
 	* moved getopt into util.c to make compiling on windows easier
 	* fixed handling of prebid result when auction has ended

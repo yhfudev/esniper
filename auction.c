@@ -51,33 +51,34 @@ typedef struct {
 	char *srcId;
 } pageInfo_t;
 
-struct tm * tmPtr;
-static char timestr[21];
-
-static int match(memBuf_t *mp, const char *str);
-static const char *getTag(memBuf_t *mp);
+static int acceptBid(const char *pagename, auctionInfo *aip);
+static int bid(auctionInfo *aip);
+static int ebayLogin(auctionInfo *aip);
+static void freePageInfo(pageInfo_t *pp);
+static void freeTableRow(char **row);
+static char *getIdInternal(char *s, size_t len);
+static int getInfoTiming(auctionInfo *aip, const char *user, time_t *timeToFirstByte);
+static int getIntFromString(const char *s);
 static char *getNonTag(memBuf_t *mp);
 static char *getNonTagFromString(const char *s);
-static int getIntFromString(const char *s);
-static long getseconds(char *timestr);
-static const char *getTableEnd(memBuf_t *mp);
-static char *getTableCell(memBuf_t *mp);
-static char **getTableRow(memBuf_t *mp);
-static int numColumns(char **row);
-static void freeTableRow(char **row);
-static const char *getTableStart(memBuf_t *mp);
-static int getInfoTiming(auctionInfo *aip, const char *user, time_t *timeToFirstByte);
-static char *getPageName(memBuf_t *mp);
-static char *getIdInternal(char *s, size_t len);
-static char *getPageNameInternal(char *var);
 static pageInfo_t *getPageInfo(memBuf_t *mp);
-static void freePageInfo(pageInfo_t *pp);
-
+static char *getPageName(memBuf_t *mp);
+static char *getPageNameInternal(char *var);
 static int getQuantity(int want, int available);
-static int parseAuction(memBuf_t *mp, auctionInfo *aip, const char *user, time_t start, time_t *timeToFirstByte);
+static long getSeconds(char *timestr);
+static char *getTableCell(memBuf_t *mp);
+static const char *getTableEnd(memBuf_t *mp);
+static char **getTableRow(memBuf_t *mp);
+static const char *getTag(memBuf_t *mp);
+static const char *getTableStart(memBuf_t *mp);
+static int makeBidError(const char *pagename, auctionInfo *aip);
+static int match(memBuf_t *mp, const char *str);
+static int numColumns(char **row);
+static int parseBidHistory(memBuf_t *mp, auctionInfo *aip, const char *user, time_t start, time_t *timeToFirstByte);
 static int parseBid(memBuf_t *mp, auctionInfo *aip);
-
+static int preBid(auctionInfo *aip);
 static void printMyItemsRow(char **row, int line);
+static int watch(auctionInfo *aip);
 
 /*
  * attempt to match some input, neglecting case, ignoring \r and \n.
@@ -455,7 +456,7 @@ getQuantity(int want, int available)
 }
 
 static long
-getseconds(char *timestr)
+getSeconds(char *timestr)
 {
 	static char second[] = "sec";
 	static char minute[] = "min";
@@ -630,22 +631,20 @@ getTableStart(memBuf_t *mp)
 static const char PRIVATE[] = "private auction - bidders' identities protected";
 
 /*
- * parseAuction(): parses bid history page (pageName: PageViewBids)
+ * parseBidHistory(): parses bid history page (pageName: PageViewBids)
  *
  * returns:
  *	0 OK
  *	1 error (badly formatted page, etc) - sets auctionError
  */
 static int
-parseAuction(memBuf_t *mp, auctionInfo *aip, const char *user, time_t start, time_t *timeToFirstByte)
+parseBidHistory(memBuf_t *mp, auctionInfo *aip, const char *user, time_t start, time_t *timeToFirstByte)
 {
 	char *line;
 	char *title;
 	char **row;
 	int foundHeader = 0;	/* found header for bid table */
-	int reserve = 0;	/* 1 = reserve not met */
 	int ret = 0;		/* 0 = OK, 1 = failed */
-	long remain;		/* time until auction ends */
 
 	resetAuctionError(aip);
 
@@ -722,20 +721,32 @@ parseAuction(memBuf_t *mp, auctionInfo *aip, const char *user, time_t start, tim
 	}
 	if (!line)
 		return auctionError(aip, ae_notime, NULL);
-	if ((remain = getseconds(line)) < 0)
+	if ((aip->remain = getSeconds(line)) < 0)
 		return auctionError(aip, ae_badtime, line);
-	printLog(stdout, "Time remaining: %s (%ld seconds)\n", line, remain);
+	printLog(stdout, "Time remaining: %s (%ld seconds)\n", line, aip->remain);
 	free(line); /* allocated in "Time left:" getNonTagFromString() */
-	aip->endTime = start + remain;
-	/* formated time/date output */
-	tmPtr = localtime(&(aip->endTime));
-	strftime(timestr , 20, "%d/%m/%Y %T", tmPtr);
-	printLog(stdout, "End time: %s\n", timestr);
+	if (aip->remain) {
+		struct tm *tmPtr;
+		char timestr[20];
+
+		aip->endTime = start + aip->remain;
+		/* formated time/date output */
+		tmPtr = localtime(&(aip->endTime));
+		strftime(timestr , 20, "%d/%m/%Y %T", tmPtr);
+		printLog(stdout, "End time: %s\n", timestr);
+	} else
+		aip->endTime = aip->remain;
 
 	if (!(line = getNonTag(mp)))
 		return auctionError(aip, ae_nohighbid, NULL);
 	if (!strcmp("Reserve not met", line))
-		reserve = 1;
+		aip->reserve = 1;
+	else {
+		aip->reserve = 0;
+		if ((foundHeader = !strcmp("User ID", line)))
+			/* skip over first line */
+			freeTableRow(getTableRow(mp));
+	}
 
 	/*
 	 * Determine high bidder
@@ -806,7 +817,7 @@ parseAuction(memBuf_t *mp, auctionInfo *aip, const char *user, time_t start, tim
 		}
 	}
 	if (!foundHeader) {
-		bugReport("parseAuction", __FILE__, __LINE__, mp, "Cannot find bid table header");
+		bugReport("parseBidHistory", __FILE__, __LINE__, mp, "Cannot find bid table header");
 		return auctionError(aip, ae_nohighbid, NULL);
 	}
 	/* skip over initial single-column rows */
@@ -833,7 +844,7 @@ parseAuction(memBuf_t *mp, auctionInfo *aip, const char *user, time_t start, tim
 			       "High bidder: -- (not %s)\n",
 			       aip->bidPriceStr, user);
 		} else {
-			bugReport("parseAuction", __FILE__, __LINE__, mp, "Unrecognized bid table line");
+			bugReport("parseBidHistory", __FILE__, __LINE__, mp, "Unrecognized bid table line");
 			ret = auctionError(aip, ae_nohighbid, NULL);
 		}
 		freeTableRow(row);
@@ -881,18 +892,18 @@ parseAuction(memBuf_t *mp, auctionInfo *aip, const char *user, time_t start, tim
 			printLog(stdout, "High bidder: %s (NOT %s)\n",
 				 winner, user);
 			aip->winning = 0;
-			if (!remain)
+			if (!aip->remain)
 				aip->won = 0;
-		} else if (reserve) {
+		} else if (aip->reserve) {
 			printLog(stdout, "High bidder: %s (reserve not met)\n",
 				 winner);
 			aip->winning = 0;
-			if (!remain)
+			if (!aip->remain)
 				aip->won = 0;
 		} else {
 			printLog(stdout, "High bidder: %s!!!\n", winner);
 			aip->winning = 1;
-			if (!remain)
+			if (!aip->remain)
 				aip->won = 1;
 		}
 		free(winner);
@@ -930,7 +941,7 @@ parseAuction(memBuf_t *mp, auctionInfo *aip, const char *user, time_t start, tim
 			}
 			freeTableRow(row);
 		}
-		if (!remain)
+		if (!aip->remain)
 			aip->won = aip->winning;
 		printf("# of bids: %d\n", aip->bids);
 		printf("Currently: %s  (your maximum bid: %s)\n",
@@ -946,13 +957,13 @@ parseAuction(memBuf_t *mp, auctionInfo *aip, const char *user, time_t start, tim
 		break;
 	    }
 	default:
-		bugReport("parseAuction", __FILE__, __LINE__, mp, "%d columns in bid table", numColumns(row));
+		bugReport("parseBidHistory", __FILE__, __LINE__, mp, "%d columns in bid table", numColumns(row));
 		ret = auctionError(aip, ae_nohighbid, NULL);
 		freeTableRow(row);
 	}
 
 	return ret;
-} /* parseAuction() */
+} /* parseBidHistory() */
 
 static const char GETINFO[] = "http://offer.ebay.com/ws/eBayISAPI.dll?ViewBids&item=";
 
@@ -989,9 +1000,9 @@ getInfoTiming(auctionInfo *aip, const char *user, time_t *timeToFirstByte)
 		aip->query = myStrdup2(GETINFO, aip->auction);
 	start = time(NULL);
 	if (!(mp = httpGet(aip->query, NULL)))
-		return 1;
+		return auctionError(aip, ae_curlerror, NULL);
 
-	ret = parseAuction(mp, aip, user, start, timeToFirstByte);
+	ret = parseBidHistory(mp, aip, user, start, timeToFirstByte);
 	clearMembuf(mp);
 	return ret;
 }
@@ -1007,13 +1018,12 @@ static const char PRE_BID_URL[] = "http://offer.ebay.com/ws/eBayISAPI.dll?MfcISA
  *
  * returns 0 on success, 1 on failure.
  */
-int
+static int
 preBid(auctionInfo *aip)
 {
 	memBuf_t *mp;
 	int quantity = getQuantity(aip->quantity, options.quantity);
 	char quantityStr[12];	/* must hold an int */
-	char *pageName;
 	size_t urlLen;
 	char *url;
 	int ret = 0;
@@ -1027,25 +1037,9 @@ preBid(auctionInfo *aip)
 	mp = httpGet(url, NULL);
 	free(url);
 	if (!mp)
-		return 1;
+		return auctionError(aip, ae_curlerror, NULL);
 
-	/*
-	 * Check pagename for error.  There are lots of errors, but
-	 * hopefully the only one we'll get is due to the auction being over.
-	 * If this becomes a problem, search through the page for
-	 *	class="error"
-	 * The next non-tag is the error text.
-	 */
-	pageName = getPageName(mp);
-	if (!strcmp(pageName, "MakeBidError")) {
-		clearMembuf(mp);
-		return auctionError(aip, ae_ended, NULL);
-	}
-	/*
-	 * Correct pagename is probably PageReviewBidBottomButton, but
-	 * don't check for this (in case it changes).
-	 */
-
+	/* pagename should be PageReviewBidBottomButton, but don't check it */
 	while (found < 7 && !match(mp, "<input type=\"hidden\" name=\"")) {
 		if (!strncmp(mp->readptr, "key\"", 4)) {
 			char *cp, *tmpkey;
@@ -1084,10 +1078,15 @@ preBid(auctionInfo *aip)
 		}
 	}
 	if (found < 7) {
-		ret = auctionError(aip, ae_bidkey, NULL);
-		bugReport("preBid", __FILE__, __LINE__, mp, "cannot find bid key, uiid or password, found = %d", found);
-	}
+		char *pagename;
 
+		mp->readptr = mp->memory;
+		pagename = getPageName(mp);
+		if ((ret = makeBidError(pagename, aip)) < 0) {
+			ret = auctionError(aip, ae_bidkey, NULL);
+			bugReport("preBid", __FILE__, __LINE__, mp, "cannot find bid key, uiid or password, found = %d, pagename is \"%s\"", found, nullStr(pagename));
+		}
+	}
 	clearMembuf(mp);
 	return ret;
 }
@@ -1100,7 +1099,7 @@ static const char LOGIN_2_URL[] = "https://signin.ebay.com/ws/eBayISAPI.dll?Sign
  *
  * returns 0 on success, 1 on failure.
  */
-int
+static int
 ebayLogin(auctionInfo *aip)
 {
 	memBuf_t *mp;
@@ -1110,9 +1109,8 @@ ebayLogin(auctionInfo *aip)
 	int ret = 0;
 	char *password;
 
-	mp = httpGet(LOGIN_1_URL, NULL);
-	if (!mp)
-		return 1;
+	if (!(mp = httpGet(LOGIN_1_URL, NULL)))
+		return auctionError(aip, ae_curlerror, NULL);
 
 	clearMembuf(mp);
 
@@ -1128,6 +1126,8 @@ ebayLogin(auctionInfo *aip)
 	mp = httpGet(url, logUrl);
 	free(url);
 	free(logUrl);
+	if (!mp)
+		return auctionError(aip, ae_curlerror, NULL);
 
 	if ((pp = getPageInfo(mp))) {
 		log(("ebayLogin(): pagename = \"%s\", pageid = \"%s\", srcid = \"%s\"", nullStr(pp->pageName), nullStr(pp->pageId), nullStr(pp->srcId)));
@@ -1150,6 +1150,67 @@ ebayLogin(auctionInfo *aip)
 }
 
 /*
+ * acceptBid: handle all known AcceptBid pages.
+ *
+ * Returns -1 if page not recognized, 0 if bid accepted, 1 if bid not accepted.
+ */
+static int
+acceptBid(const char *pagename, auctionInfo *aip)
+{
+	static const char ACCEPTBID[] = "AcceptBid_";
+	static const char HIGHBID[] = "HighBidder";
+	static const char OUTBID[] = "Outbid";
+	static const char RESERVENOTMET[] = "ReserveNotMet";
+
+	if (!pagename ||
+	    strncmp(pagename, ACCEPTBID, sizeof(ACCEPTBID) - 1))
+		return -1;
+	pagename += sizeof(ACCEPTBID) - 1;
+	// valid pagenames include AcceptBid_HighBidder,
+	// AcceptBid_HighBidder_rebid, possibly others.
+	if (!strncmp(pagename, HIGHBID, sizeof(HIGHBID) - 1))
+		return aip->bidResult = 0;
+	// valid pagenames include AcceptBid_Outbid, AcceptBid_Outbid_rebid,
+	// possibly others.
+	if (!strncmp(pagename, OUTBID, sizeof(OUTBID) - 1))
+		return aip->bidResult = auctionError(aip, ae_outbid, NULL);
+	// valid pagenames include AcceptBid_ReserveNotMet,
+	// AcceptBid_ReserveNotMet_rebid, possibly others.
+	if (!strncmp(pagename, RESERVENOTMET, sizeof(RESERVENOTMET) - 1))
+		return aip->bidResult = auctionError(aip, ae_reservenotmet, NULL);
+	/* unknown AcceptBid page */
+	return -1;
+}
+
+/*
+ * makeBidError: handle all known MakeBidError pages.
+ *
+ * Returns -1 if page not recognized, 0 if bid accepted, 1 if bid not accepted.
+ */
+static int
+makeBidError(const char *pagename, auctionInfo *aip)
+{
+	static const char MAKEBIDERROR[] = "MakeBidError";
+
+	if (!pagename ||
+	    strncmp(pagename, MAKEBIDERROR, sizeof(MAKEBIDERROR) - 1))
+		return -1;
+	pagename += sizeof(MAKEBIDERROR) - 1;
+	if (!*pagename)
+		return aip->bidResult = auctionError(aip, ae_ended, NULL);
+	if (!strcmp(pagename, "Password"))
+		return aip->bidResult = auctionError(aip, ae_badpass, NULL);
+	if (!strcmp(pagename, "MinBid"))
+		return aip->bidResult = auctionError(aip, ae_bidprice, NULL);
+	if (!strcmp(pagename, "BuyerBlockPref"))
+		return aip->bidResult = auctionError(aip, ae_buyerblockpref, NULL);
+	if (!strcmp(pagename, "HighBidder"))
+		return aip->bidResult = auctionError(aip, ae_highbidder, NULL);
+	/* unknown MakeBidError page */
+	return -1;
+}
+
+/*
  * Parse bid result.
  *
  * Returns:
@@ -1164,35 +1225,15 @@ parseBid(memBuf_t *mp, auctionInfo *aip)
 	 * example AcceptBid_HighBidder_rebid (you were already the high
 	 * bidder and placed another bid).
 	 */
-	static const char HIGHBID[] = "AcceptBid_HighBidder";
-	static const char OUTBID[] = "AcceptBid_Outbid";
-	static const char RESERVENOTMET[] = "AcceptBid_ReserveNotMet";
-	static const char MAKEBID[] = "PageMakeBid";
-	char *pagename;
+	char *pagename = getPageName(mp);
+	int ret;
 
 	aip->bidResult = -1;
-	if ((pagename = getPageName(mp))) {
-		log(("parseBid(): pagename = %s\n", pagename));
-		if (!strncmp(pagename, HIGHBID, sizeof(HIGHBID) - 1))
-			return aip->bidResult = 0;
-		if (!strncmp(pagename, OUTBID, sizeof(OUTBID) - 1))
-			return aip->bidResult = auctionError(aip, ae_outbid, NULL);
-		if (!strncmp(pagename, RESERVENOTMET, sizeof(RESERVENOTMET)-1))
-			return aip->bidResult = auctionError(aip, ae_reservenotmet, NULL);
-		if (!strcmp(pagename, "MakeBidErrorBuyerBlockPref"))
-			return aip->bidResult = auctionError(aip, ae_buyerblockpref, NULL);
-		if (!strcmp(pagename, "MakeBidErrorMinBid"))
-			return aip->bidResult = auctionError(aip, ae_bidprice, NULL);
-		if (!strcmp(pagename, "MakeBidErrorPassword") ||
-		    !strncmp(pagename, MAKEBID, sizeof(MAKEBID) - 1))
-			return aip->bidResult = auctionError(aip, ae_badpass, NULL);
-		if (!strcmp(pagename, "MakeBidError"))
-			return aip->bidResult = auctionError(aip, ae_ended, NULL);
-		bugReport("parseBid", __FILE__, __LINE__, mp, "pagename is \"%s\"", pagename);
-	} else {
-		log(("parseBid(): pagename is NULL\n"));
-		bugReport("parseBid", __FILE__, __LINE__, mp, "pagename is NULL");
-	}
+	log(("parseBid(): pagename = %s\n", pagename));
+	if ((ret = acceptBid(pagename, aip)) >= 0 ||
+	    (ret = makeBidError(pagename, aip)) >= 0)
+		return ret;
+	bugReport("parseBid", __FILE__, __LINE__, mp, "pagename is \"%s\"", nullStr(pagename));
 	printLog(stdout, "Cannot determine result of bid\n");
 	return 0;	/* prevent another bid */
 } /* parseBid() */
@@ -1206,7 +1247,7 @@ static const char BID_URL[] = "http://offer.ebay.com/ws/eBayISAPI.dll?MfcISAPICo
  * 0: OK
  * 1: error
  */
-int
+static int
 bid(auctionInfo *aip)
 {
 	memBuf_t *mp;
@@ -1215,6 +1256,9 @@ bid(auctionInfo *aip)
 	int ret;
 	int quantity = getQuantity(aip->quantity, options.quantity);
 	char quantityStr[12];	/* must hold an int */
+
+	if (!aip->bidkey || !aip->bidpass || !aip->biduiid)
+		return auctionError(aip, ae_bidkey, NULL);
 
 	sprintf(quantityStr, "%d", quantity);
 
@@ -1237,7 +1281,7 @@ bid(auctionInfo *aip)
 		log(("\n\nbid(): query url:\n%s\n", logUrl));
 		ret = aip->bidResult = 0;
 	} else if (!(mp = httpGet(url, logUrl))) {
-		ret = 1;
+		ret = auctionError(aip, ae_curlerror, NULL);
 	} else {
 		ret = parseBid(mp, aip);
 		clearMembuf(mp);
@@ -1254,7 +1298,7 @@ bid(auctionInfo *aip)
  *	0 OK
  *	1 Error
  */
-int
+static int
 watch(auctionInfo *aip)
 {
 	int errorCount = 0;
@@ -1269,6 +1313,7 @@ watch(auctionInfo *aip)
 		time_t timeToFirstByte = 0;
 		int ret = getInfoTiming(aip, options.username, &timeToFirstByte);
 		time_t end = time(NULL);
+
 		if (timeToFirstByte == 0)
 			timeToFirstByte = end;
 		tmpLatency = (timeToFirstByte - start);
@@ -1336,15 +1381,20 @@ watch(auctionInfo *aip)
 		/*
 		 * if we're less than two minutes away, get bid key
 		 */
-		if (remain <= 150 && !aip->bidkey) {
+		if (remain <= 150 && !aip->bidkey && aip->auctionError == ae_none) {
 			int i;
 
 			printf("\n");
 			for (i = 0; i < 5; ++i) {
-				if (!preBid(aip))
+				/* ae_bidkey is used when the page failed for
+				 * some unknown reason.  Try again...
+				 */
+				if (!preBid(aip) ||
+				    aip->auctionError != ae_bidkey)
 					break;
 			}
-			if (i == 5) {
+			if (aip->auctionError != ae_none &&
+			    aip->auctionError != ae_highbidder) {
 				printLog(stderr, "Cannot get bid key\n");
 				return 1;
 			}
@@ -1390,9 +1440,99 @@ watch(auctionInfo *aip)
 		if ((remain=newRemain(aip)) <= 0)
 			break;
 	}
-
 	return 0;
 } /* watch() */
+
+/*
+ * parameters:
+ * aip	auction to bid on
+ *
+ * return number of items won
+ */
+int
+snipeAuction(auctionInfo *aip)
+{
+	int won = 0;
+
+	if (!aip)
+		return 0;
+
+	if (options.debug)
+		logOpen(aip, options.logdir);
+
+	log(("auction %s price %s quantity %d user %s bidtime %ld\n",
+	     aip->auction, aip->bidPriceStr,
+	     options.quantity, options.username, options.bidtime));
+
+	cleanupCurlStuff();
+	if (initCurlStuff())
+		exit(1);
+
+	if (ebayLogin(aip)) {
+		printAuctionError(aip, stderr);
+		return 0;
+	}
+
+	/* 0 means "now" */
+	if ((options.bidtime == 0) ? preBid(aip) : watch(aip)) {
+		printAuctionError(aip, stderr);
+		if (aip->auctionError != ae_highbidder)
+			return 0;
+	}
+
+	/* ran out of time! */
+	if (aip->endTime <= time(NULL)) {
+		(void)auctionError(aip, ae_ended, NULL);
+		printAuctionError(aip, stderr);
+		return 0;
+	}
+
+	if (aip->auctionError != ae_highbidder) {
+		printLog(stdout, "\nAuction %s: Bidding...\n", aip->auction);
+		if (bid(aip)) {
+			/* failed bid */
+			printAuctionError(aip, stderr);
+			return 0;
+		}
+	}
+
+	/* view auction after bid.
+	 * Stick it in a loop in case our timing is a bit off (due
+	 * to wild swings in latency, for instance).
+	 */
+	for (;;) {
+		if (options.bidtime > 0 && options.bidtime < 60) {
+			time_t seconds = aip->endTime - time(NULL);
+
+			if (seconds < 0)
+				seconds = 0;
+			/* extra 2 seconds to make sure auction is over */
+			seconds += 2;
+			printLog(stdout, "Auction %s: Waiting %d seconds for auction to complete...\n", aip->auction, seconds);
+			sleep((unsigned int)seconds);
+		}
+
+		printLog(stdout, "\nAuction %s: Post-bid info:\n",
+			 aip->auction);
+		if (getInfo(aip, options.username))
+			printAuctionError(aip, stderr);
+		if (aip->remain > 0 && aip->remain < 60 &&
+		    options.bidtime > 0 && options.bidtime < 60)
+			continue;
+		break;
+	}
+
+	if (aip->won == -1) {
+		won = options.quantity < aip->quantity ?
+			options.quantity : aip->quantity;
+		printLog(stdout, "\nunknown outcome, assume that you have won %d items\n", won);
+	} else {
+		won = aip->won;
+		printLog(stdout, "\nwon %d item(s)\n", won);
+	}
+	options.quantity -= won;
+	return won;
+}
 
 static const char* MYITEMS_URL = "http://my.ebay.com/ws/eBayISAPI.dll?MyeBay&CurrentPage=MyeBayWatching";
 
@@ -1441,13 +1581,23 @@ printMyItemsRow(char **row, int line)
 	}
 }
 
-void
+int
 printMyItems(void)
 {
-	memBuf_t *mp = httpGet(MYITEMS_URL, NULL);
+	memBuf_t *mp;
 	const char *table;
 	char **row;
+	auctionInfo *dummy = newAuctionInfo("0", "0");
 
+	if (ebayLogin(dummy)) {
+		printAuctionError(dummy, stderr);
+		return 1;
+	}
+	if (!(mp = httpGet(MYITEMS_URL, NULL))) {
+		auctionError(dummy, ae_curlerror, NULL);
+		printAuctionError(dummy, stderr);
+		return 1;
+	}
 	while ((table = getTableStart(mp))) {
 		int rowNum = 1;
 
@@ -1464,6 +1614,7 @@ printMyItems(void)
 			freeTableRow(row);
 		}
 	}
+	return 0;
 }
 
 #if DEBUG
@@ -1494,7 +1645,7 @@ testParser(int flag)
 	    {
 		/* run through bid history parser */
 		auctionInfo *aip = newAuctionInfo("1", "2");
-		int ret = parseAuction(mp, aip, options.username, time(NULL), NULL);
+		int ret = parseBidHistory(mp, aip, options.username, time(NULL), NULL);
 
 		printf("ret = %d\n", ret);
 		printAuctionError(aip, stdout);

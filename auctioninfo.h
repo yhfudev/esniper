@@ -43,9 +43,7 @@ enum auctionErrorCode {
 	ae_notime,
 	ae_badtime,
 	ae_nohighbid,
-	ae_connect,
-	ae_badredirect,
-	ae_badstatus,
+	ae_curlerror,
 	ae_bidprice,
 	ae_bidkey,
 	ae_badpass,
@@ -57,6 +55,7 @@ enum auctionErrorCode {
 	ae_unavailable,
 	ae_login,
 	ae_buyerblockpref,
+	ae_highbidder,
 	/* ae_unknown must be last error */
 	ae_unknown
 };
@@ -68,7 +67,8 @@ typedef struct {
 	char *auction;	/* auction number */
 	char *bidPriceStr;/* price you want to bid */
 	double bidPrice;/* price you want to bid (converted to double) */
-	time_t endTime; /* end time as calculated from remaining seconds */
+	time_t remain;	/* remaining seconds */
+	time_t endTime;	/* end time as calculated from remaining seconds */
 	time_t latency; /* latency from HTTP request to first page data */
 	char *query;	/* bid history query */
 	char *bidkey;	/* bid key */
@@ -79,7 +79,8 @@ typedef struct {
 	int bids;	/* number of bids made */
 	double price;	/* current price */
 	char *currency;	/* currency used in auction */
-	int bidResult;  /* result code from bid (-1=no bid yet, 0=success, 1 = error) */
+	int bidResult;	/* result code from bid (-1=no bid yet, 0=success, 1 = error) */
+	int reserve;	/* auction has reserve and it hasn't been met. */
 	int won;	/* number won (-1 = no clue, 0 or greater = actual #) */
 	int winning;	/* number currently winning (-1 = no clue, 0 or greater = actual #) */
 	enum auctionErrorCode auctionError;/* error encountered while parsing */
@@ -94,5 +95,6 @@ extern void resetAuctionError(auctionInfo *aip);
 extern int auctionError(auctionInfo *aip, enum auctionErrorCode pe,
 			const char *details);
 extern int isValidBidPrice(const auctionInfo *aip);
+extern int sortAuctions(auctionInfo **auctions, int numAuctions, char *user, int *quantity);
 
 #endif /* AUCTIONINFO_H_INCLUDED */

@@ -25,6 +25,7 @@
  */
 
 #include "auctioninfo.h"
+#include "esniper.h"
 #include "util.h"
 #include <stdlib.h>
 #include <string.h>
@@ -219,9 +220,7 @@ static const char *auctionErrorString[] = {
 	"Auction %s: Time remaining not found\n",
 	"Auction %s: Unknown time interval \"%s\"\n",
 	"Auction %s: High bidder not found\n",
-	"Auction %s: Connect failed\n",
-	"Auction %s: Redirect failed\n",
-	"Auction %s: Unexpected HTTP status: %s\n",
+	"Auction %s: Cannot connect to URL\n",
 	"Auction %s: Bid price less than minimum bid price\n",
 	"Auction %s: Bid key not found\n",
 	"Auction %s: Bad username or password\n",
@@ -233,6 +232,7 @@ static const char *auctionErrorString[] = {
 	"Auction %s: eBay temporarily unavailable\n",
 	"Auction %s: Login failed\n",
 	"Auction %s: Seller has blocked your userid\n",
+	"Auction %s: Bid amount must be higher than the proxy you already placed\n",
 	/* ae_unknown must be last error */
 	"Auction %s: Unknown error code %d\n",
 };
@@ -245,6 +245,7 @@ newAuctionInfo(const char *auction, const char *bidPriceStr)
 	aip->auction = myStrdup(auction);
 	aip->bidPriceStr = priceFixup(myStrdup(bidPriceStr), NULL);
 	aip->bidPrice = atof(aip->bidPriceStr);
+	aip->remain = 0;
 	aip->endTime = 0;
 	aip->latency = 0;
 	aip->query = NULL;
@@ -257,6 +258,7 @@ newAuctionInfo(const char *auction, const char *bidPriceStr)
 	aip->price = 0;
 	aip->currency = NULL;
 	aip->bidResult = -1;
+	aip->reserve = 0;
 	aip->won = -1;
 	aip->winning = 0;
 	aip->auctionError = ae_none;
@@ -429,3 +431,75 @@ getIncrements(const auctionInfo *aip)
 	}
 	return defaultIncrements;
 }
+
+/*
+ * Get initial auction info, sort items based on:
+ *
+ * 1. current status (i.e. you already placed a bid and are winning)
+ * 2. end time.
+ */
+int
+sortAuctions(auctionInfo **auctions, int numAuctions, char *user, int *quantity)
+{
+	int i, sawError = 0;
+
+	for (i = 0; i < numAuctions; ++i) {
+		int j;
+
+		if (options.debug)
+			logOpen(auctions[i], options.logdir);
+		for (j = 0; j < 3; ++j) {
+			if (j > 0)
+				printLog(stderr, "Retrying...\n");
+			if (!getInfo(auctions[i], user))
+				break;
+			printAuctionError(auctions[i], stderr);
+			if (auctions[i]->auctionError == ae_unavailable) {
+				--j;	/* doesn't count as an attempt */
+				printLog(stderr, "%s: Will retry, sleeping for an hour\n", timestamp());
+				sleep(3600);
+			}
+		}
+		printLog(stdout, "\n");
+	}
+	if (numAuctions > 1) {
+		printLog(stdout, "Sorting auctions...\n");
+		/* sort by status and end time */
+		qsort(auctions, (size_t)numAuctions,
+		      sizeof(auctionInfo *), compareAuctionInfo);
+	}
+
+	/* get rid of obvious cases */
+	for (i = 0; i < numAuctions; ++i) {
+		auctionInfo *aip = auctions[i];
+
+		if ((i + 1) < numAuctions &&
+		    !strcmp(aip->auction, auctions[i+1]->auction))
+			(void)auctionError(aip, ae_duplicate, NULL);
+		else if (aip->won > 0)
+			*quantity -= aip->won;
+		else if (aip->auctionError != ae_none ||
+			 aip->endTime <= time(NULL))
+			;
+		else if (!isValidBidPrice(aip))
+			(void)auctionError(aip, ae_bidprice, NULL);
+		else
+			continue;
+		printAuctionError(aip, stderr);
+		freeAuction(auctions[i]);
+		auctions[i] = NULL;
+		++sawError;
+	}
+
+	/* eliminate dead auctions */
+	if (sawError) {
+		int j;
+
+		for (i = j = 0; i < numAuctions; ++i) {
+			if (auctions[i])
+				auctions[j++] = auctions[i];
+		}
+		numAuctions -= sawError;
+	}
+	return numAuctions;
+} /* sortAuctions() */

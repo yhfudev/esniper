@@ -34,6 +34,7 @@
 #include "esniper.h"
 #include "auction.h"
 #include "auctionfile.h"
+#include "auctioninfo.h"
 #include "options.h"
 #include "util.h"
 
@@ -90,8 +91,6 @@ option_t options = {
 static void sigAlarm(int sig);
 #endif
 static void sigTerm(int sig);
-static int sortAuctions(auctionInfo **auctions, int numAuctions, char *user,
-			int *quantity);
 static void cleanup(void);
 static int usage(int helptype);
 #define USAGE_SUMMARY	0x01
@@ -156,78 +155,6 @@ sigTerm(int sig)
 	log(("SIGTERM...\n"));
 	raise(sig);
 }
-
-/*
- * Get initial auction info, sort items based on:
- *
- * 1. current status (i.e. you already placed a bid and are winning)
- * 2. end time.
- */
-static int
-sortAuctions(auctionInfo **auctions, int numAuctions, char *user, int *quantity)
-{
-	int i, sawError = 0;
-
-	for (i = 0; i < numAuctions; ++i) {
-		int j;
-
-		if (options.debug)
-			logOpen(auctions[i], options.logdir);
-		for (j = 0; j < 3; ++j) {
-			if (j > 0)
-				printLog(stderr, "Retrying...\n");
-			if (!getInfo(auctions[i], user))
-				break;
-			printAuctionError(auctions[i], stderr);
-			if (auctions[i]->auctionError == ae_unavailable) {
-				--j;	/* doesn't count as an attempt */
-				printLog(stderr, "%s: Will retry, sleeping for an hour\n", timestamp());
-				sleep(3600);
-			}
-		}
-		printLog(stdout, "\n");
-	}
-	if (numAuctions > 1) {
-		printLog(stdout, "Sorting auctions...\n");
-		/* sort by status and end time */
-		qsort(auctions, (size_t)numAuctions,
-		      sizeof(auctionInfo *), compareAuctionInfo);
-	}
-
-	/* get rid of obvious cases */
-	for (i = 0; i < numAuctions; ++i) {
-		auctionInfo *aip = auctions[i];
-
-		if ((i + 1) < numAuctions &&
-		    !strcmp(aip->auction, auctions[i+1]->auction))
-			(void)auctionError(aip, ae_duplicate, NULL);
-		else if (aip->won > 0)
-			*quantity -= aip->won;
-		else if (aip->auctionError != ae_none ||
-			 aip->endTime <= time(NULL))
-			;
-		else if (!isValidBidPrice(aip))
-			(void)auctionError(aip, ae_bidprice, NULL);
-		else
-			continue;
-		printAuctionError(aip, stderr);
-		freeAuction(auctions[i]);
-		auctions[i] = NULL;
-		++sawError;
-	}
-
-	/* eliminate dead auctions */
-	if (sawError) {
-		int j;
-
-		for (i = j = 0; i < numAuctions; ++i) {
-			if (auctions[i])
-				auctions[j++] = auctions[i];
-		}
-		numAuctions -= sawError;
-	}
-	return numAuctions;
-} /* sortAuctions() */
 
 /* cleanup open files */
 static void
@@ -602,7 +529,7 @@ usage(int helplevel)
 int
 main(int argc, char *argv[])
 {
-	int ret = 1;	/* assume failure, change if successful */
+	int won = 0;	/* number of items won */
 	auctionInfo **auctions = NULL;
 	int c, i, numAuctions = 0, numAuctionsOrig = 0;
 #if DEBUG
@@ -923,116 +850,13 @@ main(int argc, char *argv[])
 		}
 	}
 
- 	if (options.myitems) {
-		auctionInfo *dummy = newAuctionInfo("1", "2");
-		if (ebayLogin(dummy)) {
-			printAuctionError(dummy, stderr);
-			exit(1);
-		} else {
-			printMyItems();
-			exit(0);
-		}
- 	}
+ 	if (options.myitems)
+		exit(printMyItems());
 
 	for (i = 0; i < numAuctions && options.quantity > 0; ++i) {
-		int retryCount, bidRet = 0;
-
-		if (!auctions[i])
-			continue;
-
-		if (options.debug)
-			logOpen(auctions[i], options.logdir);
-
-		log(("auction %s price %s quantity %d user %s bidtime %ld\n",
-		     auctions[i]->auction, auctions[i]->bidPriceStr,
-		     options.quantity, options.username, options.bidtime));
-
 		if (numAuctionsOrig > 1)
 			printLog(stdout, "\nNeed to win %d item(s), %d auction(s) remain\n\n", options.quantity, numAuctions - i);
-
-		cleanupCurlStuff();
-		if (initCurlStuff())
-			return 1;
-
-		if (ebayLogin(auctions[i])) {
-			printAuctionError(auctions[i], stderr);
-			continue;
-		}
-
-		/* 0 means "now" */
-		if (options.bidtime == 0) {
-			if (preBid(auctions[i])) {
-				printAuctionError(auctions[i], stderr);
-				continue;
-			}
-		} else {
-			if (watch(auctions[i])) {
-				printAuctionError(auctions[i], stderr);
-				continue;
-			}
-		}
-
-		/* ran out of time! */
-		if (auctions[i]->endTime <= time(NULL)) {
-			(void)auctionError(auctions[i], ae_ended, NULL);
-			printAuctionError(auctions[i], stderr);
-			continue;
-		}
-
-		if (options.bid)
-			printLog(stdout, "\nAuction %s: Bidding...\n",
-				 auctions[i]->auction);
-
-		if (!auctions[i]->bidkey && options.bid) {
-			printLog(stderr, "Auction %s: Problem with bid.  No bid placed.\n", auctions[i]->auction);
-			continue;
-		}
-
-		log(("*** BIDDING!!! auction %s price %s quantity %d\n",
-			auctions[i]->auction, auctions[i]->bidPriceStr,
-			options.quantity));
-
-		for (retryCount = 0; retryCount < 3; retryCount++) {
-			bidRet = bid(auctions[i]);
-			if (!bidRet || auctions[i]->auctionError != ae_connect)
-				break;
-			printLog(stderr, "Auction %s: retrying...\n",
-				 auctions[i]->auction);
-		}
-
-		/* failed bid */
-		if (bidRet) {
-			printAuctionError(auctions[i], stderr);
-			continue;
-		}
-
-		/* view auction after bid */
-		if (options.bidtime > 0 && options.bidtime < 60) {
-			/* extra 2 seconds to make sure it really is over */
-			time_t seconds = auctions[i]->endTime - time(NULL) + 2;
-			if (seconds < 0)
-				seconds = 0;
-			printLog(stdout, "Auction %s: Waiting %d seconds for auction to complete...\n", auctions[i]->auction, seconds);
-			sleep((unsigned int)seconds);
-		}
-
-		printLog(stdout, "\nAuction %s: Post-bid info:\n",
-			 auctions[i]->auction);
-		if (getInfo(auctions[i], options.username))
-			printAuctionError(auctions[i], stderr);
-
-		if (auctions[i]->won == -1) {
-			int won = auctions[i]->quantity;
-
-			if (options.quantity < won)
-				won = options.quantity;
-			options.quantity -= won;
-			printLog(stdout, "\nunknown outcome, assume that you have won %d items\n", won);
-		} else {
-			options.quantity -= auctions[i]->won;
-			printLog(stdout, "\nwon %d items\n", auctions[i]->won);
-			ret = 0;
-		}
+		won += snipeAuction(auctions[i]);
 	}
 	for (i = 0; i < numAuctions && options.quantity > 0; ++i)
 		freeAuction(auctions[i]);
@@ -1040,5 +864,5 @@ main(int argc, char *argv[])
 
 	cleanupCurlStuff();
 
-	return ret;
+	return won > 0 ? 0 : 1;
 }

@@ -31,11 +31,8 @@
 #include "esniper.h"
 
 extern int getInfo(auctionInfo *aip, const char *user);
-extern int watch(auctionInfo *aip);
-extern int preBid(auctionInfo *aip);
-extern int bid(auctionInfo *aip);
-extern int ebayLogin(auctionInfo *aip);
-extern void printMyItems(void);
+extern int snipeAuction(auctionInfo *aip);
+extern int printMyItems(void);
 
 #if DEBUG
 /* secret option */
