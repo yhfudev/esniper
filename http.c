@@ -136,7 +136,10 @@ httpRequest(const char *url, const char *logUrl, const char *data, const char *l
 	if (membuf.memory)
 		clearMembuf(&membuf);
 
-	if ((curlrc = curl_easy_setopt(easyhandle, CURLOPT_WRITEDATA, (void *)&membuf)))
+	/* Note: was CURLOPT_WRITEDATA, which is the same as CURLOPT_FILE.
+	 * Some older versions of libcurl don't have CURLOPT_WRITEDATA.
+	 */
+	if ((curlrc = curl_easy_setopt(easyhandle, CURLOPT_FILE, (void *)&membuf)))
 		return httpRequestFailed(curlrc);
 
 	if (rt == GET) {
