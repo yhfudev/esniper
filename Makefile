@@ -26,8 +26,8 @@ INSTALL_DIR=/usr/local/bin
 # Note: -O needed for uninitialized variable warning (part of -Wall)
 #
 # Flags not included:
-#	-Wshadow -Wid-clash-len -Wredundant-decls
-CHECKFLAGS = -O -pedantic -Wall -Wtraditional -Wpointer-arith -Wcast-qual \
+#	-Wshadow -Wtraditional -Wid-clash-len -Wredundant-decls
+CHECKFLAGS = -O -pedantic -Wall -Wpointer-arith -Wcast-qual \
 	-Wcast-align -Wwrite-strings -Wconversion -Waggregate-return \
 	-Wstrict-prototypes -Wmissing-prototypes -Wmissing-declarations \
 	-Wnested-externs
