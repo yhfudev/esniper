@@ -53,6 +53,10 @@ static int match(memBuf_t *mp, const char *str);
 static const char *gettag(memBuf_t *mp);
 static char *getnontag(memBuf_t *mp);
 static long getseconds(char *timestr);
+static const char *getTableEnd(memBuf_t *mp);
+static char *getTableCell(memBuf_t *mp);
+static char **getTableRow(memBuf_t *mp);
+static const char *getTableStart(memBuf_t *mp);
 static int getInfoTiming(auctionInfo *aip, int quantity, const char *user, time_t *timeToFirstByte);
 static char *getPageName(memBuf_t *mp);
 static char *getIdInternal(char *s, size_t len);
@@ -451,6 +455,108 @@ getseconds(char *timestr)
 	}
 
 	return accum;
+}
+
+/*
+ * Search to end of table, returning /table tag (or NULL if not found).
+ * Embedded tables are skipped.
+ */
+static const char *
+getTableEnd(memBuf_t *mp)
+{
+	int nesting = 1;
+	const char *cp;
+
+	while ((cp = gettag(mp))) {
+		if (!strcmp(cp, "/table")) {
+			if (--nesting == 0)
+				return cp;
+		} else if (!strncmp(cp, "table", 5) &&
+			   (isspace((int)*(cp+5)) || *(cp+5) == '\0')) {
+			++nesting;
+		}
+	}
+	return NULL;
+}
+
+/*
+ * Search for next table item.  Return NULL at end of a row, and another NULL
+ * at the end of a table.
+ */
+static char *
+getTableCell(memBuf_t *mp)
+{
+	int nesting = 1;
+	const char *cp, *start = NULL, *end = NULL;
+	static char *buf = NULL;
+	static size_t bufsize = 0;
+	size_t count = 0;
+
+	while ((cp = gettag(mp))) {
+		if (nesting == 1 && !strncmp(cp, "td", 2) &&
+		    (isspace((int)*(cp+2)) || *(cp+2) == '\0')) {
+			/* found <td>, now must find </td> */
+			start = mp->readptr;
+		} else if (nesting == 1 && !strcmp(cp, "/td")) {
+			/* end of this item */
+			for (end = mp->readptr - 1; *end != '<'; --end)
+				;
+			for (cp = start; cp < end; ++cp) {
+				addchar(buf, bufsize, count, *cp);
+			}
+			term(buf, bufsize, count);
+			return buf;
+		} else if (nesting == 1 && !strcmp(cp, "/tr")) {
+			/* end of this row */
+			return NULL;
+		} else if (!strcmp(cp, "/table")) {
+			/* end of this table? */
+			if (--nesting == 0)
+				return NULL;
+		} else if (!strncmp(cp, "table", 5) &&
+			   (isspace((int)*(cp+5)) || *(cp+5) == '\0')) {
+			++nesting;
+		}
+	}
+}
+
+/*
+ * Return NULL-terminated table row, or NULL at end of table.
+ * All cells are malloc'ed and should be freed by the calling function.
+ */
+static char **
+getTableRow(memBuf_t *mp)
+{
+	char **ret = NULL, *cp = NULL;
+	size_t size = 0, i = 0;
+
+	do {
+		cp = getTableCell(mp);
+		if (cp || i) {
+			if (i >= size) {
+				size += 10;
+				ret = (char **)myRealloc(ret, size * sizeof(char *));
+			}
+			ret[i++] = myStrdup(cp);
+		}
+	} while ((cp));
+	return ret;
+}
+
+/*
+ * Search for next table tag.
+ */
+static const char *
+getTableStart(memBuf_t *mp)
+{
+	const char *cp;
+
+	while ((cp = gettag(mp))) {
+		if (!strncmp(cp, "table", 5) &&
+		    (isspace((int)*(cp+5)) || *(cp+5) == '\0'))
+			return cp;
+	}
+	return NULL;
 }
 
 /*
@@ -1175,6 +1281,30 @@ testParser(int flag)
 
 		printf("ret = %d\n", ret);
 		printAuctionError(aip, stdout);
+		break;
+	    }
+	case 4:
+	    {
+		/* find the watching table */
+		const char *table;
+		char **row;
+
+		while ((table = getTableStart(mp))) {
+			int rowNum = 0;
+
+			if (!strstr(table, "tableName=\"Watching\""))
+				continue;
+			printf("table: %s\n", table);
+			while ((row = getTableRow(mp))) {
+				int columnNum = 0;
+
+				printf("\trow %d:\n", rowNum++);
+				for (; row[columnNum]; ++columnNum) {
+					printf("\t\tcolumn %d: %s\n", columnNum, row[columnNum]);
+					free(row[columnNum]);
+				}
+			}
+		}
 		break;
 	    }
 	}
