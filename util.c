@@ -34,10 +34,12 @@
 #include <sys/time.h>
 #include <time.h>
 #include <sys/types.h>
-#if defined(unix) || defined (__unix) || defined (__MACH__)
+#if !defined(WIN32)
 #include <termios.h>
 #include <unistd.h>
 #endif
+
+static void seedPasswordRandom(void);
 
 /*
  * various utility functions used in esniper.
@@ -159,7 +161,7 @@ vlog(const char *fmt, va_list arglist)
 		gettimeofday(&tv, NULL);
 		t = (time_t)(tv.tv_sec);
 		strftime(timebuf, sizeof(timebuf), "\n\n*** %Y-%m-%d %H:%M:%S", localtime(&t));
-		fprintf(logfile, "%s.%06ld ", timebuf, tv.tv_usec);
+		fprintf(logfile, "%s.%06ld ", timebuf, (long)tv.tv_usec);
 		vfprintf(logfile, fmt, arglist);
 		fflush(logfile);
 	}
@@ -306,16 +308,16 @@ static size_t passwordLen = 0;
 static int needSeed = 1;
 
 static void
-seedPasswordRandom()
+seedPasswordRandom(void)
 {
 	if (needSeed) {
-		srandom(getpid() * time(0));
+		srandom((unsigned int)(getpid() * time(0)));
 		needSeed = 0;
 	}
 }
 
 void
-clearPassword()
+clearPassword(void)
 {
 	int i;
 
@@ -332,7 +334,7 @@ clearPassword()
 }
 
 void
-encryptPassword()
+encryptPassword(void)
 {
 	int i;
 
@@ -351,7 +353,7 @@ encryptPassword()
 }
 
 void
-decryptPassword()
+decryptPassword(void)
 {
 	int i;
 
@@ -380,7 +382,7 @@ basename(char *name)
 
 	len = strlen(name);
 	if (len == 0)
-		return ".";
+		return (char *)".";	/* cast away const */
 	cp = name + len - 1;
 #if defined(__CYGWIN__) || defined(WIN32)
 	if (*cp == '/' || *cp == '\\') {
@@ -391,7 +393,7 @@ basename(char *name)
 #endif
 			*cp = '\0';
 		if (cp < name)
-			return "/";
+			return (char *)"/";	/* cast away const */
 	}
 #if defined(__CYGWIN__) || defined(WIN32)
 	for (; cp >= name && *cp != '/' && *cp != '\\'; --cp)
@@ -412,7 +414,7 @@ dirname(char *name)
 
 	len = strlen(name);
 	if (len == 0)
-		return ".";
+		return (char *)".";	/* cast away const */
 	cp = name + len - 1;
 #if defined(__CYGWIN__) || defined(WIN32)
 	if (*cp == '/' || *cp == '\\') {
@@ -423,7 +425,7 @@ dirname(char *name)
 #endif
 			*cp = '\0';
 		if (cp <= name)
-			return "/";
+			return (char *)"/";	/* cast away const */
 	}
 #if defined(__CYGWIN__) || defined(WIN32)
 	for (; cp >= name && *cp != '/' && *cp != '\\'; --cp)
@@ -432,9 +434,9 @@ dirname(char *name)
 #endif
 		;
 	if (cp < name)
-		return ".";
+		return (char *)".";	/* cast away const */
 	if (cp == name)
-		return "/";
+		return (char *)"/";	/* cast away const */
 	*cp = '\0';
 	return name;
 }

@@ -26,12 +26,15 @@
 
 #include "auction.h"
 #include "buffer.h"
-#if defined(unix) || defined (__unix) || defined (__MACH__)
+#if defined(WIN32) /* TODO */
+#       include <winsock.h>
+#else
 #       include <unistd.h>
 #       include <netinet/in.h>
 #       include <sys/socket.h>
-#elif defined(WIN32) /* TODO */
-#       include <winsock.h>
+#endif
+#if defined(_XOPEN_SOURCE_EXTENDED)
+#	include <arpa/inet.h>
 #endif
 #include <ctype.h>
 #include <errno.h>
@@ -39,14 +42,15 @@
 #include <signal.h>
 #include <stdio.h>
 #include <string.h>
-
+#include <strings.h>	/* AIX 4.2 strcasecmp() */
+#include <time.h>
 
 static int logNonTag(const char *msg, FILE *fp, int ret);
-static FILE *verboseConnect(const char *host, int retryTime, int retryCount);
+static FILE *verboseConnect(const char *host, unsigned int retryTime, int retryCount);
 static int match(FILE *fp, const char *str);
 static char *gettag(FILE *fp);
 static char *getnontag(FILE *fp);
-static char *getuntilchar(FILE *fp, char until);
+static char *getuntilchar(FILE *fp, int until);
 static void runout(FILE *fp);
 static long getseconds(char *timestr);
 static int parseAuction(FILE *fp, auctionInfo *aip, int quantity, const char *user);
@@ -71,11 +75,11 @@ logNonTag(const char *msg, FILE *fp, int ret)
  * otherwise
  */
 static FILE *
-verboseConnect(const char *host, int retryTime, int retryCount)
+verboseConnect(const char *host, unsigned int retryTime, int retryCount)
 {
-	int saveErrno, sockfd, rc, count;
+	int saveErrno, sockfd = -1, rc = -1, count;
 	struct sockaddr_in servAddr;
-	struct hostent *entry;
+	struct hostent *entry = NULL;
 	static struct sigaction alarmAction;
 	static int firstTime = 1;
 
@@ -100,7 +104,7 @@ verboseConnect(const char *host, int retryTime, int retryCount)
 	memset(&servAddr, 0, sizeof(servAddr));
 	servAddr.sin_family = AF_INET;
 	memcpy(&servAddr.sin_addr.s_addr, entry->h_addr, 4);
-	servAddr.sin_port = htons(80);
+	servAddr.sin_port = htons((unsigned short)80);
 
 	log(("connect"));
 	while (retryCount-- > 0) {
@@ -337,7 +341,7 @@ getnontag(FILE *fp)
 }
 
 static char *
-getuntilchar(FILE *fp, char until)
+getuntilchar(FILE *fp, int until)
 {
 	static char buf[1024]; /* returned string cannot be longer than this */
 	int count;
@@ -510,6 +514,8 @@ parseAuction(FILE *fp, auctionInfo *aip, int quantity, const char *user)
 		puts("High bidder: --");
 	} else if (aip->quantity == 1) {
 		/* single auction with bids */
+		const char *winner = NULL;
+
 		while((line = getnontag(fp))) {
 			if (!strcmp("Date of Bid", line))
 				break;
@@ -518,16 +524,17 @@ parseAuction(FILE *fp, auctionInfo *aip, int quantity, const char *user)
 			return auctionError(aip, ae_nohighbid, NULL);
 		if (strstr(line, "private auction")) {
 			if (aip->bidResult == 0 && aip->price <= aip->bidPrice)
-				line = (char *)user;
+				winner = user;
 			else
-				line = "[private]";
-		}
-		if (strcmp(line, user)) {
-			printLog(stdout, "High bidder: %s (NOT %s)\n", line, user);
+				winner = "[private]";
+		} else
+			winner = line;
+		if (strcmp(winner, user)) {
+			printLog(stdout, "High bidder: %s (NOT %s)\n", winner, user);
 			if (!aip->remain)
 				aip->won = 0;
 		} else {
-			printLog(stdout, "High bidder: %s!!!\n", line);
+			printLog(stdout, "High bidder: %s!!!\n", winner);
 			if (!aip->remain)
 				aip->won = 1;
 		}
@@ -849,7 +856,8 @@ int
 watch(auctionInfo *aip, option_t options)
 {
 	int errorCount = 0;
-	long remain = -1, sleepTime = -1;
+	long remain = -1;
+	unsigned int sleepTime = 0;
 
 	log(("*** WATCHING auction %s price-each %s quantity %d user %s bidtime %ld\n", aip->auction, aip->bidPriceStr, options.quantity, options.user, options.bidtime));
 
@@ -863,7 +871,7 @@ watch(auctionInfo *aip, option_t options)
 
 			/* fatal error? */
 			if (remain == -1) {	/* first time */
-				int j, ret = 1;
+				int j;
 
 				for (j = 0; ret && j < 3 && aip->auctionError == ae_notitle; ++j)
 					ret=getInfo(aip, options.quantity, options.user);

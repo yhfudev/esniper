@@ -41,10 +41,10 @@
 typedef struct optionTable optionTable_t;
 
 struct optionTable {
-   char *configname;    /* keyword in config files */
-   char *optionname;    /* option without '-' */
-   void *value;         /* variable to store value */
-   int type;            /* data type of expected value or option argument */
+   const char *configname; /* keyword in config files */
+   const char *optionname; /* option without '-' */
+   void *value;            /* variable to store value */
+   int type;               /* data type of expected value or option argument */
    /* This function will be called to check and copy value if specified.
       It can get the value by other means than converting the string
       found in config file or on command line. */

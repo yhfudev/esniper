@@ -120,8 +120,8 @@ freeAuction(auctionInfo *aip)
 int
 compareAuctionInfo(const void *p1, const void *p2)
 {
-	long r1 = (*((auctionInfo **)p1))->remain;
-	long r2 = (*((auctionInfo **)p2))->remain;
+	long r1 = (*((const auctionInfo **)p1))->remain;
+	long r2 = (*((const auctionInfo **)p2))->remain;
 
 	return (r1 == r2) ? 0 : (r1 < r2 ? -1 : 1);
 }

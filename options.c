@@ -156,7 +156,7 @@ parseConfigValue(const char *name, const char *value, optionTable_t *table,
 	const char *filename, const char *line)
 {
    optionTable_t *tableptr;
-   char *tablename;
+   const char *tablename;
 
    log(("parsing name %s value %s\n", name, nullStr(value)));
    /* lookup name in table */
@@ -217,7 +217,7 @@ parseBoolValue(const char *name, const char *value, optionTable_t *tableptr,
 	const char *filename, const char *line, int neg)
 {
    int intval = 0;
-   static char* boolvalues[] =
+   static const char* boolvalues[] =
       {
          "0",
          "1",

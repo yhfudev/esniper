@@ -40,7 +40,7 @@
 static const char version[]="esniper version 2.0.1";
 static const char blurb[]="Please visit http://esniper.sourceforge.net/ for updates and bug reports";
 
-#if defined(unix) || defined (__unix) || defined (__MACH__)
+#if !defined(WIN32)
 #       include <unistd.h>
 #endif
 #include <errno.h>
@@ -134,8 +134,8 @@ sortAuctions(auctionInfo **auctions, int numAuctions, char *user,
 	if (numAuctions > 1) {
 		printLog(stdout, "Sorting auctions...\n");
 		/* sort by end time */
-		qsort(auctions, numAuctions, sizeof(auctionInfo *),
-		      compareAuctionInfo);
+		qsort(auctions, (unsigned int)numAuctions,
+		      sizeof(auctionInfo *), compareAuctionInfo);
 	}
 
 	/* get rid of obvious cases */
@@ -204,7 +204,7 @@ static int CheckSecs(const void* valueptr, const optionTable_t* tableptr,
                   line);
    }
    /* specific string value "now" */
-   if(!strcmp((char*)valueptr, "now")) {
+   if(!strcmp((const char*)valueptr, "now")) {
       /* copy value to target variable */
       *(int*)(tableptr->value)=0;
       log(("seconds value is %d (now)", *(int*)(tableptr->value)));
@@ -212,7 +212,7 @@ static int CheckSecs(const void* valueptr, const optionTable_t* tableptr,
    }
 
    /* else must be integer value */
-   intval = strtol((char*)valueptr, &endptr, 10);
+   intval = strtol((const char*)valueptr, &endptr, 10);
    if(*endptr != '\0') {
       if(filename)
          printLog(stderr, "Config entry \"%s\" in file %s", line, filename);
@@ -235,7 +235,7 @@ static int CheckSecs(const void* valueptr, const optionTable_t* tableptr,
 
    /* copy value to target variable */
    *(int*)(tableptr->value) = intval;
-   log(("seconds value is %d\n", *(int*)(tableptr->value)));
+   log(("seconds value is %d\n", *(const int*)(tableptr->value)));
    return 0;
 }
 
@@ -247,7 +247,7 @@ static int CheckSecs(const void* valueptr, const optionTable_t* tableptr,
 static int CheckQuantity(const void* valueptr, const optionTable_t* tableptr,
                          const char* filename, const char *line)
 {
-   if(*(int*)valueptr <= 0) {
+   if(*(const int*)valueptr <= 0) {
       if(filename)
          printLog(stderr,
                   "Quantity must be positive at \"%s\" in file %s\n",
@@ -259,7 +259,7 @@ static int CheckQuantity(const void* valueptr, const optionTable_t* tableptr,
       return 1;
    }
    /* copy value to target variable */
-   *(int*)(tableptr->value) = *(int*)valueptr;
+   *(int*)(tableptr->value) = *(const int*)valueptr;
    return 0;
 }
 
@@ -320,7 +320,7 @@ ReadPass(const void* valueptr, const optionTable_t* tableptr,
 static int CheckFile(const void* valueptr, const optionTable_t* tableptr,
                      const char* filename, const char *line)
 {
-   if(access((char*)valueptr, R_OK)) {
+   if(access((const char*)valueptr, R_OK)) {
       if(filename)
          printLog(stderr,
                 "File specified in at \"%s\" in file %s is not readable: %s\n",
@@ -328,7 +328,7 @@ static int CheckFile(const void* valueptr, const optionTable_t* tableptr,
       else
          printLog(stderr,
                   "File \"%s\" specified at option -%s is not readable: %s\n",
-                  (char*)valueptr, line, strerror(errno));
+                  (const char*)valueptr, line, strerror(errno));
       return 1;
    }
    free(*(char**)(tableptr->value));
@@ -613,7 +613,7 @@ main(int argc, char *argv[])
 	}
 
 	for (i = 0; i < numAuctions && options.quantity > 0; ++i) {
-		int retryCount, bidRet;
+		int retryCount, bidRet = 0;
 
 		if (!auctions[i])
 			continue;
@@ -679,7 +679,7 @@ main(int argc, char *argv[])
 		if (options.bidtime > 0 && options.bidtime < 60) {
 			printLog(stdout, "Auction %s: Waiting %d seconds for auction to complete...\n", auctions[i]->auction, options.bidtime);
 			/* make sure it really is over */
-			sleep(options.bidtime + 1);
+			sleep((unsigned int)options.bidtime + 1);
 		}
 
 		printLog(stdout, "\nAuction %s: Post-bid info:\n",
