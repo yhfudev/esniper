@@ -1,3 +1,6 @@
+2005-04-16
+	* added -i option: print information on given auctions and exit
+
 2005-03-09
 	* rewrote error handling in prebid and bid history
 

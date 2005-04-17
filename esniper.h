@@ -42,6 +42,7 @@ typedef struct {
 	int reduce;
 	int debug;
 	int usage;
+	int info;
 	int myitems;
 	int batch;
 	int encrypted;

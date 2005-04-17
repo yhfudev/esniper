@@ -76,6 +76,7 @@ option_t options = {
 	1,		/* reduce quantity */
 	0,		/* debug */
 	0,		/* usage */
+	0,		/* info on given auctions only */
 	0,		/* get my eBay items */
 	0,		/* batch */
 	0,		/* password encrypted? */
@@ -93,6 +94,7 @@ static void sigAlarm(int sig);
 static void sigTerm(int sig);
 static void cleanup(void);
 static int usage(int helptype);
+static void printRemain(int remain);
 #define USAGE_SUMMARY	0x01
 #define USAGE_LONG	0x02
 #define USAGE_CONFIG	0x04
@@ -440,6 +442,16 @@ static int SetConfigHelp(const void *valueptr, const optionTable_t *tableptr,
 	return 0;
 }
 
+/*
+ * Print number of auctions remaining.
+ */
+static void
+printRemain(int remain)
+{
+	printLog(stdout, "\nNeed to win %d item(s), %d auction(s) remain\n\n",
+		options.quantity, remain);
+}
+
 static const char usageSummary[] =
  "usage: %s [-bdhHnmPrUv] [-c conf_file] [-l logdir] [-p proxy] [-q quantity]\n"
  "       [-s secs|now] [-u user] (auction_file | [auction price ...])\n"
@@ -458,6 +470,7 @@ static const char usageLong1[] =
  "-d: write debug output to file\n"
  "-h: command line options help\n"
  "-H: configuration and auction file help\n"
+ "-i: get info on auctions and exit\n"
  "-l: log directory (default: ., or directory of auction file, if specified)\n"
  "-m: get my ebay watched items and exit\n"
  "-n: do not place bid\n";
@@ -556,6 +569,7 @@ main(int argc, char *argv[])
    {"bid",     NULL, (void*)&options.bid,          OPTION_BOOL,     NULL},
    {NULL,       "n", (void*)&options.bid,          OPTION_BOOL_NEG, NULL},
    {NULL,       "m", (void*)&options.myitems,      OPTION_BOOL,     NULL},
+   {NULL,       "i", (void*)&options.info,         OPTION_BOOL,     NULL},
    {"debug",    "d", (void*)&options.debug,        OPTION_BOOL,    &CheckDebug},
    {"curldebug","C", (void*)&options.curldebug,    OPTION_BOOL,     NULL},
    {"batch",    "b", (void*)&options.batch,        OPTION_BOOL,     NULL},
@@ -570,7 +584,7 @@ main(int argc, char *argv[])
    };
 
 	/* all known options */
-	static const char optionstring[]="bc:dhHl:mnp:Pq:rs:u:Uv"
+	static const char optionstring[]="bc:dhHil:mnp:Pq:rs:u:Uv"
 #if DEBUG
 		"X"
 #endif
@@ -736,6 +750,7 @@ main(int argc, char *argv[])
 				break;
 			/* fall through */
 		case 'b': /* batch */
+		case 'i': /* info only */
 		case 'm': /* get my ebay items */
 		case 'n': /* don't bid */
 		case 'P': /* read password */
@@ -766,6 +781,7 @@ main(int argc, char *argv[])
 	log(("options.reduce=%d\n", options.reduce));
 	log(("options.debug=%d\n", options.debug));
 	log(("options.usage=%d\n", options.usage));
+	log(("options.info=%d\n", options.info));
 	log(("options.myitems=%d\n", options.myitems));
 
 	if (!options.usage) {
@@ -852,10 +868,15 @@ main(int argc, char *argv[])
 
  	if (options.myitems)
 		exit(printMyItems());
+	if (options.info) {
+		if (numAuctionsOrig > 1)
+			printRemain(numAuctions);
+		exit(0);
+	}
 
 	for (i = 0; i < numAuctions && options.quantity > 0; ++i) {
 		if (numAuctionsOrig > 1)
-			printLog(stdout, "\nNeed to win %d item(s), %d auction(s) remain\n\n", options.quantity, numAuctions - i);
+			printRemain(numAuctions - i);
 		won += snipeAuction(auctions[i]);
 	}
 	for (i = 0; i < numAuctions && options.quantity > 0; ++i)
