@@ -1,3 +1,7 @@
+2005-04-19
+	* handle bid history for purchases (i.e. store items and buy-it-now
+	  with no bidding)
+
 2005-04-16
 	* added -i option: print information on given auctions and exit
 

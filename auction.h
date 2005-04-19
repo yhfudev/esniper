@@ -29,10 +29,20 @@
 
 #include "auctioninfo.h"
 #include "esniper.h"
+#include "http.h"
 
 extern int getInfo(auctionInfo *aip, const char *user);
 extern int snipeAuction(auctionInfo *aip);
 extern int printMyItems(void);
+
+typedef struct {
+	char *pageName;
+	char *pageId;
+	char *srcId;
+} pageInfo_t;
+
+extern pageInfo_t *getPageInfo(memBuf_t *mp);
+extern void freePageInfo(pageInfo_t *pp);
 
 #if DEBUG
 /* secret option */

@@ -26,9 +26,15 @@
 
 #include "auctioninfo.h"
 #include "esniper.h"
+#include "auction.h"
 #include "util.h"
 #include <stdlib.h>
 #include <string.h>
+#if defined(WIN32)
+#	define sleep(t) _sleep((t) * 1000)
+#else
+#	include <unistd.h>
+#endif
 
 static double *getIncrements(const auctionInfo *aip);
 
@@ -233,6 +239,7 @@ static const char *auctionErrorString[] = {
 	"Auction %s: Login failed\n",
 	"Auction %s: Seller has blocked your userid\n",
 	"Auction %s: Bid amount must be higher than the proxy you already placed\n",
+	"Auction %s: Must sign in\n",
 	/* ae_unknown must be last error */
 	"Auction %s: Unknown error code %d\n",
 };
@@ -243,9 +250,11 @@ newAuctionInfo(const char *auction, const char *bidPriceStr)
 	auctionInfo *aip = (auctionInfo *)myMalloc(sizeof(auctionInfo));
 
 	aip->auction = myStrdup(auction);
+	aip->title = NULL;
 	aip->bidPriceStr = priceFixup(myStrdup(bidPriceStr), NULL);
 	aip->bidPrice = atof(aip->bidPriceStr);
 	aip->remain = 0;
+	aip->remainRaw = NULL;
 	aip->endTime = 0;
 	aip->latency = 0;
 	aip->query = NULL;
@@ -272,7 +281,9 @@ freeAuction(auctionInfo *aip)
 	if (!aip)
 		return;
 	free(aip->auction);
+	free(aip->title);
 	free(aip->bidPriceStr);
+	free(aip->remainRaw);
 	free(aip->query);
 	free(aip->bidkey);
 	free(aip->bidpass);

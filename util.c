@@ -26,6 +26,7 @@
 
 #include "util.h"
 #include "esniper.h"
+#include "auction.h"
 #include "buffer.h"
 #include <ctype.h>
 #include <errno.h>
@@ -259,9 +260,19 @@ bugReport(const char *func, const char *file, int line, memBuf_t *mp, const char
 		"\tError encountered in function %s in %s line %d\n",
 		getProgname(), getVersion(), func, file, line);
 	if (mp) {
+		pageInfo_t *pp = getPageInfo(mp);
+
 		printLog(stdout,
 			"\tbuf = %p, size = %d, read = %p, time = %d\n",
 			mp->memory, mp->size, mp->readptr, mp->timeToFirstByte);
+		if (pp) {
+			printLog(stdout,
+				 "pagename = \"%s\", pageid = \"%s\", srcid = \"%s\"",
+				 nullStr(pp->pageName), nullStr(pp->pageId),
+				 nullStr(pp->srcId));
+
+			freePageInfo(pp);
+		}
 	}
 	printf("\t");
 	if (options.debug && logfile) {

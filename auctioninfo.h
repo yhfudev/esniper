@@ -56,6 +56,7 @@ enum auctionErrorCode {
 	ae_login,
 	ae_buyerblockpref,
 	ae_highbidder,
+	ae_mustsignin,
 	/* ae_unknown must be last error */
 	ae_unknown
 };
@@ -65,9 +66,11 @@ enum auctionErrorCode {
  */
 typedef struct {
 	char *auction;	/* auction number */
+	char *title;	/* auction title */
 	char *bidPriceStr;/* price you want to bid */
 	double bidPrice;/* price you want to bid (converted to double) */
 	time_t remain;	/* remaining seconds */
+	char *remainRaw;/* remaining time string, from ebay */
 	time_t endTime;	/* end time as calculated from remaining seconds */
 	time_t latency; /* latency from HTTP request to first page data */
 	char *query;	/* bid history query */
