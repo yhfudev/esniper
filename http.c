@@ -73,7 +73,7 @@ strToMemBuf(const char *s)
 	m.timeToFirstByte = time(NULL);
 	m.memory = myStrdup(s);
 	m.readptr = m.memory;
-	m.size = s ? strlen(s) + 1 : 0;
+	m.size = s ? strlen(s) : 0;
 	return &m;
 }
 
