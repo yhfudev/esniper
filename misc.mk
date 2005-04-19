@@ -5,7 +5,7 @@
 #	 of gcc's warning options enabled
 #
 
-SRC = auction.c auctionfile.c auctioninfo.c buffer.c esniper.c getopt.c \
+SRC = auction.c auctionfile.c auctioninfo.c buffer.c esniper.c \
 	http.c options.c util.c
 
 # System dependencies
@@ -26,7 +26,7 @@ CHECKFLAGS = -O -pedantic -Wall -Wpointer-arith -Wcast-qual \
 
 # Simple portability check - look for no warnings
 check:
-	gcc -c $(CFLAGS) `curl-config  --cflags` $(CHECKFLAGS) $(SRC)
+	gcc -c $(CFLAGS) -DVERSION=\"2.10.0\" `curl-config  --cflags` $(CHECKFLAGS) $(SRC)
 
 # lint check
 lint:
