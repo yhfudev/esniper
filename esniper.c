@@ -39,7 +39,10 @@
 #include "util.h"
 
 static const char *progname = NULL;
-static const char blurb[] = "Please visit http://esniper.sf.net/ for updates and bug reports.";
+static const char blurb[] =
+	"Please visit http://esniper.sf.net/ for updates and bug reports.  To learn\n"
+	"about updates to and major bugs in esniper, subscribe to the esniper mailing\n"
+	"list at http://lists.sf.net/lists/listinfo/esniper-announce";
 static const char DEFAULT_CONF_FILE[] = ".esniper";
 
 #include <errno.h>
