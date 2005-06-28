@@ -719,6 +719,7 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, const char *user, time_t start, 
 			 * "Reserve not met", or whatever).
 			 */
 			getTableCell(mp); /* end of "Time left:" cell */
+			getTableCell(mp); /* spacer */
 			free(aip->remainRaw);
 			aip->remainRaw = getNonTagFromString(getTableCell(mp));
 			break;
