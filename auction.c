@@ -1066,7 +1066,7 @@ getInfoTiming(auctionInfo *aip, const char *user, time_t *timeToFirstByte)
 
 	log(("\n\n*** getInfo auction %s price %s user %s\n", aip->auction, aip->bidPriceStr, user));
 
-	for (i = 0; i < 2; ++i) {
+	for (i = 0; i < 3; ++i) {
 		if (!aip->query)
 			aip->query = myStrdup2(GETINFO, aip->auction);
 		start = time(NULL);
@@ -1078,7 +1078,10 @@ getInfoTiming(auctionInfo *aip, const char *user, time_t *timeToFirstByte)
 		if (i == 0 && ret == 1 && aip->auctionError == ae_mustsignin) {
 			if (ebayLogin(aip))
 				break;
-		} else
+		} else if (aip->auctionError == ae_notime)
+			/* Blank time remaining -- give it another chance */
+			sleep(2);
+		else
 			break;
 	}
 	return ret;
