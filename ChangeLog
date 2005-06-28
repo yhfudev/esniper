@@ -1,3 +1,7 @@
+2005-06-27
+	* Fix bug 1228701.  Time left heading has a table cell between it and
+	  the cell containing the actual time left.
+
 2005-04-19
 	* handle bid history for purchases (i.e. store items and buy-it-now
 	  with no bidding)
