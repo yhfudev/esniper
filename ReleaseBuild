@@ -17,17 +17,16 @@ First, setup environment variables:
 	CURRFILE=esniper-$MAJOR-$MINOR-$STEP
 	CURRTAG=Version_${MAJOR}_${MINOR}_${STEP}
 
-Ensure the version is correct in configure.in.
+Ensure the version is correct in configure.in, rebuild the automake files,
+and check them in the correct order so the dependencies are correct:
 
-After rebuilding the automake files, make sure automake dependencies are
-checked in in the correct date order.  You will need to use cvs ci -f to
-force checkin for files that have no changed.  Files listed in ascending date
-order (oldest to newest).  Files on the same line don't have to be the same
-time, just newer than the previous line and older than the next:
-
-	configure.in
-	aclocal.m4 Makefile.am
-	configure Makefile.in
+	vi configure.in
+	make
+	cvs ci -m $CURRENT configure.in
+	sleep 2
+	cvs ci -f -m $CURRENT aclocal.m4 Makefile.am
+	sleep 2
+	cvs ci -f -m $CURRENT configure Makefile.in
 
 Tag source:
 

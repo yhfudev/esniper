@@ -1565,7 +1565,7 @@ fi
 
 # Define the identity of the package.
  PACKAGE=esniper
- VERSION=2.10.0
+ VERSION=2.11.0
 
 
 cat >>confdefs.h <<_ACEOF
