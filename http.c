@@ -198,6 +198,11 @@ initCurlStuff(void)
 	if ((curlrc = curl_easy_setopt(easyhandle, CURLOPT_FOLLOWLOCATION, 1)))
 		return initCurlStuffFailed(curlrc);
 
+	/* use proxy */
+	if (options.proxy &&
+	    (curlrc = curl_easy_setopt(easyhandle, CURLOPT_PROXY, options.proxy)))
+		return initCurlStuffFailed(curlrc);
+
 	/* send all data to this function */
 	if ((curlrc = curl_easy_setopt(easyhandle, CURLOPT_WRITEFUNCTION, WriteMemoryCallback)))
 		return initCurlStuffFailed(curlrc);

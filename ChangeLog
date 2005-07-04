@@ -1,3 +1,7 @@
+2005-07-04
+	* Fixed proxy handling.  Removed lookup of http_proxy environment
+	  variable, since libcurl does it.
+
 2005-06-27
 	* Fix bug 1228701.  Time left heading has a table cell between it and
 	  the cell containing the actual time left.

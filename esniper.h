@@ -46,7 +46,7 @@ typedef struct {
 	int myitems;
 	int batch;
 	int encrypted;
-	proxy_t proxy;
+	char *proxy;
 	char *logdir;
 	char *historyHost;
 	char *prebidHost;

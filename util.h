@@ -32,11 +32,6 @@
 #include <stdio.h>
 #include "http.h"
 
-typedef struct {
-	char *host;
-	int port;
-} proxy_t;
-
 extern void *myMalloc(size_t);
 extern void *myRealloc(void *buf, size_t size);
 extern char *myStrdup(const char *);
@@ -59,7 +54,6 @@ extern char *timestamp(void);
 extern int skipline(FILE *fp);
 extern char *prompt(const char *p, int noecho);
 extern int boolValue(const char *value);
-extern int parseProxy(const char *value, proxy_t *proxy);
 extern char *priceFixup(char *price, auctionInfo *aip);
 
 extern char *stars(size_t len);

@@ -83,7 +83,7 @@ option_t options = {
 	0,		/* get my eBay items */
 	0,		/* batch */
 	0,		/* password encrypted? */
-	{ NULL, 0 },	/* proxy host & port */
+	NULL,		/* proxy */
 	NULL,		/* log directory */
 	NULL,		/* historyHost */
 	NULL,		/* prebidHost */
@@ -118,8 +118,6 @@ static int CheckAuctionFile(const void *valueptr, const optionTable_t *tableptr,
 			    const char *filename, const char *line);
 static int CheckConfigFile(const void *valueptr, const optionTable_t *tableptr,
 			   const char *filename, const char *line);
-static int CheckProxy(const void *valueptr, const optionTable_t *tableptr,
-		      const char *filename, const char *line);
 static int SetLongHelp(const void *valueptr, const optionTable_t *tableptr,
 		       const char *filename, const char *line);
 static int SetConfigHelp(const void *valueptr, const optionTable_t *tableptr,
@@ -399,27 +397,6 @@ static int CheckFile(const void *valueptr, const optionTable_t *tableptr,
 }
 
 /*
- * CheckProxy(): accept accessible files only
- *
- * returns: 0 = OK, else error
- */
-static int CheckProxy(const void *valueptr, const optionTable_t *tableptr,
-		      const char *filename, const char *line)
-{
-	if (!parseProxy((const char *)valueptr, (proxy_t *)(tableptr->value)))
-		return 0;
-	if (filename)
-		printLog(stderr,
-			 "Proxy specified in \"%s\" in file %s is not valid\n",
-			 line, filename);
-	else
-		printLog(stderr,
-			 "Proxy \"%s\" specified at option -%s is not valid\n",
-			 nullStr((const char *)valueptr), line);
-	return 1;
-}
-
-/*
  * SetLongHelp(): set usage to 2 to activate long help
  *
  * returns: 0 = OK
@@ -558,7 +535,7 @@ main(int argc, char *argv[])
    {"password",NULL, (void*)&options.password,     OPTION_STRING,   &CheckPass},
    {"seconds",  "s", (void*)&options.bidtime,      OPTION_SPECIAL,  &CheckSecs},
    {"quantity", "q", (void*)&options.quantity,     OPTION_INT,  &CheckQuantity},
-   {"proxy",    "p", (void*)&options.proxy,        OPTION_STRING,  &CheckProxy},
+   {"proxy",    "p", (void*)&options.proxy,        OPTION_STRING,   NULL},
    {NULL,       "P", (void*)&options.password,     OPTION_STRING,   &ReadPass},
    {NULL,       "U", (void*)&options.username,     OPTION_STRING,   &ReadUser},
    {NULL,       "c", (void*)&options.conffilename, OPTION_STRING,   &CheckConfigFile},
@@ -600,11 +577,6 @@ main(int argc, char *argv[])
 	options.historyHost = myStrdup(DEFAULT_HISTORY_HOST);
 	options.prebidHost = myStrdup(DEFAULT_PREBID_HOST);
 	options.bidHost = myStrdup(DEFAULT_BID_HOST);
-
-	/* environment variables */
-	/* TODO - obey no_proxy */
-	if (parseProxy(getenv("http_proxy"), &options.proxy))
-		printLog(stderr, "http_proxy environment variable invalid\n");
 
 	/* first, check for debug, configuration file and auction file
 	 * options but accept all other options to avoid error messages
