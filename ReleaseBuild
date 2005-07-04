@@ -50,7 +50,7 @@ Create source tar:
 	cp ../ChangeLog ../configure ../configure.in ../COPYING $CURRFILE
 	cp ../depcomp ../esniper.1 ../esniper.c ../esniper.dsp $CURRFILE
 	cp ../esniper.dsw ../esniper.h ../esniper.mak $CURRFILE
-	cp ../esniper_man.html ../getopt.c ../getopt.h ../http.c $CURRFILE
+	cp ../esniper_man.html ../http.c $CURRFILE
 	cp ../http.h ../INSTALL ../install-sh ../Makefile.am $CURRFILE
 	cp ../Makefile.in ../misc.mk ../missing ../NEWS ../options.c $CURRFILE
 	cp ../options.h ../README ../sample_auction.txt $CURRFILE
