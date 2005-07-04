@@ -3,6 +3,7 @@
 	  variable, since libcurl does it.
 	* Fixed myItems item number parsing, including for auctions with
 	  no image.  Also added support for user notes.
+	* Enhanced bug reporting.
 
 2005-06-27
 	* Fix bug 1228701.  Time left heading has a table cell between it and

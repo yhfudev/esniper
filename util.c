@@ -41,6 +41,7 @@
 #	include <sys/timeb.h>
 #	define strncasecmp(s1, s2, len) strnicmp((s1), (s2), (len))
 #else
+#	include <sys/types.h>
 #	include <sys/time.h>
 #	include <termios.h>
 #	include <unistd.h>
@@ -260,17 +261,17 @@ bugReport(const char *func, const char *file, int line, memBuf_t *mp, const char
 		"\tError encountered in function %s in %s line %d\n",
 		getProgname(), getVersion(), func, file, line);
 	if (mp) {
-		pageInfo_t *pp = getPageInfo(mp);
+		pageInfo_t *pp;
 
 		printLog(stdout,
 			"\tbuf = %p, size = %d, read = %p, time = %d\n",
 			mp->memory, mp->size, mp->readptr, mp->timeToFirstByte);
-		if (pp) {
+		mp->readptr = mp->memory;
+		if ((pp = getPageInfo(mp))) {
 			printLog(stdout,
 				 "pagename = \"%s\", pageid = \"%s\", srcid = \"%s\"",
 				 nullStr(pp->pageName), nullStr(pp->pageId),
 				 nullStr(pp->srcId));
-
 			freePageInfo(pp);
 		}
 	}
@@ -286,15 +287,19 @@ bugReport(const char *func, const char *file, int line, memBuf_t *mp, const char
 	printLog(stdout, "\n");
 	fflush(stdout);	/* in case writing memory contents causes core dump */
 	if (mp && mp->memory && mp->size) {
-		char *bugname = myStrdup2(getProgname(), ".bug.html");
-		FILE *fp = fopen(bugname, "w");
+		static int bugNum = 0;
+		char tmp[40], *bugname;
+		FILE *fp;
 
-		if (fp) {
+		sprintf(tmp, ".%d.%d.bug.html", getpid(), ++bugNum);
+		bugname = myStrdup2(getProgname(), tmp);
+		if ((fp = fopen(bugname, "w"))) {
 			fwrite(mp->memory, 1, mp->size, fp);
 			fclose(fp);
 			printLog(stdout, "then upload and attach %s ", bugname);
 		} else
 			printLog(stdout, "\tFailed to create bug file %s: %s\n", bugname, strerror(errno));
+		free(bugname);
 	}
 	printLog(stdout, "and click submit.\n");
 	fflush(stdout);
