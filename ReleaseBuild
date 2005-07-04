@@ -27,6 +27,8 @@ and check them in the correct order so the dependencies are correct:
 	cvs ci -f -m $CURRENT aclocal.m4 Makefile.am
 	sleep 2
 	cvs ci -f -m $CURRENT configure Makefile.in
+	rm configure.in aclocal.m4 Makefile.am configure Makefile.in
+	cvs update configure.in aclocal.m4 Makefile.am configure Makefile.in
 
 Tag source:
 
@@ -81,7 +83,7 @@ Edit the web page:
 	ssh -l esniper shell.sourceforge.net
 		<enter password>
 	vi $PROJECT/htdocs/index.html
-		change tgz file to current release (two places)
+		change tgz file to current release (one place)
 
 Go to www.sourceforge.net:
 	- login
@@ -92,6 +94,8 @@ Go to www.sourceforge.net:
 	- select file(s) to import
 	- mark each type (one at a time...)
 	- click "send notice"
+	- click file releases, then edit releases, then find the previous
+	  release and edit it.  Change the status to hidden and submit.
 
 Send email to esniper-announce@lists.sourceforge.net to announce the
 new version.
