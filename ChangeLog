@@ -1,6 +1,8 @@
 2005-07-04
 	* Fixed proxy handling.  Removed lookup of http_proxy environment
 	  variable, since libcurl does it.
+	* Fixed myItems item number parsing, including for auctions with
+	  no image.  Also added support for user notes.
 
 2005-06-27
 	* Fix bug 1228701.  Time left heading has a table cell between it and

@@ -69,7 +69,7 @@ static int numColumns(char **row);
 static int parseBidHistory(memBuf_t *mp, auctionInfo *aip, const char *user, time_t start, time_t *timeToFirstByte);
 static int parseBid(memBuf_t *mp, auctionInfo *aip);
 static int preBid(auctionInfo *aip);
-static void printMyItemsRow(char **row, int line);
+static int printMyItemsRow(char **row, int printNewline);
 static int watch(auctionInfo *aip);
 
 /*
@@ -1623,51 +1623,73 @@ snipeAuction(auctionInfo *aip)
 
 static const char* MYITEMS_URL = "http://my.ebay.com/ws/eBayISAPI.dll?MyeBay&CurrentPage=MyeBayWatching";
 
-#define MYITEMS_LINE(n) (n % 2)
 #define MAX_TDS 6
 
-static void
-printMyItemsRow(char **row, int line)
+/*
+ * On first call, use printNewline to 0.  On subsequent calls, use return
+ * value from previous call.
+ */
+static int
+printMyItemsRow(char **row, int printNewline)
 {
-	const char *myitems_description[2][MAX_TDS] = {
+	const char *myitems_description[7][MAX_TDS] = {
+		{0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0},
+		{"Note:\t\t%s\n", 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0},
+		{0, 0, "Description:\t%s\n", 0, 0, 0},
+		{0, 0, 0, 0, 0, 0},
 		{0, "Price:\t\t%s\n", "Shipping:\t%s\n", "Bids:\t\t%s\n",
-		 "Seller:\t\t%s\n", "Time:\t\t%s\n\n"},
-		{0, "ItemNr:\t\t%s\n", "Description:\t%s\n", 0, 0, 0}
+		 "Seller:\t\t%s\n", "Time:\t\t%s\n"}
 	};
+	int nColumns = numColumns(row);
 	int column = 0;
+	int ret = printNewline;
 
+	if (nColumns == 4) {
+		if (printNewline)
+			printf("\n");
+		else
+			ret = 1;
+	}
 	for (; row[column]; ++column) {
 		memBuf_t *mp;
 		char *value = NULL;
-		int freeValue = 0;
 
-		if (column >= MAX_TDS || !myitems_description[line][column])
+		if (column >= MAX_TDS || !myitems_description[nColumns][column])
 			continue;
 		mp = strToMemBuf(row[column]);
-		/* special case: ItemNr encoded in ViewItem URL
-		 */
-		if (line == 1 && column == 1) {
+		/* special case: ItemNr encoded in item URL */
+		if (nColumns == 4 && column == 2) {
 			static const char search[] = "item=";
-			char *tmp = strstr(getTag(mp), search);
+			char *tmp = strstr(row[column], search);
 
 			if (tmp) {
-				char *quote;
+				int i;
 
 				tmp += sizeof(search) - 1;
-				if ((quote=strchr(tmp, '\"'))) {
-					value = myStrndup(tmp, (size_t)(quote - tmp));
-					freeValue = 1;
-				}
+				for (; !isdigit(*tmp); ++tmp)
+					;
+				for (i = 1; isdigit(tmp[i]); ++i)
+					;
+				value = myStrndup(tmp, (size_t)(i));
+				printLog(stdout, "ItemNr:\t\t%s\n", value);
+				free(value);
 			}
-		} else
+		}
+		value = getNonTag(mp);
+		/* Note text is 2nd non-tag */
+		if (nColumns == 2 && column == 0)
 			value = getNonTag(mp);
-		printLog(stdout, myitems_description[line][column], value ? value : "");
-		if (freeValue)
-			free(value);
+		printLog(stdout, myitems_description[nColumns][column], value ? value : "");
 		clearMembuf(mp);
 	}
+	return ret;
 }
 
+/*
+ * TODO: allow user configuration of myItems.
+ */
 int
 printMyItems(void)
 {
@@ -1686,7 +1708,7 @@ printMyItems(void)
 		return 1;
 	}
 	while ((table = getTableStart(mp))) {
-		int rowNum = 1;
+		int printNewline = 0;
 
 		/* search for table containing my itmes */
 		if (!strstr(table, "tableName=\"Watching\""))
@@ -1697,7 +1719,7 @@ printMyItems(void)
 		else
 			return 0; /* error? */
 		while ((row = getTableRow(mp))) {
-			printMyItemsRow(row, MYITEMS_LINE(rowNum++));
+			printNewline = printMyItemsRow(row, printNewline);
 			freeTableRow(row);
 		}
 	}
@@ -1714,6 +1736,7 @@ testParser(int flag)
 	switch (flag) {
 	case 1:
 	    {
+		/* print pagename */
 		char *line;
 
 		/* dump non-tag data */
@@ -1750,6 +1773,7 @@ testParser(int flag)
 	    }
 	case 4:
 	    {
+		/* print bid history table */
 		const char *table;
 		char **row;
 		char *cp;
