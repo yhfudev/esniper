@@ -14,6 +14,10 @@ AWK=`which gawk 2>/dev/null`
 AWK=${AWK:-`which nawk`}
 AWK=${AWK:-`which awk`}
 
+# need ksh or bash for subshell pid hack
+KSH=`which ksh 2>/dev/null`
+KSH=${KSH:-`which bash`}
+
 usage() {
 	[ $# -gt 0 ] && echo "$PROGNAME: $@" 1>&2
 	echo "usage:" 1>&2
@@ -137,7 +141,7 @@ else
 				warn "Auction file $i not found"
 				continue
 			fi
-			(PID="`/bin/ksh -c 'echo $PPID'`"; \
+			(PID="`"$KSH" -c 'echo $PPID'`"; \
 			 echo "$PID" >"$SNIPE_OUTDIR/lastpid"; \
 			 echo "# esniper $i" >"$SNIPE_OUTDIR/$PID.txt"; \
 			 exec esniper "$i" >>"$SNIPE_OUTDIR/$PID.txt" 2>&1) &
