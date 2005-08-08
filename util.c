@@ -29,6 +29,7 @@
 #include "auction.h"
 #include "buffer.h"
 #include <ctype.h>
+#include <curl/curl.h>
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -248,7 +249,7 @@ printLog(FILE *fp, const char *fmt, ...)
  * Request user to file a bug report.
  */
 void
-bugReport(const char *func, const char *file, int line, memBuf_t *mp, const char *fmt, ...)
+bugReport(const char *func, const char *file, int line, auctionInfo *aip, memBuf_t *mp, const char *fmt, ...)
 {
 	va_list arglist;
 
@@ -258,8 +259,19 @@ bugReport(const char *func, const char *file, int line, memBuf_t *mp, const char
 		"paste this into \"Detailed Description\":\n"
 		"\tAutomated esniper bug report.\n"
 		"\t%s version %s\n"
+		"\t%s\n"
 		"\tError encountered in function %s in %s line %d\n",
-		getProgname(), getVersion(), func, file, line);
+		getProgname(), getVersion(), curl_version(), func, file, line);
+
+	if (aip) {
+		printLog(stdout,
+			"\tauction = %s, price = %s, remain = %d\n"
+			"\tlatency = %d, result = %d, error = %d\n",
+			nullStr(aip->auction), nullStr(aip->bidPriceStr),
+			aip->remain, aip->latency, aip->bidResult,
+			aip->auctionError);
+	}
+
 	if (mp) {
 		pageInfo_t *pp;
 
@@ -269,7 +281,7 @@ bugReport(const char *func, const char *file, int line, memBuf_t *mp, const char
 		mp->readptr = mp->memory;
 		if ((pp = getPageInfo(mp))) {
 			printLog(stdout,
-				 "pagename = \"%s\", pageid = \"%s\", srcid = \"%s\"",
+				 "\tpagename = \"%s\", pageid = \"%s\", srcid = \"%s\"\n",
 				 nullStr(pp->pageName), nullStr(pp->pageId),
 				 nullStr(pp->srcId));
 			freePageInfo(pp);
