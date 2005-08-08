@@ -1,3 +1,6 @@
+2005-08-07
+	* Fix bug 1253692.  Fixed price auction error now handled gracefully.
+
 2005-07-04
 	* 2.11.0 released
 	* Fixed proxy handling.  Removed lookup of http_proxy environment

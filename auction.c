@@ -1294,6 +1294,8 @@ makeBidError(const char *pagename, auctionInfo *aip)
 		return aip->bidResult = auctionError(aip, ae_buyerblockpref, NULL);
 	if (!strcmp(pagename, "HighBidder"))
 		return aip->bidResult = auctionError(aip, ae_highbidder, NULL);
+	if (!strcmp(pagename, "CannotBidOnItem"))
+		return aip->bidResult = auctionError(aip, ae_cannotbid, NULL);
 	/* unknown MakeBidError page */
 	return -1;
 }

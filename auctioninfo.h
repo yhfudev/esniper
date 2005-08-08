@@ -57,6 +57,7 @@ enum auctionErrorCode {
 	ae_buyerblockpref,
 	ae_highbidder,
 	ae_mustsignin,
+	ae_cannotbid,
 	/* ae_unknown must be last error */
 	ae_unknown
 };

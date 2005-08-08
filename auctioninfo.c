@@ -240,6 +240,7 @@ static const char *auctionErrorString[] = {
 	"Auction %s: Seller has blocked your userid\n",
 	"Auction %s: Bid amount must be higher than the proxy you already placed\n",
 	"Auction %s: Must sign in\n",
+	"Auction %s: Cannot bid on item (fixed price item?)\n",
 	/* ae_unknown must be last error */
 	"Auction %s: Unknown error code %d\n",
 };
