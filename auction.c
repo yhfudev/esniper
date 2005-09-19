@@ -1292,6 +1292,10 @@ makeBidError(const char *pagename, auctionInfo *aip)
 		return aip->bidResult = auctionError(aip, ae_bidprice, NULL);
 	if (!strcmp(pagename, "BuyerBlockPref"))
 		return aip->bidResult = auctionError(aip, ae_buyerblockpref, NULL);
+	if (!strcmp(pagename, "BuyerBlockPrefDoesNotShipToLocation"))
+		return aip->bidResult = auctionError(aip, ae_buyerblockprefdoesnotshiptolocation, NULL);
+	if (!strcmp(pagename, "BuyerBlockPrefNoLinkedPaypalAccount"))
+		return aip->bidResult = auctionError(aip, ae_buyerblockprefnolinkedpaypalaccount, NULL);
 	if (!strcmp(pagename, "HighBidder"))
 		return aip->bidResult = auctionError(aip, ae_highbidder, NULL);
 	if (!strcmp(pagename, "CannotBidOnItem"))
@@ -1476,11 +1480,12 @@ watch(auctionInfo *aip)
 
 			printf("\n");
 			for (i = 0; i < 5; ++i) {
-				/* ae_bidkey is used when the page failed for
-				 * some unknown reason.  Try again...
+				/* ae_bidkey is used when the page loaded
+				 * but failed for some unknown reason.
+				 * Do not try again in this situation.
 				 */
 				if (!preBid(aip) ||
-				    aip->auctionError != ae_bidkey)
+				    aip->auctionError == ae_bidkey)
 					break;
 			}
 			if (aip->auctionError != ae_none &&

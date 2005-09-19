@@ -497,8 +497,11 @@ boolValue(const char *value)
 char *
 priceFixup(char *price, auctionInfo *aip)
 {
-	int len = strlen(price), i, j, start = 0, end, count = 0;
+	int len, i, j, start = 0, end, count = 0;
 
+	if (!price)
+		return price;
+	len = strlen(price);
 	if (aip && !aip->currency) {
 		char tmp;
 

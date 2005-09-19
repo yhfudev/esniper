@@ -590,6 +590,8 @@ main(int argc, char *argv[])
 		case 'd': /* debug */
 		case 'h': /* command-line options help */
 		case 'H': /* configuration and auction file help */
+		case 'i': /* info only */
+		case 'm': /* get my ebay items */
 		case '?': /* unknown -> help */
 			if (parseGetoptValue(c, NULL, optiontab))
 				options.usage |= USAGE_SUMMARY;
@@ -725,8 +727,6 @@ main(int argc, char *argv[])
 				break;
 			/* fall through */
 		case 'b': /* batch */
-		case 'i': /* info only */
-		case 'm': /* get my ebay items */
 		case 'n': /* don't bid */
 		case 'P': /* read password */
 		case 'r': /* reduce */
@@ -763,11 +763,21 @@ main(int argc, char *argv[])
 #if DEBUG
 	    if (!XFlag) {
 #endif
-		if (!options.myitems && (!options.auctfilename && argc < 2)) {
+		if (options.auctfilename) {
+			/* should never happen */
+			if (argc != 1) {
+				printLog(stderr, "Error: arguments specified after auction filename.\n");
+				options.usage |= USAGE_SUMMARY;
+			}
+		} else if (options.myitems) {
+			if (argc != 0) {
+				printLog(stderr, "Error: auctions specified with -m option.\n");
+				options.usage |= USAGE_SUMMARY;
+			}
+		} else if (argc < 2) {
 			printLog(stderr, "Error: no auctions specified.\n");
 			options.usage |= USAGE_SUMMARY;
-		}
-		if (!options.auctfilename && argc % 2) {
+		} else if (argc % 2) {
 			printLog(stderr, "Error: auctions and prices must be specified in pairs.\n");
 			options.usage |= USAGE_SUMMARY;
 		}
@@ -814,7 +824,9 @@ main(int argc, char *argv[])
 			auctions[i] = newAuctionInfo(argv[2*i], argv[2*i+1]);
 	}
 
-	if (!options.myitems && (numAuctions <= 0))
+ 	if (options.myitems)
+		exit(printMyItems());
+	if (numAuctions <= 0)
 		exit(usage(USAGE_SUMMARY));
 
 #if !defined(WIN32)
@@ -841,8 +853,6 @@ main(int argc, char *argv[])
 		}
 	}
 
- 	if (options.myitems)
-		exit(printMyItems());
 	if (options.info) {
 		if (numAuctionsOrig > 1)
 			printRemain(numAuctions);

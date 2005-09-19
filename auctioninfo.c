@@ -238,6 +238,8 @@ static const char *auctionErrorString[] = {
 	"Auction %s: eBay temporarily unavailable\n",
 	"Auction %s: Login failed\n",
 	"Auction %s: Seller has blocked your userid\n",
+	"Auction %s: Seller does not ship to your location\n",
+	"Auction %s: Seller requires buyer to have paypal account\n",
 	"Auction %s: Bid amount must be higher than the proxy you already placed\n",
 	"Auction %s: Must sign in\n",
 	"Auction %s: Cannot bid on item (fixed price item?)\n",
@@ -253,7 +255,7 @@ newAuctionInfo(const char *auction, const char *bidPriceStr)
 	aip->auction = myStrdup(auction);
 	aip->title = NULL;
 	aip->bidPriceStr = priceFixup(myStrdup(bidPriceStr), NULL);
-	aip->bidPrice = atof(aip->bidPriceStr);
+	aip->bidPrice = aip->bidPriceStr ? atof(aip->bidPriceStr) : -1;
 	aip->remain = 0;
 	aip->remainRaw = NULL;
 	aip->endTime = 0;

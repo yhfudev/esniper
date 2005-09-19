@@ -55,6 +55,8 @@ enum auctionErrorCode {
 	ae_unavailable,
 	ae_login,
 	ae_buyerblockpref,
+	ae_buyerblockprefdoesnotshiptolocation,
+	ae_buyerblockprefnolinkedpaypalaccount,
 	ae_highbidder,
 	ae_mustsignin,
 	ae_cannotbid,
