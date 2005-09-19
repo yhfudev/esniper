@@ -2,6 +2,7 @@
 	* Fix bug 1295057, blocked bid due to bidder location.
 	* Fix bug 1282914, blocked bid due to no paypal account.
 	* Fix bug 1252037, accept comma in price in auction file.
+	* Potential fix for bug 1295198, FreeBSD core dump
 
 2005-08-07
 	* Fix bug 1253692.  Fixed price auction error now handled gracefully.

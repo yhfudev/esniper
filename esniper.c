@@ -532,7 +532,7 @@ main(int argc, char *argv[])
    /* this table describes options and config entries */
    static optionTable_t optiontab[] = {
    {"username", "u", (void*)&options.username,     OPTION_STRING,   &CheckUser},
-   {"password",NULL, (void*)&options.password,     OPTION_STRING,   &CheckPass},
+   {"password",NULL, (void*)&options.password,     OPTION_SPECIAL,  &CheckPass},
    {"seconds",  "s", (void*)&options.bidtime,      OPTION_SPECIAL,  &CheckSecs},
    {"quantity", "q", (void*)&options.quantity,     OPTION_INT,  &CheckQuantity},
    {"proxy",    "p", (void*)&options.proxy,        OPTION_STRING,   NULL},
