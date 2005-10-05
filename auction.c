@@ -1212,7 +1212,9 @@ ebayLogin(auctionInfo *aip)
 
 	if ((pp = getPageInfo(mp))) {
 		log(("ebayLogin(): pagename = \"%s\", pageid = \"%s\", srcid = \"%s\"", nullStr(pp->pageName), nullStr(pp->pageId), nullStr(pp->srcId)));
-		if (pp->srcId && !strcmp(pp->srcId, "SignInAlertSupressor"))
+		if (pp->srcId &&
+		    (!strcmp(pp->pageName, "MyeBaySummary") ||
+		    !strcmp(pp->srcId, "SignInAlertSupressor")))
 			loginTime = time(NULL);
 		else if (pp->pageName && !strcmp(pp->pageName, "PageSignIn"))
 			ret = auctionError(aip, ae_login, NULL);
@@ -1300,6 +1302,8 @@ makeBidError(const char *pagename, auctionInfo *aip)
 		return aip->bidResult = auctionError(aip, ae_highbidder, NULL);
 	if (!strcmp(pagename, "CannotBidOnItem"))
 		return aip->bidResult = auctionError(aip, ae_cannotbid, NULL);
+	if (!strcmp(pagename, "DutchSameBidQuantity"))
+		return aip->bidResult = auctionError(aip, ae_dutchsamebidquantity, NULL);
 	/* unknown MakeBidError page */
 	return -1;
 }

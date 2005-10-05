@@ -243,6 +243,7 @@ static const char *auctionErrorString[] = {
 	"Auction %s: Bid amount must be higher than the proxy you already placed\n",
 	"Auction %s: Must sign in\n",
 	"Auction %s: Cannot bid on item (fixed price item?)\n",
+	"Auction %s: Dutch auction bid must have higher price or quantity than prior bid\n",
 	/* ae_unknown must be last error */
 	"Auction %s: Unknown error code %d\n",
 };

@@ -60,6 +60,7 @@ enum auctionErrorCode {
 	ae_highbidder,
 	ae_mustsignin,
 	ae_cannotbid,
+	ae_dutchsamebidquantity,
 	/* ae_unknown must be last error */
 	ae_unknown
 };
