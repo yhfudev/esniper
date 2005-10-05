@@ -66,6 +66,14 @@
 }
 
 {
+   Curl_getdate jump 2
+   Memcheck:Cond
+   fun:*
+   fun:*
+   fun:Curl_getdata
+}
+
+{
    Curl_hash_alloc leak
    Memcheck:Leak
    fun:malloc
@@ -75,6 +83,13 @@
 {
    Curl_http jump
    Memcheck:Cond
+   fun:*
+   fun:Curl_http
+}
+{
+   Curl_http jump 2
+   Memcheck:Cond
+   fun:*
    fun:*
    fun:Curl_http
 }
@@ -175,10 +190,17 @@
    Memcheck:Cond
    fun:Curl_perform
 }
+{
+   Curl_perform jump 2
+   Memcheck:Cond
+   fun:*
+   fun:Curl_perform
+}
 
 {
    Curl_pgrsUpdate jump
    Memcheck:Cond
+   fun:*
    fun:Curl_pgrsUpdate
 }
 {
@@ -199,6 +221,21 @@
    fun:Curl_readwrite
 }
 {
+   Curl_readwrite jump 3
+   Memcheck:Cond
+   fun:*
+   fun:*
+   fun:Curl_readwrite
+}
+{
+   Curl_readwrite jump 4
+   Memcheck:Cond
+   fun:*
+   fun:*
+   fun:*
+   fun:Curl_readwrite
+}
+{
    Curl_readwrite uninit
    Memcheck:Value4
    fun:*
@@ -210,6 +247,14 @@
    Memcheck:Leak
    fun:malloc
    fun:curl_slist_append
+}
+
+{
+   Curl_done jump 3
+   Memcheck:Cond
+   fun:*
+   fun:*
+   fun:Curl_done
 }
 
 

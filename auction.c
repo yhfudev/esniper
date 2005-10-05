@@ -1712,11 +1712,13 @@ printMyItems(void)
 
 	if (ebayLogin(dummy)) {
 		printAuctionError(dummy, stderr);
+		freeAuction(dummy);
 		return 1;
 	}
 	if (!(mp = httpGet(MYITEMS_URL, NULL))) {
 		auctionError(dummy, ae_curlerror, NULL);
 		printAuctionError(dummy, stderr);
+		freeAuction(dummy);
 		return 1;
 	}
 	while ((table = getTableStart(mp))) {
@@ -1728,13 +1730,16 @@ printMyItems(void)
 		/* skip first descriptive table row */
 		if ((row = getTableRow(mp)))
 			freeTableRow(row);
-		else
+		else {
+			freeAuction(dummy);
 			return 0; /* error? */
+		}
 		while ((row = getTableRow(mp))) {
 			printNewline = printMyItemsRow(row, printNewline);
 			freeTableRow(row);
 		}
 	}
+	freeAuction(dummy);
 	return 0;
 }
 
