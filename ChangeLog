@@ -1,18 +1,18 @@
 2005-10-04
-	* 2.12.0 released
-	* Fix bug 1313556, eBay login change breaks esniper
+	* 2.12.0 released.
+	* Fix bug 1313556, eBay login change breaks esniper.
 	* Fix bug 1275990, pagename MakeBidErrorDutchSameBidQuantity not
-	  recognized
+	  recognized.
 
 2005-09-19
 	* Fix bug 1295057, blocked bid due to bidder location.
 	* Fix bug 1282914, blocked bid due to no paypal account.
 	* Fix bug 1252037, accept comma in price in auction file.
-	* Potential fix for bug 1295198, FreeBSD core dump
+	* Fix bug 1295198, FreeBSD core dump.
 
 2005-08-07
 	* Fix bug 1253692.  Fixed price auction error now handled gracefully.
-	* Fix bug 1300111, pagename MakeBidErrorCannotBidOnItem not recognized
+	* Fix bug 1300111, pagename MakeBidErrorCannotBidOnItem not recognized.
 
 2005-07-24
 	* Fix bug 1301934, pagename MakeBidErrorAuctionEnded not recognized.
