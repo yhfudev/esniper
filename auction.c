@@ -37,6 +37,7 @@
 #if defined(WIN32)
 #	define strcasecmp(s1, s2) stricmp((s1), (s2))
 #	define sleep(t) _sleep((t) * 1000)
+#	define strncasecmp(s1, s2, len) strnicmp((s1), (s2), (len))
 #else
 #	include <unistd.h>
 #endif
@@ -1212,8 +1213,14 @@ ebayLogin(auctionInfo *aip)
 
 	if ((pp = getPageInfo(mp))) {
 		log(("ebayLogin(): pagename = \"%s\", pageid = \"%s\", srcid = \"%s\"", nullStr(pp->pageName), nullStr(pp->pageId), nullStr(pp->srcId)));
+		/*
+		 * Pagename is usually MyeBaySummary, but it seems as though
+		 * it can be any MyeBay page, and eBay is not consistent with
+		 * naming of MyeBay pages (MyeBay, MyEbay, myebay, ...) so
+		 * esniper must use strncasecmp().
+		 */
 		if (pp->srcId &&
-		    (!strcmp(pp->pageName, "MyeBaySummary") ||
+		    (!strncasecmp(pp->pageName, "MyeBay", 6) ||
 		    !strcmp(pp->srcId, "SignInAlertSupressor")))
 			loginTime = time(NULL);
 		else if (pp->pageName && !strcmp(pp->pageName, "PageSignIn"))

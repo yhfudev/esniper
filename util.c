@@ -40,7 +40,6 @@
 #	include <windows.h>
 #	include <io.h>
 #	include <sys/timeb.h>
-#	define strncasecmp(s1, s2, len) strnicmp((s1), (s2), (len))
 #else
 #	include <sys/types.h>
 #	include <sys/time.h>

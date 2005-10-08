@@ -1,3 +1,7 @@
+2005-10-08
+	* 2.13.0 released.
+	* Fix bug 1315702, Login failed.
+
 2005-10-04
 	* 2.12.0 released.
 	* Fix bug 1313556, eBay login change breaks esniper.
