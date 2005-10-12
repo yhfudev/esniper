@@ -1073,7 +1073,7 @@ getInfoTiming(auctionInfo *aip, const char *user, time_t *timeToFirstByte)
 			aip->query = myStrdup2(GETINFO, aip->auction);
 		start = time(NULL);
 		if (!(mp = httpGet(aip->query, NULL)))
-			return auctionError(aip, ae_curlerror, NULL);
+			return httpError(aip);
 
 		ret = parseBidHistory(mp, aip, user, start, timeToFirstByte);
 		clearMembuf(mp);
@@ -1119,7 +1119,7 @@ preBid(auctionInfo *aip)
 	mp = httpGet(url, NULL);
 	free(url);
 	if (!mp)
-		return auctionError(aip, ae_curlerror, NULL);
+		return httpError(aip);
 
 	/* pagename should be PageReviewBidBottomButton, but don't check it */
 	while (found < 7 && !match(mp, "<input type=\"hidden\" name=\"")) {
@@ -1192,7 +1192,7 @@ ebayLogin(auctionInfo *aip)
 	char *password;
 
 	if (!(mp = httpGet(LOGIN_1_URL, NULL)))
-		return auctionError(aip, ae_curlerror, NULL);
+		return httpError(aip);
 
 	clearMembuf(mp);
 
@@ -1209,7 +1209,7 @@ ebayLogin(auctionInfo *aip)
 	free(url);
 	free(logUrl);
 	if (!mp)
-		return auctionError(aip, ae_curlerror, NULL);
+		return httpError(aip);
 
 	if ((pp = getPageInfo(mp))) {
 		log(("ebayLogin(): pagename = \"%s\", pageid = \"%s\", srcid = \"%s\"", nullStr(pp->pageName), nullStr(pp->pageId), nullStr(pp->srcId)));
@@ -1386,7 +1386,7 @@ bid(auctionInfo *aip)
 		log(("\n\nbid(): query url:\n%s\n", logUrl));
 		ret = aip->bidResult = 0;
 	} else if (!(mp = httpGet(url, logUrl))) {
-		ret = auctionError(aip, ae_curlerror, NULL);
+		ret = httpError(aip);
 	} else {
 		ret = parseBid(mp, aip);
 		clearMembuf(mp);
@@ -1723,7 +1723,7 @@ printMyItems(void)
 		return 1;
 	}
 	if (!(mp = httpGet(MYITEMS_URL, NULL))) {
-		auctionError(dummy, ae_curlerror, NULL);
+		httpError(dummy);
 		printAuctionError(dummy, stderr);
 		freeAuction(dummy);
 		return 1;

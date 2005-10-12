@@ -39,14 +39,37 @@
 
 enum requestType {GET, POST};
 
+static CURL *easyhandle = NULL;
+static CURLcode curlrc = CURLE_OK;
+static const char *lastURL = NULL;
+static int curlInitDone = 0;
+static char globalErrorbuf[CURL_ERROR_SIZE];
+
 static memBuf_t *httpRequest(const char *url, const char *logUrl, const char *data, const char *logData, enum requestType);
-static memBuf_t *httpRequestFailed(CURLcode curlrc);
+static memBuf_t *httpRequestFailed();
 static size_t WriteMemoryCallback(void *ptr, size_t size, size_t nmemb, void *data);
-static int initCurlStuffFailed(CURLcode curlrc);
+static int initCurlStuffFailed();
 
 #ifdef NEED_CURL_EASY_STRERROR
 static const char *curl_easy_strerror(CURLcode error);
 #endif
+
+/* Set auction error with full libcurl details */
+int
+httpError(auctionInfo *aip)
+{
+	int ret = 0;
+
+	if (curlrc != CURLE_OK) {
+		char *details = myStrdup4(myStrdup2(lastURL, ": "),
+					curl_easy_strerror(curlrc), ": ",
+					globalErrorbuf);
+
+		ret = auctionError(aip, ae_curlerror, details);
+		free(details);
+	}
+	return ret;
+}
 
 /* returns open socket, or NULL on error */
 memBuf_t *
@@ -119,19 +142,16 @@ readFile(FILE *fp)
 }
 #endif
 
-static CURL *easyhandle = NULL;
-static int curlInitDone = 0;
-static char globalErrorbuf[CURL_ERROR_SIZE];
-
 static memBuf_t *
 httpRequest(const char *url, const char *logUrl, const char *data, const char *logData, enum requestType rt)
 {
 	const char *nonNullData = data ? data : "";
 	static memBuf_t membuf = { NULL, 0, NULL, 0 };
-	CURLcode curlrc;
+
+	lastURL = url;
 
 	if (!curlInitDone && initCurlStuff())
-	return NULL;
+		return NULL;
 
 	if (membuf.memory)
 		clearMembuf(&membuf);
@@ -140,29 +160,29 @@ httpRequest(const char *url, const char *logUrl, const char *data, const char *l
 	 * Some older versions of libcurl don't have CURLOPT_WRITEDATA.
 	 */
 	if ((curlrc = curl_easy_setopt(easyhandle, CURLOPT_FILE, (void *)&membuf)))
-		return httpRequestFailed(curlrc);
+		return httpRequestFailed();
 
 	if (rt == GET) {
 		if ((curlrc = curl_easy_setopt(easyhandle, CURLOPT_HTTPGET, 1)))
-			return httpRequestFailed(curlrc);
+			return httpRequestFailed();
 	} else {
 		log(("%s", logData ? logData : nonNullData));
 		if ((curlrc = curl_easy_setopt(easyhandle, CURLOPT_POSTFIELDS, nonNullData)))
-			return httpRequestFailed(curlrc);
+			return httpRequestFailed();
 	}
 
 	log(("%s", logUrl ? logUrl : url));
 	if ((curlrc = curl_easy_setopt(easyhandle, CURLOPT_URL, url)))
-		return httpRequestFailed(curlrc);
+		return httpRequestFailed();
 
 	if ((curlrc = curl_easy_perform(easyhandle)))
-		return httpRequestFailed(curlrc);
+		return httpRequestFailed();
 
 	return &membuf;
 }
 
 static memBuf_t *
-httpRequestFailed(CURLcode curlrc)
+httpRequestFailed()
 {
 	log(("%s", curl_easy_strerror(curlrc)));
 	log(("%s", globalErrorbuf));
@@ -177,7 +197,6 @@ initCurlStuff(void)
 {
 	/* list for custom headers */
 	struct curl_slist *slist=NULL;
-	CURLcode curlrc;
 
 	curl_global_init(CURL_GLOBAL_ALL);
 
@@ -187,47 +206,47 @@ initCurlStuff(void)
 
 	/* buffer for error messages */
 	if ((curlrc = curl_easy_setopt(easyhandle, CURLOPT_ERRORBUFFER, globalErrorbuf)))
-		return initCurlStuffFailed(curlrc);
+		return initCurlStuffFailed();
 
 	/* debug output, show what libcurl does */
 	if (options.curldebug &&
 	    (curlrc = curl_easy_setopt(easyhandle, CURLOPT_VERBOSE, 1)))
-		return initCurlStuffFailed(curlrc);
+		return initCurlStuffFailed();
 
 	/* follow all redirects */
 	if ((curlrc = curl_easy_setopt(easyhandle, CURLOPT_FOLLOWLOCATION, 1)))
-		return initCurlStuffFailed(curlrc);
+		return initCurlStuffFailed();
 
 	/* use proxy */
 	if (options.proxy &&
 	    (curlrc = curl_easy_setopt(easyhandle, CURLOPT_PROXY, options.proxy)))
-		return initCurlStuffFailed(curlrc);
+		return initCurlStuffFailed();
 
 	/* send all data to this function */
 	if ((curlrc = curl_easy_setopt(easyhandle, CURLOPT_WRITEFUNCTION, WriteMemoryCallback)))
-		return initCurlStuffFailed(curlrc);
+		return initCurlStuffFailed();
 
 	/* some servers don't like requests that are made without a user-agent
 	 * field, so we provide one */
 	if ((curlrc = curl_easy_setopt(easyhandle, CURLOPT_USERAGENT, "Mozilla/4.7 [en] (X11; U; Linux 2.2.12 i686)")))
-		return initCurlStuffFailed(curlrc);
+		return initCurlStuffFailed();
 
 	slist = curl_slist_append(slist, "Accept: text/*");
 	slist = curl_slist_append(slist, "Accept-Language: en");
 	slist = curl_slist_append(slist, "Accept-Charset: iso-8859-1,*,utf-8");
 	slist = curl_slist_append(slist, "Cache-Control: no-cache");
 	if ((curlrc = curl_easy_setopt(easyhandle, CURLOPT_HTTPHEADER, slist)))
-		return initCurlStuffFailed(curlrc);
+		return initCurlStuffFailed();
 
 	if ((curlrc = curl_easy_setopt(easyhandle, CURLOPT_COOKIEFILE, DEVNULL)))
-		return initCurlStuffFailed(curlrc);
+		return initCurlStuffFailed();
 
 	curlInitDone = 1;
 	return 0;
 }
 
 static int
-initCurlStuffFailed(CURLcode curlrc)
+initCurlStuffFailed()
 {
 	log(("%s", curl_easy_strerror(curlrc)));
 	log(("%s", globalErrorbuf));

@@ -44,6 +44,7 @@ extern time_t getTimeToFirstByte(memBuf_t *mp);
 extern int initCurlStuff(void);
 extern void cleanupCurlStuff(void);
 
+extern int httpError(auctionInfo *aip);
 extern memBuf_t *httpGet(const char *url, const char *logUrl);
 extern memBuf_t *httpPost(const char *url, const char *data, const char *logData);
 extern void clearMembuf(memBuf_t *mp);
