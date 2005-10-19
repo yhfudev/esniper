@@ -98,6 +98,7 @@ static void sigTerm(int sig);
 static void cleanup(void);
 static int usage(int helptype);
 static void printRemain(int remain);
+static void printVersion(void);
 #define USAGE_SUMMARY	0x01
 #define USAGE_LONG	0x02
 #define USAGE_CONFIG	0x04
@@ -140,7 +141,6 @@ getProgname(void)
 {
 	return progname ? progname : "esniper";
 }
-
 
 #if !defined(WIN32)
 static void
@@ -432,6 +432,21 @@ printRemain(int remain)
 		options.quantity, remain);
 }
 
+static void
+printVersion(void)
+{
+	const char *newVersion;
+
+	fprintf(stderr, "%s version %s\n", getProgname(), getVersion());
+	if ((newVersion = checkVersion()))
+		fprintf(stderr,
+			"\n"
+			"The newest version is %s, you should upgrade.\n"
+			"Get it from http://esniper.sf.net/\n",
+			newVersion);
+	fprintf(stderr, "\n%s\n", blurb);
+}
+
 static const char usageSummary[] =
  "usage: %s [-bdhHnmPrUv] [-c conf_file] [-l logdir] [-p proxy] [-q quantity]\n"
  "       [-s secs|now] [-u user] (auction_file | [auction price ...])\n"
@@ -607,7 +622,7 @@ main(int argc, char *argv[])
 			break;
 #endif
 		case 'v': /* version */
-			fprintf(stderr, "%s version %s\n%s\n", getProgname(), getVersion(), blurb);
+			printVersion();
 			exit(0);
 			break;
 		default:
