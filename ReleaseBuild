@@ -40,7 +40,9 @@ Create a directory:
 
 Copy Changes and Notes from the previous build:
 
-	cp $PREV/Changes $PREV/Notes $CURRENT
+	cp ChangeLog $CURRENT/Changes
+	cp $PREV/Notes $PREV/index.html $CURRENT
+	echo $CURRENT >$CURRENT/version.txt
 
 Create source tar:
 
@@ -60,11 +62,12 @@ Create source tar:
 	cp ../frontends/README ../frontends/snipe $CURRFILE/frontends
 	tar cvf - $CURRFILE | gzip >$CURRFILE.tgz
 
-Edit Changes and Notes (change version # for source file in Notes):
+Edit Changes and Notes:
 
-	vi Changes Notes
+	vi Changes Notes index.html
 
-	(Changes can be just an edit of ../ChangeLog)
+	(Delete changes for prior releases.
+	 Change version # in Notes and index.html)
 
 Copy files to sourceforge:
 
@@ -76,16 +79,8 @@ Copy files to sourceforge:
 		quit
 
 	scp $CURRFILE/sample* $CURRFILE/esniper.1 $CURRFILE/*.html \
+		version.txt index.html \
 		esniper@shell.sf.net:/home/groups/e/es/esniper/htdocs
-
-Edit the web page:
-
-	ssh -l esniper shell.sourceforge.net
-		<enter password>
-	vi $PROJECT/htdocs/index.html
-		change tgz file to current release (one place)
-	vi $PROJECT/htdocs/version.txt
-		change version to current release
 
 Go to www.sourceforge.net:
 	- login
