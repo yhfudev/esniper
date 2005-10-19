@@ -1,3 +1,8 @@
+2005-10-19
+	* 2.14.0 released.
+	* Added version check.
+	* Fix bug 1330486, login bug causes crash.
+
 2005-10-12
 	* Fix bug 1324457, more detail on URL errors.
 

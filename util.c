@@ -244,6 +244,34 @@ printLog(FILE *fp, const char *fmt, ...)
 	fflush(fp);
 }
 
+static const char ESNIPER_VERSION_URL[] = "http://esniper.sourceforge.net/version.txt";
+
+/*
+ * Return current version from esniper.sf.net if it is different from 
+ * program's version, otherwise return NULL.
+ */
+const char *
+checkVersion(void)
+{
+	static int result = -1;
+	static memBuf_t *mp = NULL;
+
+	if (result == -1) {
+		int i;
+
+		mp = httpGet(ESNIPER_VERSION_URL, NULL);
+
+		/* not available */
+		if (mp == NULL)
+			return NULL;
+		for (i = 0; mp->memory[i] && mp->memory[i] != '\n'; ++i)
+			;
+		mp->memory[i] = '\0';
+		result = !strcmp(getVersion(), mp->memory);
+	}
+	return result ? NULL : mp->memory;
+}
+
 /*
  * Request user to file a bug report.
  */
@@ -251,16 +279,30 @@ void
 bugReport(const char *func, const char *file, int line, auctionInfo *aip, memBuf_t *mp, const char *fmt, ...)
 {
 	va_list arglist;
+	const char *version = getVersion();
+	const char *newVersion = checkVersion();
 
+	if (newVersion) {
+		printLog(stdout,
+			"esniper encountered a bug.  "
+			"It looks like your esniper version is not\n"
+			"current.  You have version %s, the "
+			"newest version is %s.\n"
+			"Please go to http://esniper.sf.net/ and update your "
+			"copy of esniper.\n"
+			"\n"
+			"If you want to report this bug, please go to:\n",
+			version, newVersion);
+	} else
+		printLog(stdout, "esniper encountered a bug.  Please go to:\n");
 	printLog(stdout,
-		"esniper encountered a bug.  Please go to:\n"
 		"\thttp://sourceforge.net/tracker/?func=add&group_id=45285&atid=442436\n"
 		"paste this into \"Detailed Description\":\n"
 		"\tAutomated esniper bug report.\n"
 		"\t%s version %s\n"
 		"\t%s\n"
 		"\tError encountered in function %s in %s line %d\n",
-		getProgname(), getVersion(), curl_version(), func, file, line);
+		getProgname(), version, curl_version(), func, file, line);
 
 	if (aip) {
 		printLog(stdout,

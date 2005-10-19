@@ -1219,9 +1219,8 @@ ebayLogin(auctionInfo *aip)
 		 * naming of MyeBay pages (MyeBay, MyEbay, myebay, ...) so
 		 * esniper must use strncasecmp().
 		 */
-		if (pp->srcId &&
-		    (!strncasecmp(pp->pageName, "MyeBay", 6) ||
-		    !strcmp(pp->srcId, "SignInAlertSupressor")))
+		if ((pp->srcId && !strcmp(pp->srcId, "SignInAlertSupressor"))||
+		    (pp->pageName && !strncasecmp(pp->pageName, "MyeBay", 6)))
 			loginTime = time(NULL);
 		else if (pp->pageName && !strcmp(pp->pageName, "PageSignIn"))
 			ret = auctionError(aip, ae_login, NULL);

@@ -44,6 +44,7 @@ extern void logClose(void);
 extern void logOpen(const auctionInfo *aip, const char *logdir);
 extern void dlog(const char *fmt, ...);
 extern void printLog(FILE *fp, const char *fmt, ...);
+extern const char *checkVersion(void);
 extern void bugReport(const char *func, const char *file, int line, auctionInfo *aip, memBuf_t *mp, const char *fmt, ...);
 extern void logChar(int c);
 

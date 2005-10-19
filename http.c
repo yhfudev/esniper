@@ -46,9 +46,9 @@ static int curlInitDone = 0;
 static char globalErrorbuf[CURL_ERROR_SIZE];
 
 static memBuf_t *httpRequest(const char *url, const char *logUrl, const char *data, const char *logData, enum requestType);
-static memBuf_t *httpRequestFailed();
+static memBuf_t *httpRequestFailed(void);
 static size_t WriteMemoryCallback(void *ptr, size_t size, size_t nmemb, void *data);
-static int initCurlStuffFailed();
+static int initCurlStuffFailed(void);
 
 #ifdef NEED_CURL_EASY_STRERROR
 static const char *curl_easy_strerror(CURLcode error);
@@ -182,7 +182,7 @@ httpRequest(const char *url, const char *logUrl, const char *data, const char *l
 }
 
 static memBuf_t *
-httpRequestFailed()
+httpRequestFailed(void)
 {
 	log(("%s", curl_easy_strerror(curlrc)));
 	log(("%s", globalErrorbuf));
@@ -246,7 +246,7 @@ initCurlStuff(void)
 }
 
 static int
-initCurlStuffFailed()
+initCurlStuffFailed(void)
 {
 	log(("%s", curl_easy_strerror(curlrc)));
 	log(("%s", globalErrorbuf));

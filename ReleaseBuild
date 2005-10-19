@@ -84,6 +84,8 @@ Edit the web page:
 		<enter password>
 	vi $PROJECT/htdocs/index.html
 		change tgz file to current release (one place)
+	vi $PROJECT/htdocs/version.txt
+		change version to current release
 
 Go to www.sourceforge.net:
 	- login
