@@ -99,8 +99,10 @@ function statusPruefen($artnr,$db) {
 	//Andere zur Gruppe gehörende Auktionen beenden/updaten.
 	    $sql = "SELECT gruppe FROM snipe WHERE artnr = ".$artnr;
 	    $gruppennr = $db->get_var($sql);
-	    $sql = "UPDATE snipe SET status = 3 WHERE gruppe = ".$gruppennr." AND artnr <> ".$artnr;
-	    $db->query($sql);
+	    if ($gruppennr!=1) {
+		    $sql = "UPDATE snipe SET status = 3 WHERE gruppe = ".$gruppennr." AND artnr <> ".$artnr;
+		    $db->query($sql);
+	    }
 	}
     }
 }

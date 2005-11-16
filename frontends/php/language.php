@@ -27,40 +27,87 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-//Index Liste
-$GLOBALS["tSnipeStatusArray"] = array('sniping...','Auktion gewonnen','überboten','Gruppe hat gewonnen','keine Ausgabe zugeordnet');
-$GLOBALS["tSnipeListSummaryArray"] = array('laufend','gewonnen','verloren');
-$GLOBALS["tKeine"] = 'keine';
-$GLOBALS["tAlles"] = 'Alles';
-$GLOBALS["tMenueAltArray"] = array('Reload','Gruppen verwalten','neuen Artikel eingeben','gewonnene und verlorene Artikel löschen');
-$GLOBALS["tArtikelNr"] = 'Artikelnummer';
-$GLOBALS["tSnipeStatus"] = 'Snipestatus';
-$GLOBALS["tBildTableTopic"] = 'Bild';
-$GLOBALS["tProzessStatus"] = 'Prozessstatus';
-$GLOBALS["tDbLeer"] = 'keine Einträge in der Datenbank';
-$GLOBALS["tNoProcess"] = 'Kein Prozess!!!';
-//Gruppennotizen
-$GLOBALS["ueGruppennotizen"] = 'Gruppennotizen';
-$GLOBALS["tNotizGespeichert"] = 'Notiz wurde gespeichert.';
-$GLOBALS["tKeineAuswahl"] = 'keine Auswahl';
-$GLOBALS["ueGruppeAnzeigen"] = 'Gruppe Anzeigen';
-$GLOBALS["tGruppnAuswahl"] = 'Gruppenauswahl';
-$GLOBALS["bAnzeigen"] = 'Anzeigen';
-$GLOBALS["bSpeichern"] = 'Speichern';
-//Gruppe verwalten
-$GLOBALS["ueGruppenverwaltung"] = 'Gruppenverwaltung';
-$GLOBALS["tGruppeErstellt"] = 'wurde erstellt';
-$GLOBALS["tGruppeWaehlen"] = 'Bitte eine Gruppe wählen';
-$GLOBALS["ueGruppeAnlegen"] = 'Gruppe anlegen';
-$GLOBALS["ueGruppenName"] = 'Gruppenname';
-$GLOBALS["ueGruppenNotizen"] = 'Notizen';
-$GLOBALS["bGruppeErstellen"] = 'erstellen';
-$GLOBALS["ueGruppeLoeschen"] = 'Gruppe löschen';
-$GLOBALS["bGruppeLoeschen"] = 'löschen';
+require 'confic.inc';
 
-//neuer Artikel
-$GLOBALS["ueNeuerArtikel"] = 'neuer Artikel';
-$GLOBALS["tArtikelDaten"] = 'Artikeldaten';
-$GLOBALS["tAuktionsNr"] = 'Auktionsnnummer';
-$GLOBALS["tHoechstgebot"] = 'Höchstgebot';
+switch(lang) {
+	case 1:
+	//Index Liste
+	$GLOBALS["tSnipeStatusArray"] = array('sniping...','Auktion gewonnen','überboten','Gruppe hat gewonnen','keine Ausgabe zugeordnet');
+	$GLOBALS["tSnipeListSummaryArray"] = array('laufend','gewonnen','verloren');
+	$GLOBALS["tKeine"] = 'keine';
+	$GLOBALS["tAlles"] = 'Alles';
+	$GLOBALS["tMenueAltArray"] = array('Reload','Gruppen verwalten','neuen Artikel eingeben','gewonnene und verlorene Artikel löschen');
+	$GLOBALS["tArtikelNr"] = 'Artikelnummer';
+	$GLOBALS["tSnipeStatus"] = 'Snipestatus';
+	$GLOBALS["tBildTableTopic"] = 'Bild';
+	$GLOBALS["tProzessStatus"] = 'Prozessstatus';
+	$GLOBALS["tDbLeer"] = 'keine Einträge in der Datenbank';
+	$GLOBALS["tNoProcess"] = 'Kein Prozess!!!';
+	//Gruppennotizen
+	$GLOBALS["ueGruppennotizen"] = 'Gruppennotizen';
+	$GLOBALS["tNotizGespeichert"] = 'Notiz wurde gespeichert.';
+	$GLOBALS["tKeineAuswahl"] = 'keine Auswahl';
+	$GLOBALS["ueGruppeAnzeigen"] = 'Gruppe Anzeigen';
+	$GLOBALS["tGruppnAuswahl"] = 'Gruppenauswahl';
+	$GLOBALS["bAnzeigen"] = 'Anzeigen';
+	$GLOBALS["bSpeichern"] = 'Speichern';
+	//Gruppe verwalten
+	$GLOBALS["ueGruppenverwaltung"] = 'Gruppenverwaltung';
+	$GLOBALS["tGruppeErstellt"] = 'wurde erstellt';
+	$GLOBALS["tGruppeWaehlen"] = 'Bitte eine Gruppe wählen';
+	$GLOBALS["ueGruppeAnlegen"] = 'Gruppe anlegen';
+	$GLOBALS["ueGruppenName"] = 'Gruppenname';
+	$GLOBALS["ueGruppenNotizen"] = 'Notizen';
+	$GLOBALS["bGruppeErstellen"] = 'erstellen';
+	$GLOBALS["ueGruppeLoeschen"] = 'Gruppe löschen';
+	$GLOBALS["bGruppeLoeschen"] = 'löschen';
+	
+	//neuer Artikel
+	$GLOBALS["ueNeuerArtikel"] = 'neuer Artikel';
+	$GLOBALS["tArtikelDaten"] = 'Artikeldaten';
+	$GLOBALS["tAuktionsNr"] = 'Auktionsnnummer';
+	$GLOBALS["tHoechstgebot"] = 'Höchstgebot';
+	
+	$GLOBALS["pMenue"] = "menue-d.gif";
+	
+	case 2:
+	//Index List
+	$GLOBALS["tSnipeStatusArray"] = array('sniping...','auction won','overbidden','Group won','no message assigned');
+	$GLOBALS["tSnipeListSummaryArray"] = array('running','won','lost');
+	$GLOBALS["tKeine"] = 'none';
+	$GLOBALS["tAlles"] = 'all';
+	$GLOBALS["tMenueAltArray"] = array('reload','manage groups','add new auction','delete won and lost auctions');
+	$GLOBALS["tArtikelNr"] = 'auctionnumer';
+	$GLOBALS["tSnipeStatus"] = 'snipestatus';
+	$GLOBALS["tBildTableTopic"] = 'image';
+	$GLOBALS["tProzessStatus"] = 'processstatus';
+	$GLOBALS["tDbLeer"] = 'no entries in database';
+	$GLOBALS["tNoProcess"] = 'no process!!!';
+	//Groupnotes
+	$GLOBALS["ueGruppennotizen"] = 'groupnotes';
+	$GLOBALS["tNotizGespeichert"] = 'Note saved.';
+	$GLOBALS["tKeineAuswahl"] = 'no selection';
+	$GLOBALS["ueGruppeAnzeigen"] = 'show group';
+	$GLOBALS["tGruppnAuswahl"] = 'Groupselection';
+	$GLOBALS["bAnzeigen"] = 'show';
+	$GLOBALS["bSpeichern"] = 'save';
+	//manage groups
+	$GLOBALS["ueGruppenverwaltung"] = 'Groupmanagement';
+	$GLOBALS["tGruppeErstellt"] = 'was created';
+	$GLOBALS["tGruppeWaehlen"] = 'please select a group';
+	$GLOBALS["ueGruppeAnlegen"] = 'create group';
+	$GLOBALS["ueGruppenName"] = 'groupname';
+	$GLOBALS["ueGruppenNotizen"] = 'notes';
+	$GLOBALS["bGruppeErstellen"] = 'create';
+	$GLOBALS["ueGruppeLoeschen"] = 'delete group';
+	$GLOBALS["bGruppeLoeschen"] = 'delete';
+	
+	//new auction
+	$GLOBALS["ueNeuerArtikel"] = 'new auction';
+	$GLOBALS["tArtikelDaten"] = 'auction informations';
+	$GLOBALS["tAuktionsNr"] = 'auctionnumer';
+	$GLOBALS["tHoechstgebot"] = 'highest bid';
+	
+	$GLOBALS["pMenue"] = "menue-e.gif";
+}
 ?>

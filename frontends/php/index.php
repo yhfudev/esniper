@@ -84,7 +84,7 @@ $gruppe = $_GET["gruppe"];
 $filtergruppe = $_GET["filtergruppe"];
 
 //Menü map erstellen
-printf("<IMG SRC=\"menue.gif\" BORDER=0 USEMAP=\"#menue_Map\">");
+printf("<IMG SRC=\"".$GLOBALS["pMenue"]."\" BORDER=0 USEMAP=\"#menue_Map\">");
 printf("<MAP NAME=\"menue_Map\">");
 printf("<AREA SHAPE=\"rect\" ALT=\"".$GLOBALS["tMenueAltArray"][0]."\" COORDS=\"267,0,340,45\" HREF=\"index.php\" TARGET=\"_self\">");
 printf("<AREA SHAPE=\"rect\" ALT=\"".$GLOBALS["tMenueAltArray"][1]."\" COORDS=\"137,0,267,45\" HREF=\"gruppenVerwalten.php\" TARGET=\"gruppen\">");
