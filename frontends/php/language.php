@@ -29,7 +29,7 @@
 
 require 'config.inc';
 
-switch(lang) {
+switch(LANG) {
 	case 1:
 	//Index Liste
 	$GLOBALS["tSnipeStatusArray"] = array('sniping...','Auktion gewonnen','überboten','Gruppe hat gewonnen','keine Ausgabe zugeordnet');
@@ -69,7 +69,7 @@ switch(lang) {
 	$GLOBALS["tHoechstgebot"] = 'Höchstgebot';
 	
 	$GLOBALS["pMenue"] = "menue-d.gif";
-	
+	break;
 	case 2:
 	//Index List
 	$GLOBALS["tSnipeStatusArray"] = array('sniping...','auction won','overbidden','Group won','no message assigned');
