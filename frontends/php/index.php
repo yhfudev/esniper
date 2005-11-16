@@ -140,7 +140,7 @@ printf($GLOBALS["tSnipeListSummaryArray"][1].": ". $anzahl ." ");
 //Auktion überboten
 $sql = "SELECT count(*) FROM snipe WHERE status = 2";
 $anzahl = $db->get_var($sql);
-printf($GLOBALS["tSnipeListSummaryArray"][0].": ". $anzahl);
+printf($GLOBALS["tSnipeListSummaryArray"][2].": ". $anzahl);
 printf("</strong>");
 
 //Zum filtern der Auktionenliste nach einer Gruppe
