@@ -621,15 +621,27 @@ void
 setUsername(char *username)
 {
 	toLowerString(username);
-	free(options.username);
-	options.username = username;
+	curl_free(options.username);
+	options.username = curl_escape(username, strlen(username));
+	free(username);
 }
 
 void
 setPassword(char *password)
 {
-	int i;
+	int i, len;
+	char *escapedPassword;
 
+	/* http escape password, clear original */
+	len = strlen(password);
+	toLowerString(password);
+	escapedPassword = curl_escape(password, len);
+	for (i = 0; i < len; ++i)
+		password[i] = '\0';
+	free(password);
+	password = escapedPassword;
+
+	/* crypt with one-time pad */
 	seedPasswordRandom();
 	free(passwordPad);
 	passwordLen = strlen(password) + 1;
@@ -640,9 +652,8 @@ setPassword(char *password)
 #else
 		passwordPad[i] = (char)random();
 #endif
-	toLowerString(password);
 	cryptPassword(password);
-	free(options.password);
+	curl_free(options.password);
 	options.password = password;
 }
 

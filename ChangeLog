@@ -1,3 +1,6 @@
+2006-01-05
+	* Fix bug 1352595, esniper does not encode password in URLs
+
 2005-10-19
 	* 2.14.0 released.
 	* Added version check.
