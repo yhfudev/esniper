@@ -344,7 +344,7 @@ bugReport(const char *func, const char *file, int line, auctionInfo *aip, memBuf
 		char tmp[40], *bugname;
 		FILE *fp;
 
-		sprintf(tmp, ".%d.%d.bug.html", getpid(), ++bugNum);
+		sprintf(tmp, ".%d.%d.bug.html", (int)getpid(), ++bugNum);
 		bugname = myStrdup2(getProgname(), tmp);
 		if ((fp = fopen(bugname, "w"))) {
 			fwrite(mp->memory, 1, mp->size, fp);
@@ -622,7 +622,7 @@ setUsername(char *username)
 {
 	toLowerString(username);
 	curl_free(options.username);
-	options.username = curl_escape(username, strlen(username));
+	options.username = curl_escape(username, (int)strlen(username));
 	free(username);
 }
 
