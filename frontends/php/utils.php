@@ -278,8 +278,8 @@ function collectGarbage($db) {
     $dateien = fileList(TMP_FOLDER);
     if (!empty($dateien)) {
 	    foreach($dateien as $datei) {
-			$sql = "SELECT artnr FROM snipe WHERE artnr = \"".substr($datei,0,10)."\"";
-    		$snipeArtnr = $db->get_var($sql);
+			$sql = "SELECT artnr FROM snipe WHERE artnr = \"".substr($datei,0,11)."\"";
+			$snipeArtnr = $db->get_var($sql);
 			if (empty($snipeArtnr)) {
 			    exec("rm \"".TMP_FOLDER."/".$datei."\"");
 			}
