@@ -274,14 +274,15 @@ function collectGarbage($db) {
 		}
     }
 
-	//Logs löschen, von Snipes, welche nicht in der Datenbank sind.
+	//Logs löschen, von Snipes, welche nicht in der Datenbank sind
     $dateien = fileList(TMP_FOLDER);
     if (!empty($dateien)) {
 	    foreach($dateien as $datei) {
-			$sql = "SELECT artnr FROM snipe WHERE artnr = \"".substr($datei,0,11)."\"";
+		    	$artnrDatei = explode(".",$datei);
+			$sql = "SELECT artnr FROM snipe WHERE artnr = \"".$artnrDatei[0]."\"";
 			$snipeArtnr = $db->get_var($sql);
 			if (empty($snipeArtnr)) {
-			    exec("rm \"".TMP_FOLDER."/".$datei."\"");
+			    exec("rm \"".TMP_FOLDER."/".$artnrDatei."\"");
 			}
 	    }
     }
