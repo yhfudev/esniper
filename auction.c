@@ -468,8 +468,10 @@ getSeconds(char *timestr)
 	 * the auction is over, or it still running with less than 1 second.
 	 * I'll make the safer assumption and say that there is 1 second
 	 * remaining.
+         * bomm: The transition seems to have changed to "--". I will accept
+         * any string starting with "--".
 	 */
-	if (!*timestr)
+	if (!*timestr || !strncmp(timestr, "--", 2))
 		return 1;
 	if (strstr(timestr, ended))
 		return 0;
