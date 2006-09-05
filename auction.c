@@ -1104,7 +1104,7 @@ static int
 preBid(auctionInfo *aip)
 {
 	memBuf_t *mp;
-	int quantity = getQuantity(aip->quantity, options.quantity);
+	int quantity = getQuantity(options.quantity, aip->quantity);
 	char quantityStr[12];	/* must hold an int */
 	size_t urlLen;
 	char *url;
@@ -1358,7 +1358,7 @@ bid(auctionInfo *aip)
 	size_t urlLen;
 	char *url, *logUrl, *tmpUsername, *tmpPassword, *tmpUiid;
 	int ret;
-	int quantity = getQuantity(aip->quantity, options.quantity);
+	int quantity = getQuantity(options.quantity, aip->quantity);
 	char quantityStr[12];	/* must hold an int */
 
 	if (!aip->bidkey || !aip->bidpass || !aip->biduiid)
