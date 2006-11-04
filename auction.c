@@ -876,9 +876,12 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, const char *user, time_t start, 
 			/* can't determine starting bid on history page */
 			aip->price = 0;
 			printf("# of bids: 0\n"
-			       "Currently: --  (your maximum bid: %s)\n"
-			       "High bidder: -- (not %s)\n",
-			       aip->bidPriceStr, user);
+			       "Currently: --  (your maximum bid: %s)\n",
+			       aip->bidPriceStr);
+			if (*user)
+				printf("High bidder: -- (NOT %s)\n", user);
+			else
+				printf("High bidder: --\n");
 		} else {
 			bugReport("parseBidHistory", __FILE__, __LINE__, aip, mp, "Unrecognized bid table line");
 			ret = auctionError(aip, ae_nohighbid, NULL);
@@ -925,8 +928,11 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, const char *user, time_t start, 
 
 		/* print high bidder */
 		if (strcasecmp(winner, user)) {
-			printLog(stdout, "High bidder: %s (NOT %s)\n",
-				 winner, user);
+			if (*user)
+				printLog(stdout, "High bidder: %s (NOT %s)\n",
+					 winner, user);
+			else
+				printLog(stdout, "High bidder: %s\n", winner);
 			aip->winning = 0;
 			if (!aip->remain)
 				aip->won = 0;
@@ -975,7 +981,10 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, const char *user, time_t start, 
 		free(currently);
 		switch (aip->winning) {
 		case 0:
-			printLog(stdout, "High bidder: various purchasers (NOT %s)\n", user);
+			if (*user)
+				printLog(stdout, "High bidder: various purchasers (NOT %s)\n", user);
+			else
+				printLog(stdout, "High bidder: various purchasers\n");
 			break;
 		case 1:
 			printLog(stdout, "High bidder: %s!!!\n", user);
@@ -1029,8 +1038,12 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, const char *user, time_t start, 
 				printLog(stdout, "High bidder: %s!!!\n", user);
 			else
 				printLog(stdout, "High bidder: %s!!! (%d out of %d items)\n", user, aip->winning, wanted);
-		} else
-			printLog(stdout, "High bidder: various dutch bidders (NOT %s)\n", user);
+		} else {
+			if (*user)
+				printLog(stdout, "High bidder: various dutch bidders (NOT %s)\n", user);
+			else
+				printLog(stdout, "High bidder: various dutch bidders\n");
+		}
 		break;
 	    }
 	default:
