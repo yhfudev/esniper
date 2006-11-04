@@ -3,6 +3,7 @@
 	  page again.
 	* Implemented feature request 1587259, handling -i without username
 	  or password.
+	* Fix bug 1574881, bid increment comparison not always correct.
 
 2006-09-05
 	* Fix for dutch auction parsing?

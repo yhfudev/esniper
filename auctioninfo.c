@@ -385,6 +385,7 @@ int
 isValidBidPrice(const auctionInfo *aip)
 {
 	double increment = 0.0;
+	static double EPSILON = 0.0001;
 
 	if (aip->quantityBid == aip->quantity && aip->winning == 0) {
 		int i;
@@ -396,7 +397,8 @@ isValidBidPrice(const auctionInfo *aip)
 		}
 		increment = increments[i+1];
 	}
-	return aip->bidPrice >= (aip->price + increment);
+	// Use EPSILON to avoid floating point rounding errors on "=" comparison
+	return aip->bidPrice >= (aip->price + increment - EPSILON);
 }
 
 static double *
