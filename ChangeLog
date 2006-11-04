@@ -1,3 +1,10 @@
+2006-11-04
+	* Fix bug 1579311 (and a million others), eBay changed the bid history
+	  page again.
+
+2006-09-05
+	* Fix for dutch auction parsing?
+
 2006-01-05
 	* Fix bug 1352595, esniper does not encode password in URLs
 

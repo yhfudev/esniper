@@ -751,7 +751,8 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, const char *user, time_t start, 
 		aip->reserve = 1;
 	else {
 		aip->reserve = 0;
-		if ((foundHeader = !strcmp("User ID", line)))
+		if ((foundHeader = !strncmp("Bidder", line, 6)) ||
+		    (foundHeader = !strncmp("User ID", line, 7)))
 			/* skip over first line */
 			freeTableRow(getTableRow(mp));
 	}
@@ -843,7 +844,9 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, const char *user, time_t start, 
 			char *rawHeader = (ncolumns >= 5) ? row[1] : NULL;
 			char *header = getNonTagFromString(rawHeader);
 
-			foundHeader = header && !strcmp(header, "User ID");
+			foundHeader = header &&
+					(!strncmp(header, "Bidder", 6) ||
+					 !strncmp(header, "User ID", 7));
 			freeTableRow(row);
 			free(header);
 		}
