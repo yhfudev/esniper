@@ -69,7 +69,8 @@ static const char DEFAULT_CONF_FILE[] = ".esniper";
 #define DEFAULT_BID_HOST "offer.ebay.com"
 
 option_t options = {
-	NULL,		/* user */
+	NULL,		/* username */
+	NULL,		/* usernameEscape */
 	NULL,		/* password */
 	DEFAULT_BIDTIME,/* bidtime */
 	1,		/* quantity */
@@ -801,7 +802,8 @@ main(int argc, char *argv[])
 #endif
 		if (!options.username) {
 			if (options.info) {
-				options.username = "";
+				options.username = myStrdup("");
+				options.usernameEscape = myStrdup("");
 			} else if (options.batch) {
 				printLog(stderr, "Error: no username specified.\n");
 				options.usage |= USAGE_SUMMARY;

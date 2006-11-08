@@ -1214,14 +1214,14 @@ ebayLogin(auctionInfo *aip)
 
 	clearMembuf(mp);
 
-	urlLen = sizeof(LOGIN_2_URL) + strlen(options.username);
+	urlLen = sizeof(LOGIN_2_URL) + strlen(options.usernameEscape);
 	password = getPassword();
 	url = malloc(urlLen + strlen(password));
 	logUrl = malloc(urlLen + 5);
 
-	sprintf(url, LOGIN_2_URL, options.username, password);
+	sprintf(url, LOGIN_2_URL, options.usernameEscape, password);
 	freePassword(password);
-	sprintf(logUrl, LOGIN_2_URL, options.username, "*****");
+	sprintf(logUrl, LOGIN_2_URL, options.usernameEscape, "*****");
 
 	mp = httpGet(url, logUrl);
 	free(url);
@@ -1385,12 +1385,12 @@ bid(auctionInfo *aip)
 	sprintf(quantityStr, "%d", quantity);
 
 	/* create url */
-	urlLen = sizeof(BID_URL) + strlen(aip->auction) + strlen(aip->bidkey) + strlen(aip->bidPriceStr) + strlen(quantityStr) + strlen(options.username) + strlen(aip->bidpass) + strlen(aip->biduiid) - 12;
+	urlLen = sizeof(BID_URL) + strlen(aip->auction) + strlen(aip->bidkey) + strlen(aip->bidPriceStr) + strlen(quantityStr) + strlen(options.usernameEscape) + strlen(aip->bidpass) + strlen(aip->biduiid) - 12;
 	url = (char *)myMalloc(urlLen);
-	sprintf(url, BID_URL, aip->auction, aip->bidkey, aip->bidPriceStr, quantityStr, options.username, aip->bidpass, aip->biduiid);
+	sprintf(url, BID_URL, aip->auction, aip->bidkey, aip->bidPriceStr, quantityStr, options.usernameEscape, aip->bidpass, aip->biduiid);
 
 	logUrl = (char *)myMalloc(urlLen);
-	tmpUsername = stars(strlen(options.username));
+	tmpUsername = stars(strlen(options.usernameEscape));
 	tmpPassword = stars(strlen(aip->bidpass));
 	tmpUiid = stars(strlen(aip->biduiid));
 	sprintf(logUrl, BID_URL, aip->auction, aip->bidkey, aip->bidPriceStr, quantityStr, tmpUsername, tmpPassword, tmpUiid);
@@ -1576,6 +1576,7 @@ int
 snipeAuction(auctionInfo *aip)
 {
 	int won = 0;
+	char *tmpUsername;
 
 	if (!aip)
 		return 0;
@@ -1583,9 +1584,11 @@ snipeAuction(auctionInfo *aip)
 	if (options.debug)
 		logOpen(aip, options.logdir);
 
+	tmpUsername = stars(strlen(options.username));
 	log(("auction %s price %s quantity %d user %s bidtime %ld\n",
 	     aip->auction, aip->bidPriceStr,
-	     options.quantity, options.username, options.bidtime));
+	     options.quantity, tmpUsername, options.bidtime));
+	free(tmpUsername);
 
 	cleanupCurlStuff();
 	if (initCurlStuff())

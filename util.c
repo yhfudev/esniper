@@ -621,9 +621,10 @@ void
 setUsername(char *username)
 {
 	toLowerString(username);
-	curl_free(options.username);
-	options.username = curl_escape(username, (int)strlen(username));
-	free(username);
+	free(options.username);
+	options.username = username;
+	curl_free(options.usernameEscape);
+	options.usernameEscape = curl_escape(username, (int)strlen(username));
 }
 
 void
