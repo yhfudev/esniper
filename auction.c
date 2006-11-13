@@ -1752,7 +1752,7 @@ printMyItems(void)
 		int printNewline = 0;
 
 		/* search for table containing my itmes */
-		if (!strstr(table, "tableName=\"Watching\""))
+		if (!strstr(table, "id=\"Watching\""))
 			continue;
 		/* skip first descriptive table row */
 		if ((row = getTableRow(mp)))

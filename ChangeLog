@@ -1,3 +1,6 @@
+2006-11-13
+	* Fixed myItems (-m) option.  eBay change tableName to "Id"
+
 2006-11-08
 	* Fix handling of URL escapes in username.
 
