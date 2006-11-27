@@ -254,22 +254,26 @@ const char *
 checkVersion(void)
 {
 	static int result = -1;
-	static memBuf_t *mp = NULL;
+	static char *newVersion = NULL;
 
 	if (result == -1) {
 		int i;
-
-		mp = httpGet(ESNIPER_VERSION_URL, NULL);
+		memBuf_t *mp = httpGet(ESNIPER_VERSION_URL, NULL);
 
 		/* not available */
 		if (mp == NULL)
 			return NULL;
-		for (i = 0; mp->memory[i] && mp->memory[i] != '\n'; ++i)
+		newVersion = mp->memory;
+		for (i = 0; newVersion[i] && newVersion[i] != '\n'; ++i)
 			;
-		mp->memory[i] = '\0';
-		result = !strcmp(getVersion(), mp->memory);
+		newVersion[i] = '\0';
+		result = !strcmp(getVersion(), newVersion);
+		/* Don't use freeMembuf(), it will also free
+		 * mp->memory, which we are using.
+		 */
+		free(mp);
 	}
-	return result ? NULL : mp->memory;
+	return result ? NULL : newVersion;
 }
 
 /*
@@ -317,8 +321,10 @@ bugReport(const char *func, const char *file, int line, auctionInfo *aip, memBuf
 		pageInfo_t *pp;
 
 		printLog(stdout,
-			"\tbuf = %p, size = %d, read = %p, time = %d\n",
-			mp->memory, mp->size, mp->readptr, mp->timeToFirstByte);
+			"\tbuf = %p, size = %d, read = %p\n"
+			"\ttime = %d, offset = %d\n",
+			mp->memory, mp->size, mp->readptr,
+			mp->timeToFirstByte, mp->readptr - mp->memory);
 		mp->readptr = mp->memory;
 		if ((pp = getPageInfo(mp))) {
 			printLog(stdout,

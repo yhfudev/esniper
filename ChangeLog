@@ -1,3 +1,8 @@
+2006-11-27
+	* Fixed buyer & bidding history bug (need to skip over buyer history).
+	* Fixed problem with bug reports.  HTTP buffer sometimes overwritten
+	  by version number.
+
 2006-11-13
 	* Fixed myItems (-m) option.  eBay change tableName to "Id"
 
@@ -5,6 +10,7 @@
 	* Fix handling of URL escapes in username.
 
 2006-11-04
+	* 2.15.0 released.
 	* Fix bug 1579311 (and a million others), eBay changed the bid history
 	  page again.
 	* Implemented feature request 1587259, handling -i without username

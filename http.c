@@ -46,7 +46,7 @@ static int curlInitDone = 0;
 static char globalErrorbuf[CURL_ERROR_SIZE];
 
 static memBuf_t *httpRequest(const char *url, const char *logUrl, const char *data, const char *logData, enum requestType);
-static memBuf_t *httpRequestFailed(void);
+static memBuf_t *httpRequestFailed(memBuf_t *mp);
 static size_t WriteMemoryCallback(void *ptr, size_t size, size_t nmemb, void *data);
 static int initCurlStuffFailed(void);
 
@@ -89,27 +89,25 @@ httpPost(const char *url, const char *data, const char *logData)
  * Create a membuf from a string.
  */
 memBuf_t *
-strToMemBuf(const char *s)
+strToMemBuf(const char *s, memBuf_t *mp)
 {
-	static memBuf_t m;
-
-	m.timeToFirstByte = time(NULL);
-	m.memory = myStrdup(s);
-	m.readptr = m.memory;
-	m.size = s ? strlen(s) : 0;
-	return &m;
+	mp->timeToFirstByte = time(NULL);
+	mp->memory = myStrdup(s);
+	mp->readptr = mp->memory;
+	mp->size = s ? strlen(s) : 0;
+	return mp;
 }
 
 /*
- * Clear membuf.
+ * Free membuf.
  */
 void
-clearMembuf(memBuf_t *mp)
+freeMembuf(memBuf_t *mp)
 {
-	free(mp->memory);
-	mp->memory = mp->readptr = NULL;
-	mp->size = 0;
-	mp->timeToFirstByte = 0;
+	if (mp) {
+		free(mp->memory);
+		free(mp);
+	}
 }
 
 #ifdef DEBUG
@@ -146,44 +144,46 @@ static memBuf_t *
 httpRequest(const char *url, const char *logUrl, const char *data, const char *logData, enum requestType rt)
 {
 	const char *nonNullData = data ? data : "";
-	static memBuf_t membuf = { NULL, 0, NULL, 0 };
+	memBuf_t *mp = (memBuf_t *)myMalloc(sizeof(memBuf_t));
+
+	mp->memory = mp->readptr = NULL;
+	mp->size = 0;
+	mp->timeToFirstByte = 0;
 
 	lastURL = url;
 
 	if (!curlInitDone && initCurlStuff())
 		return NULL;
 
-	if (membuf.memory)
-		clearMembuf(&membuf);
-
 	/* Note: was CURLOPT_WRITEDATA, which is the same as CURLOPT_FILE.
 	 * Some older versions of libcurl don't have CURLOPT_WRITEDATA.
 	 */
-	if ((curlrc = curl_easy_setopt(easyhandle, CURLOPT_FILE, (void *)&membuf)))
-		return httpRequestFailed();
+	if ((curlrc = curl_easy_setopt(easyhandle, CURLOPT_FILE, (void *)mp)))
+		return httpRequestFailed(mp);
 
 	if (rt == GET) {
 		if ((curlrc = curl_easy_setopt(easyhandle, CURLOPT_HTTPGET, 1)))
-			return httpRequestFailed();
+			return httpRequestFailed(mp);
 	} else {
 		log(("%s", logData ? logData : nonNullData));
 		if ((curlrc = curl_easy_setopt(easyhandle, CURLOPT_POSTFIELDS, nonNullData)))
-			return httpRequestFailed();
+			return httpRequestFailed(mp);
 	}
 
 	log(("%s", logUrl ? logUrl : url));
 	if ((curlrc = curl_easy_setopt(easyhandle, CURLOPT_URL, url)))
-		return httpRequestFailed();
+		return httpRequestFailed(mp);
 
 	if ((curlrc = curl_easy_perform(easyhandle)))
-		return httpRequestFailed();
+		return httpRequestFailed(mp);
 
-	return &membuf;
+	return mp;
 }
 
 static memBuf_t *
-httpRequestFailed(void)
+httpRequestFailed(memBuf_t *mp)
 {
+	freeMembuf(mp);
 	log(("%s", curl_easy_strerror(curlrc)));
 	log(("%s", globalErrorbuf));
 	return NULL;

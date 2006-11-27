@@ -420,22 +420,19 @@ getNonTag(memBuf_t *mp)
 static char *
 getNonTagFromString(const char *s)
 {
-	memBuf_t *mp = strToMemBuf(s);
-	char *ret = myStrdup(getNonTag(mp));
+	memBuf_t buf;
 
-	clearMembuf(mp);
-	return ret;
+	strToMemBuf(s, &buf);
+	return myStrdup(getNonTag(&buf));
 }
 
 static int
 getIntFromString(const char *s)
 {
-	memBuf_t *mp = strToMemBuf(s);
-	char *num = getNonTag(mp);
-	int ret = atoi(num);
+	memBuf_t buf;
 
-	clearMembuf(mp);
-	return ret;
+	strToMemBuf(s, &buf);
+	return atoi(getNonTag(&buf));
 }
 
 /*
@@ -644,6 +641,8 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, const char *user, time_t start, 
 	int foundHeader = 0;	/* found header for bid table */
 	int ret = 0;		/* 0 = OK, 1 = failed */
 	char *pagename;
+	int pageType = 0;	/* 0 = bidHistory, 1 = buyer and bid history */
+	int skipTables = 0;	/* number of bid history tables to skip */
 
 	resetAuctionError(aip);
 
@@ -657,13 +656,25 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, const char *user, time_t start, 
 	if (!strcmp(pagename, "PageViewBids")) {
 		/* bid history or expired/bad auction number */
 		while ((line = getNonTag(mp))) {
-			if (!strcmp(line, "Bid History"))
+			if (!strcmp(line, "Bid History")) {
+				log(("parseBidHistory(): got \"Bid History\"\n"));
 				break;
-			if (!strcmp(line, "Unknown Item"))
+			}
+			if (!strcmp(line, "Buyer and Bid History")) {
+				log(("parseBidHistory(): got \"Buyer and Bid History\"\n"));
+				pageType = 1;
+				skipTables = 1;
+				break;
+			}
+			if (!strcmp(line, "Unknown Item")) {
+				log(("parseBidHistory(): got \"Unknown Item\"\n"));
 				return auctionError(aip, ae_baditem, NULL);
+			}
 		}
-		if (!line)
+		if (!line) {
+			log(("parseBidHistory(): No title, place 1\n"));
 			return auctionError(aip, ae_notitle, NULL);
+		}
 	} else if (!strcmp(pagename, "PageViewTransactions")) {
 		/* transaction history -- buy it now only */
 	} else if (!strcmp(pagename, "PageSignIn")) {
@@ -679,8 +690,10 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, const char *user, time_t start, 
 			break;
 		}
 	}
-	if (!line)
+	if (!line) {
+		log(("parseBidHistory(): No title, place 2\n"));
 		return auctionError(aip, ae_notitle, NULL);
+	}
 	free(aip->title);
 	aip->title = myStrdup(line);
 	while ((line = getNonTag(mp))) {
@@ -752,9 +765,11 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, const char *user, time_t start, 
 	else {
 		aip->reserve = 0;
 		if ((foundHeader = !strncmp("Bidder", line, 6)) ||
-		    (foundHeader = !strncmp("User ID", line, 7)))
+		    (foundHeader = !strncmp("User ID", line, 7))) {
 			/* skip over first line */
+			log(("ParseBidHistory(): found table with header \"%s\"\n", line));
 			freeTableRow(getTableRow(mp));
+		}
 	}
 
 	/*
@@ -838,6 +853,11 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, const char *user, time_t start, 
 	 *	will be the first entry in the table.
 	 */
 	/* find header line */
+	if (foundHeader && skipTables > 0) {
+		log(("ParseBidHistory(): Skipping table"));
+		foundHeader = 0;
+		--skipTables;
+	}
 	while (!foundHeader && getTableStart(mp)) {
 		while (!foundHeader && (row = getTableRow(mp))) {
 			int ncolumns = numColumns(row);
@@ -849,6 +869,14 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, const char *user, time_t start, 
 					 !strncmp(header, "User ID", 7));
 			freeTableRow(row);
 			free(header);
+			if (foundHeader) {
+				log(("ParseBidHistory(): found table with header \"%s\"\n", line));
+				if (skipTables > 0) {
+					log(("ParseBidHistory(): Skipping table"));
+					foundHeader = 0;
+					--skipTables;
+				}
+			}
 		}
 	}
 	if (!foundHeader) {
@@ -1080,21 +1108,23 @@ getInfo(auctionInfo *aip, const char *user)
 static int
 getInfoTiming(auctionInfo *aip, const char *user, time_t *timeToFirstByte)
 {
-	memBuf_t *mp;
 	int i, ret;
 	time_t start;
 
 	log(("\n\n*** getInfo auction %s price %s user %s\n", aip->auction, aip->bidPriceStr, user));
 
 	for (i = 0; i < 3; ++i) {
+		memBuf_t *mp = NULL;
+
 		if (!aip->query)
 			aip->query = myStrdup2(GETINFO, aip->auction);
 		start = time(NULL);
-		if (!(mp = httpGet(aip->query, NULL)))
+		if (!(mp = httpGet(aip->query, NULL))) {
+			freeMembuf(mp);
 			return httpError(aip);
-
+		}
 		ret = parseBidHistory(mp, aip, user, start, timeToFirstByte);
-		clearMembuf(mp);
+		freeMembuf(mp);
 		if (i == 0 && ret == 1 && aip->auctionError == ae_mustsignin) {
 			if (ebayLogin(aip))
 				break;
@@ -1121,7 +1151,7 @@ static const char PRE_BID_URL[] = "http://offer.ebay.com/ws/eBayISAPI.dll?MfcISA
 static int
 preBid(auctionInfo *aip)
 {
-	memBuf_t *mp;
+	memBuf_t *mp = NULL;
 	int quantity = getQuantity(options.quantity, aip->quantity);
 	char quantityStr[12];	/* must hold an int */
 	size_t urlLen;
@@ -1187,7 +1217,7 @@ preBid(auctionInfo *aip)
 			bugReport("preBid", __FILE__, __LINE__, aip, mp, "cannot find bid key, uiid or password, found = %d", found);
 		}
 	}
-	clearMembuf(mp);
+	freeMembuf(mp);
 	return ret;
 }
 
@@ -1202,17 +1232,20 @@ static const char LOGIN_2_URL[] = "https://signin.ebay.com/ws/eBayISAPI.dll?Sign
 static int
 ebayLogin(auctionInfo *aip)
 {
-	memBuf_t *mp;
+	memBuf_t *mp = NULL;
 	size_t urlLen;
 	char *url, *logUrl;
 	pageInfo_t *pp;
 	int ret = 0;
 	char *password;
 
-	if (!(mp = httpGet(LOGIN_1_URL, NULL)))
+	if (!(mp = httpGet(LOGIN_1_URL, NULL))) {
+		freeMembuf(mp);
 		return httpError(aip);
+	}
 
-	clearMembuf(mp);
+	freeMembuf(mp);
+	mp = NULL;
 
 	urlLen = sizeof(LOGIN_2_URL) + strlen(options.usernameEscape);
 	password = getPassword();
@@ -1251,7 +1284,7 @@ ebayLogin(auctionInfo *aip)
 		ret = auctionError(aip, ae_login, NULL);
 		bugReport("ebayLogin", __FILE__, __LINE__, aip, mp, "pageinfo is NULL");
 	}
-	clearMembuf(mp);
+	freeMembuf(mp);
 	freePageInfo(pp);
 	return ret;
 }
@@ -1372,7 +1405,7 @@ static const char BID_URL[] = "http://offer.ebay.com/ws/eBayISAPI.dll?MfcISAPICo
 static int
 bid(auctionInfo *aip)
 {
-	memBuf_t *mp;
+	memBuf_t *mp = NULL;
 	size_t urlLen;
 	char *url, *logUrl, *tmpUsername, *tmpPassword, *tmpUiid;
 	int ret;
@@ -1406,10 +1439,10 @@ bid(auctionInfo *aip)
 		ret = httpError(aip);
 	} else {
 		ret = parseBid(mp, aip);
-		clearMembuf(mp);
 	}
 	free(url);
 	free(logUrl);
+	freeMembuf(mp);
 	return ret;
 } /* bid() */
 
@@ -1692,12 +1725,12 @@ printMyItemsRow(char **row, int printNewline)
 			ret = 1;
 	}
 	for (; row[column]; ++column) {
-		memBuf_t *mp;
+		memBuf_t buf;
 		char *value = NULL;
 
 		if (column >= MAX_TDS || !myitems_description[nColumns][column])
 			continue;
-		mp = strToMemBuf(row[column]);
+		strToMemBuf(row[column], &buf);
 		/* special case: ItemNr encoded in item URL */
 		if (nColumns == 4 && column == 2) {
 			static const char search[] = "item=";
@@ -1716,12 +1749,11 @@ printMyItemsRow(char **row, int printNewline)
 				free(value);
 			}
 		}
-		value = getNonTag(mp);
+		value = getNonTag(&buf);
 		/* Note text is 2nd non-tag */
 		if (nColumns == 2 && column == 0)
-			value = getNonTag(mp);
+			value = getNonTag(&buf);
 		printLog(stdout, myitems_description[nColumns][column], value ? value : "");
-		clearMembuf(mp);
 	}
 	return ret;
 }
@@ -1732,7 +1764,7 @@ printMyItemsRow(char **row, int printNewline)
 int
 printMyItems(void)
 {
-	memBuf_t *mp;
+	memBuf_t *mp = NULL;
 	const char *table;
 	char **row;
 	auctionInfo *dummy = newAuctionInfo("0", "0");
@@ -1746,6 +1778,7 @@ printMyItems(void)
 		httpError(dummy);
 		printAuctionError(dummy, stderr);
 		freeAuction(dummy);
+		freeMembuf(mp);
 		return 1;
 	}
 	while ((table = getTableStart(mp))) {
@@ -1767,6 +1800,7 @@ printMyItems(void)
 		}
 	}
 	freeAuction(dummy);
+	freeMembuf(mp);
 	return 0;
 }
 
@@ -1844,10 +1878,11 @@ testParser(int flag)
 
 			printf("\trow %d:\n", rowNum++);
 			for (; row[columnNum]; ++columnNum) {
-				memBuf_t *cmp = strToMemBuf(row[columnNum]);
+				memBuf_t buf;
+
+				strToMemBuf(row[columnNum], &buf);
 				printf("\t\tcolumn %d: %s\n", columnNum, getNonTag(cmp));
 				free(row[columnNum]);
-				clearMembuf(cmp);
 			}
 		}
 		break;
