@@ -1,3 +1,9 @@
+Handle auctions better.  Place auctions in a queue ordered by the time they
+need to be updated next.  This will ensure that all auctions are updated at
+least once a day.
+
+Parse myitem list header, so that it supports fields in any order.
+
 ae_unavailable
 - esniper used to return this error in bidHistory() when it got the
   "down for maintenace" message.
