@@ -33,7 +33,7 @@
 /* this structure holds all values from command line or config entries */
 typedef struct {
 	char *username;
-	char *usernameEscape;	// URL escaped
+	char *usernameEscape;	/* URL escaped */
 	char *password;
 	int bidtime;
 	int quantity;

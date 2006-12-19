@@ -397,7 +397,10 @@ isValidBidPrice(const auctionInfo *aip)
 		}
 		increment = increments[i+1];
 	}
-	// Use EPSILON to avoid floating point rounding errors on "=" comparison
+	/*
+	 * Use EPSILON to avoid floating point
+	 * rounding errors on "=" comparison
+	 */
 	return aip->bidPrice >= (aip->price + increment - EPSILON);
 }
 
