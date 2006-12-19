@@ -1,3 +1,5 @@
+2006-12-19
+	* Added note about requirement for default column order with -m option.
 2006-11-27
 	* Fixed buyer & bidding history bug (need to skip over buyer history).
 	* Fixed problem with bug reports.  HTTP buffer sometimes overwritten
