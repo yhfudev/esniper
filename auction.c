@@ -1706,8 +1706,8 @@ printMyItemsRow(char **row, int printNewline)
 {
 	const char *myitems_description[7][MAX_TDS] = {
 		{0, 0, 0, 0, 0, 0},
-		{0, 0, 0, 0, 0, 0},
 		{"Note:\t\t%s\n", 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0},
 		{0, 0, 0, 0, 0, 0},
 		{0, 0, "Description:\t%s\n", 0, 0, 0},
 		{0, 0, 0, 0, 0, 0},
@@ -1751,7 +1751,7 @@ printMyItemsRow(char **row, int printNewline)
 		}
 		value = getNonTag(&buf);
 		/* Note text is 2nd non-tag */
-		if (nColumns == 2 && column == 0)
+		if (nColumns == 1 && column == 0)
 			value = getNonTag(&buf);
 		printLog(stdout, myitems_description[nColumns][column], value ? value : "");
 	}
