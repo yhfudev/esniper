@@ -31,7 +31,7 @@
 #include "esniper.h"
 #include "http.h"
 
-extern int getInfo(auctionInfo *aip, const char *user);
+extern int getInfo(auctionInfo *aip);
 extern int snipeAuction(auctionInfo *aip);
 extern int printMyItems(void);
 

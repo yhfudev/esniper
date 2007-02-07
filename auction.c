@@ -51,7 +51,7 @@ static int bid(auctionInfo *aip);
 static int ebayLogin(auctionInfo *aip);
 static void freeTableRow(char **row);
 static char *getIdInternal(char *s, size_t len);
-static int getInfoTiming(auctionInfo *aip, const char *user, time_t *timeToFirstByte);
+static int getInfoTiming(auctionInfo *aip, time_t *timeToFirstByte);
 static int getIntFromString(const char *s);
 static char *getNonTag(memBuf_t *mp);
 static char *getNonTagFromString(const char *s);
@@ -67,7 +67,7 @@ static const char *getTableStart(memBuf_t *mp);
 static int makeBidError(const char *pagename, auctionInfo *aip);
 static int match(memBuf_t *mp, const char *str);
 static int numColumns(char **row);
-static int parseBidHistory(memBuf_t *mp, auctionInfo *aip, const char *user, time_t start, time_t *timeToFirstByte);
+static int parseBidHistory(memBuf_t *mp, auctionInfo *aip, time_t start, time_t *timeToFirstByte);
 static int parseBid(memBuf_t *mp, auctionInfo *aip);
 static int preBid(auctionInfo *aip);
 static int printMyItemsRow(char **row, int printNewline);
@@ -634,7 +634,7 @@ static const char PRIVATE[] = "private auction - bidders' identities protected";
  *	1 error (badly formatted page, etc) - sets auctionError
  */
 static int
-parseBidHistory(memBuf_t *mp, auctionInfo *aip, const char *user, time_t start, time_t *timeToFirstByte)
+parseBidHistory(memBuf_t *mp, auctionInfo *aip, time_t start, time_t *timeToFirstByte)
 {
 	char *line;
 	char **row;
@@ -906,8 +906,8 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, const char *user, time_t start, 
 			printf("# of bids: 0\n"
 			       "Currently: --  (your maximum bid: %s)\n",
 			       aip->bidPriceStr);
-			if (*user)
-				printf("High bidder: -- (NOT %s)\n", user);
+			if (*options.username) // [TG] are you sure options.username is never NULL?
+				printf("High bidder: -- (NOT %s)\n", options.username);
 			else
 				printf("High bidder: --\n");
 		} else {
@@ -942,7 +942,7 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, const char *user, time_t start, 
 			free(winner);
 			winner = myStrdup((aip->price <= aip->bidPrice &&
 					    (aip->bidResult == 0 ||
-					     (aip->bidResult == -1 && aip->endTime - time(NULL) < options.bidtime))) ?  user : "[private]");
+					     (aip->bidResult == -1 && aip->endTime - time(NULL) < options.bidtime))) ?  options.username : "[private]");
 		}
 		freeTableRow(row);
 
@@ -955,10 +955,10 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, const char *user, time_t start, 
 		printLog(stdout, "# of bids: %d\n", aip->bids);
 
 		/* print high bidder */
-		if (strcasecmp(winner, user)) {
-			if (*user)
+		if (strcasecmp(winner, options.username)) {
+			if (*options.username)
 				printLog(stdout, "High bidder: %s (NOT %s)\n",
-					 winner, user);
+					 winner, options.username);
 			else
 				printLog(stdout, "High bidder: %s\n", winner);
 			aip->winning = 0;
@@ -997,7 +997,7 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, const char *user, time_t start, 
 				++aip->bids;
 				aip->quantityBid += quantity;
 				bidder = getNonTagFromString(row[1]);
-				if (!strcasecmp(bidder, user))
+				if (!strcasecmp(bidder, options.username))
 					aip->won = aip->winning = quantity;
 				free(bidder);
 			}
@@ -1009,16 +1009,16 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, const char *user, time_t start, 
 		free(currently);
 		switch (aip->winning) {
 		case 0:
-			if (*user)
-				printLog(stdout, "High bidder: various purchasers (NOT %s)\n", user);
+			if (*options.username)
+				printLog(stdout, "High bidder: various purchasers (NOT %s)\n", options.username);
 			else
 				printLog(stdout, "High bidder: various purchasers\n");
 			break;
 		case 1:
-			printLog(stdout, "High bidder: %s!!!\n", user);
+			printLog(stdout, "High bidder: %s!!!\n", options.username);
 			break;
 		default:
-			printLog(stdout, "High bidder: %s!!! (%d items)\n", user, aip->winning);
+			printLog(stdout, "High bidder: %s!!! (%d items)\n", options.username, aip->winning);
 			break;
 		}
 		break;
@@ -1046,7 +1046,7 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, const char *user, time_t start, 
 					free(currently);
 					bidder = getNonTagFromString(row[1]);
 					currently = getNonTagFromString(row[2]);
-					if (!strcasecmp(bidder, user)) {
+					if (!strcasecmp(bidder, options.username)) {
 						wanted = getIntFromString(row[3]);
 						aip->winning = bidderWinning;
 					}
@@ -1063,12 +1063,12 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, const char *user, time_t start, 
 		free(currently);
 		if (aip->winning > 0) {
 			if (aip->winning == wanted)
-				printLog(stdout, "High bidder: %s!!!\n", user);
+				printLog(stdout, "High bidder: %s!!!\n", options.username);
 			else
-				printLog(stdout, "High bidder: %s!!! (%d out of %d items)\n", user, aip->winning, wanted);
+				printLog(stdout, "High bidder: %s!!! (%d out of %d items)\n", options.username, aip->winning, wanted);
 		} else {
-			if (*user)
-				printLog(stdout, "High bidder: various dutch bidders (NOT %s)\n", user);
+			if (*options.username)
+				printLog(stdout, "High bidder: various dutch bidders (NOT %s)\n", options.username);
 			else
 				printLog(stdout, "High bidder: various dutch bidders\n");
 		}
@@ -1093,9 +1093,9 @@ static const char GETINFO[] = "http://offer.ebay.com/ws/eBayISAPI.dll?ViewBids&i
  *	1 error (badly formatted page, etc) set auctionError
  */
 int
-getInfo(auctionInfo *aip, const char *user)
+getInfo(auctionInfo *aip)
 {
-	return getInfoTiming(aip, user, NULL);
+	return getInfoTiming(aip, NULL);
 }
 
 /*
@@ -1106,12 +1106,12 @@ getInfo(auctionInfo *aip, const char *user)
  *	1 error (badly formatted page, etc) set auctionError
  */
 static int
-getInfoTiming(auctionInfo *aip, const char *user, time_t *timeToFirstByte)
+getInfoTiming(auctionInfo *aip, time_t *timeToFirstByte)
 {
 	int i, ret;
 	time_t start;
 
-	log(("\n\n*** getInfo auction %s price %s user %s\n", aip->auction, aip->bidPriceStr, user));
+	log(("\n\n*** getInfo auction %s price %s user %s\n", aip->auction, aip->bidPriceStr, options.username));
 
 	for (i = 0; i < 3; ++i) {
 		memBuf_t *mp = NULL;
@@ -1123,7 +1123,7 @@ getInfoTiming(auctionInfo *aip, const char *user, time_t *timeToFirstByte)
 			freeMembuf(mp);
 			return httpError(aip);
 		}
-		ret = parseBidHistory(mp, aip, user, start, timeToFirstByte);
+		ret = parseBidHistory(mp, aip, start, timeToFirstByte);
 		freeMembuf(mp);
 		if (i == 0 && ret == 1 && aip->auctionError == ae_mustsignin) {
 			if (ebayLogin(aip))
@@ -1466,7 +1466,7 @@ watch(auctionInfo *aip)
 		time_t tmpLatency;
 		time_t start = time(NULL);
 		time_t timeToFirstByte = 0;
-		int ret = getInfoTiming(aip, options.username, &timeToFirstByte);
+		int ret = getInfoTiming(aip, &timeToFirstByte);
 		time_t end = time(NULL);
 
 		if (timeToFirstByte == 0)
@@ -1503,7 +1503,7 @@ watch(auctionInfo *aip)
 				int j;
 
 				for (j = 0; ret && j < 3 && aip->auctionError == ae_notitle; ++j)
-					ret = getInfo(aip, options.username);
+					ret = getInfo(aip);
 				if (ret)
 					return 1;
 				remain = newRemain(aip);
@@ -1673,7 +1673,7 @@ snipeAuction(auctionInfo *aip)
 
 		printLog(stdout, "\nAuction %s: Post-bid info:\n",
 			 aip->auction);
-		if (getInfo(aip, options.username))
+		if (getInfo(aip))
 			printAuctionError(aip, stderr);
 		if (aip->remain > 0 && aip->remain < 60 &&
 		    options.bidtime > 0 && options.bidtime < 60)

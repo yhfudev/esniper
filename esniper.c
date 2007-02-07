@@ -858,8 +858,7 @@ main(int argc, char *argv[])
 	numAuctionsOrig = numAuctions;
 	{
 		int quantity = options.quantity;
-		numAuctions = sortAuctions(auctions, numAuctions,
-					   options.username, &quantity);
+		numAuctions = sortAuctions(auctions, numAuctions, &quantity);
 
 		if (quantity < options.quantity) {
 			printLog(stdout, "\nYou have already won %d item(s).\n",

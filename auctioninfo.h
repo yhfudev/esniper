@@ -102,6 +102,6 @@ extern void resetAuctionError(auctionInfo *aip);
 extern int auctionError(auctionInfo *aip, enum auctionErrorCode pe,
 			const char *details);
 extern int isValidBidPrice(const auctionInfo *aip);
-extern int sortAuctions(auctionInfo **auctions, int numAuctions, char *user, int *quantity);
+extern int sortAuctions(auctionInfo **auctions, int numAuctions, int *quantity);
 
 #endif /* AUCTIONINFO_H_INCLUDED */

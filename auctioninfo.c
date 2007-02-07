@@ -459,7 +459,7 @@ getIncrements(const auctionInfo *aip)
  * 2. end time.
  */
 int
-sortAuctions(auctionInfo **auctions, int numAuctions, char *user, int *quantity)
+sortAuctions(auctionInfo **auctions, int numAuctions, int *quantity)
 {
 	int i, sawError = 0;
 
@@ -471,7 +471,7 @@ sortAuctions(auctionInfo **auctions, int numAuctions, char *user, int *quantity)
 		for (j = 0; j < 3; ++j) {
 			if (j > 0)
 				printLog(stderr, "Retrying...\n");
-			if (!getInfo(auctions[i], user))
+			if (!getInfo(auctions[i]))
 				break;
 			printAuctionError(auctions[i], stderr);
 			if (auctions[i]->auctionError == ae_unavailable) {
