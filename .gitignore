@@ -1,0 +1,8 @@
+Makefile
+*.cache
+esniper
+config.status
+.deps
+.cdtproject
+.project
+.settings
