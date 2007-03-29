@@ -852,6 +852,7 @@ main(int argc, char *argv[])
 #if !defined(WIN32)
 	signal(SIGALRM, sigAlarm);
 	signal(SIGHUP, SIG_IGN);
+	signal(SIGPIPE, SIG_IGN);
 #endif
 	signal(SIGTERM, sigTerm);
 
