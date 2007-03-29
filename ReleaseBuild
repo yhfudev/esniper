@@ -48,17 +48,22 @@ Create source tar:
 
 	cd $CURRENT
 	mkdir $CURRFILE $CURRFILE/frontends
-	cp ../aclocal.m4 ../auction.c ../auctionfile.c $CURRFILE
-	cp ../auctionfile.h ../auction.h ../auctioninfo.c $CURRFILE
-	cp ../auctioninfo.h ../AUTHORS ../buffer.c ../buffer.h $CURRFILE
-	cp ../ChangeLog ../configure ../configure.in ../COPYING $CURRFILE
-	cp ../depcomp ../esniper.1 ../esniper.c ../esniper.dsp $CURRFILE
-	cp ../esniper.dsw ../esniper.h ../esniper.mak $CURRFILE
-	cp ../esniper_man.html ../http.c $CURRFILE
-	cp ../http.h ../INSTALL ../install-sh ../Makefile.am $CURRFILE
-	cp ../Makefile.in ../misc.mk ../missing ../NEWS ../options.c $CURRFILE
-	cp ../options.h ../README ../sample_auction.txt $CURRFILE
-	cp ../sample_config.txt ../TODO ../util.c ../util.h $CURRFILE
+	cp ../auction.c ../auction.h $CURRFILE
+	cp ../auctionfile.c ../auctionfile.h $CURRFILE
+	cp ../auctioninfo.c ../auctioninfo.h $CURRFILE
+	cp ../buffer.c ../buffer.h $CURRFILE
+	cp ../esniper.c ../esniper.h $CURRFILE
+	cp ../history.c ../history.h $CURRFILE
+	cp ../html.c ../html.h $CURRFILE
+	cp ../http.c ../http.h $CURRFILE
+	cp ../options.c ../options.h $CURRFILE
+	cp ../util.c ../util.h $CURRFILE
+	cp ../aclocal.m4 ../configure ../configure.in ../depcomp $CURRFILE
+	cp ../install-sh ../Makefile.am ../Makefile.in ../missing $CURRFILE
+	cp ../AUTHORS ../COPYING ../INSTALL ../NEWS ../README ../TODO $CURRFILE
+	cp ../ChangeLog $CURRFILE
+	cp ../esniper.1 ../esniper_man.html ../misc.mk $CURRFILE
+	cp ../sample_auction.txt ../sample_config.txt $CURRFILE
 	cp ../frontends/README ../frontends/snipe $CURRFILE/frontends
 	tar cvf - $CURRFILE | gzip >$CURRFILE.tgz
 
@@ -78,10 +83,6 @@ Copy files to sourceforge:
 		mput *.tgz
 		quit
 
-	scp $CURRFILE/sample* $CURRFILE/esniper.1 $CURRFILE/*.html \
-		version.txt index.html \
-		esniper@shell.sf.net:/home/groups/e/es/esniper/htdocs
-
 Go to www.sourceforge.net:
 	- login
 	- go to project
@@ -93,6 +94,12 @@ Go to www.sourceforge.net:
 	- click "send notice"
 	- click file releases, then edit releases, then find the previous
 	  release and edit it.  Change the status to hidden and submit.
+
+Copy other files to sourceforge:
+
+	scp $CURRFILE/sample* $CURRFILE/esniper.1 $CURRFILE/*.html \
+		version.txt index.html \
+		esniper@shell.sf.net:/home/groups/e/es/esniper/htdocs
 
 Send email to esniper-announce@lists.sourceforge.net to announce the
 new version.
