@@ -68,7 +68,7 @@ getTag(memBuf_t *mp)
 		log(("getTag(): returning NULL\n"));
 		return NULL;
 	}
-	addchar(buf, bufsize, count, c);
+	addchar(buf, bufsize, count, (char)c);
 	if (c == '!') {
 		int c2 = memGetc(mp);
 
@@ -77,7 +77,7 @@ getTag(memBuf_t *mp)
 			log(("getTag(): returning %s\n", buf));
 			return buf;
 		}
-		addchar(buf, bufsize, count, c2);
+		addchar(buf, bufsize, count, (char)c2);
 		if (c2 == '-') {
 			int c3 = memGetc(mp);
 
@@ -86,7 +86,7 @@ getTag(memBuf_t *mp)
 				log(("getTag(): returning %s\n", buf));
 				return buf;
 			}
-			addchar(buf, bufsize, count, c3);
+			addchar(buf, bufsize, count, (char)c3);
 			comment = 1;
 		}
 	}
@@ -100,24 +100,24 @@ getTag(memBuf_t *mp)
 			}
 			if (isspace(c) && buf[count-1] == ' ')
 				continue;
-			addchar(buf, bufsize, count, c);
+			addchar(buf, bufsize, count, (char)c);
 		}
 	} else {
 		while ((c = memGetc(mp)) != EOF) {
 			switch (c) {
 			case '\\':
-				addchar(buf, bufsize, count, c);
+				addchar(buf, bufsize, count, (char)c);
 				c = memGetc(mp);
 				if (c == EOF) {
 					term(buf, bufsize, count);
 					log(("getTag(): returning %s\n", buf));
 					return buf;
 				}
-				addchar(buf, bufsize, count, c);
+				addchar(buf, bufsize, count, (char)c);
 				break;
 			case '>':
 				if (inStr)
-					addchar(buf, bufsize, count, c);
+					addchar(buf, bufsize, count, (char)c);
 				else {
 					term(buf, bufsize, count);
 					log(("getTag(): returning %s\n", buf));
@@ -130,7 +130,7 @@ getTag(memBuf_t *mp)
 			case '\t':
 			case '\v':
 				if (inStr)
-					addchar(buf, bufsize, count, c);
+					addchar(buf, bufsize, count, (char)c);
 				else if (count > 0 && buf[count-1] != ' ')
 					addchar(buf, bufsize, count, ' ');
 				break;
@@ -138,7 +138,7 @@ getTag(memBuf_t *mp)
 				inStr = !inStr;
 				/* fall through */
 			default:
-				addchar(buf, bufsize, count, c);
+				addchar(buf, bufsize, count, (char)c);
 			}
 		}
 	}
@@ -210,16 +210,16 @@ getNonTag(memBuf_t *mp)
 					buf[amp-1] = '&';
 					count = amp;
 				} else
-					addchar(buf, bufsize, count, c);
+					addchar(buf, bufsize, count, (char)c);
 				amp = 0;
 			} else
-				addchar(buf, bufsize, count, c);
+				addchar(buf, bufsize, count, (char)c);
 			break;
 		case '&':
 			amp = count + 1;
 			/* fall through */
 		default:
-			addchar(buf, bufsize, count, c);
+			addchar(buf, bufsize, count, (char)c);
 		}
 	}
 	if (count && buf[count-1] == ' ')

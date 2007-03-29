@@ -25,6 +25,7 @@
  */
 
 #include <ctype.h>
+#include <errno.h>
 #include <stdlib.h>
 #include <string.h>
 #include "html.h"
@@ -32,6 +33,7 @@
 #include "history.h"
 #include "esniper.h"
 
+static int checkHeaderColumns(char **row);
 static long getSeconds(char *timestr);
 
 static const char PRIVATE[] = "private auction - bidders' identities protected";
@@ -52,6 +54,7 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, time_t start, time_t *timeToFirs
 	int ret = 0;		/* 0 = OK, 1 = failed */
 	char *pagename;
 	int pageType = 0;	/* 0 = bidHistory, 1 = buyer and bid history */
+	int extraColumns = 0; /* 1 if Bidding Details or Action column in table */
 	int skipTables = 0;	/* number of bid history tables to skip */
 
 	resetAuctionError(aip);
@@ -125,7 +128,11 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, time_t start, time_t *timeToFirs
 		if (!strcmp("Quantity:", line) ||
 		    !strcmp("Quantity left:", line)) {
 			line = getNonTag(mp);
-			if (!line || (aip->quantity = atoi(line)) < 1)
+			if (!line)
+				return auctionError(aip, ae_noquantity, NULL);
+			errno = 0;
+			aip->quantity = (int)strtol(line, NULL, 10);
+			if (aip->quantity < 0 || (aip->quantity == 0 && errno == EINVAL))
 				return auctionError(aip, ae_noquantity, NULL);
 			log(("quantity: %d", aip->quantity));
 		} else if (!strcmp("Currently:", line)) {
@@ -174,11 +181,14 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, time_t start, time_t *timeToFirs
 		aip->reserve = 1;
 	else {
 		aip->reserve = 0;
+		/* start of header?  Probably a purchase */
 		if ((foundHeader = !strncmp("Bidder", line, 6)) ||
 		    (foundHeader = !strncmp("User ID", line, 7))) {
-			/* skip over first line */
 			log(("ParseBidHistory(): found table with header \"%s\"\n", line));
-			freeTableRow(getTableRow(mp));
+			/* get other headers to check them */
+			row = getTableRow(mp);
+			extraColumns += checkHeaderColumns(row);
+			freeTableRow(row);
 		}
 	}
 
@@ -193,12 +203,14 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, time_t start, time_t *timeToFirs
 	 *		"User ID"
 	 *		"Bid Amount"
 	 *		"Date of bid"
+	 *		"Bidding Details" (new, not on all auctions)
 	 *		""
 	 *	    For each bid:
 	 *			""
 	 *			<user>
 	 *			<amount>
 	 *			<date>
+	 *			<view bidder details> (new, not on all auctions)
 	 *			""
 	 *	    (plus multiple rows of 1 column between entries)
 	 *
@@ -215,7 +227,9 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, time_t start, time_t *timeToFirs
 	 *		"User ID"
 	 *		"Bid Amount"
 	 *		"Qty"
-	 *		"Date of bid"
+	 *		"Date of Purchase"
+	 *		"Bidding Details" (new, not on all auctions)
+	 *		"Action" (new, not on all auctions)
 	 *		""
 	 *	    For each bid:
 	 *			""
@@ -223,6 +237,8 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, time_t start, time_t *timeToFirs
 	 *			<amount>
 	 *			<quantity>
 	 *			<date>
+	 *			<view bidder details> (new, not on all auctions)
+	 *			<action> (new, not on all auctions)
 	 *			""
 	 *	    (plus multiple rows of 1 column between entries)
 	 *
@@ -241,6 +257,7 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, time_t start, time_t *timeToFirs
 	 *		"Quantity wanted"
 	 *		"Quantity winning"
 	 *		"Date of Bid"
+	 *		"Bidding Details" (new, not on all auctions)
 	 *		""
 	 *
 	 *	    For each bid:
@@ -250,6 +267,7 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, time_t start, time_t *timeToFirs
 	 *			<quantity wanted>
 	 *			<quantity winning>
 	 *			<date>
+	 *			<view bidder details> (new, not on all auctions)
 	 *			""
 	 *	    (plus multiple rows of 1 column between entries)
 	 *
@@ -277,16 +295,17 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, time_t start, time_t *timeToFirs
 			foundHeader = header &&
 					(!strncmp(header, "Bidder", 6) ||
 					 !strncmp(header, "User ID", 7));
-			freeTableRow(row);
-			free(header);
 			if (foundHeader) {
 				log(("ParseBidHistory(): found table with header \"%s\"\n", line));
 				if (skipTables > 0) {
 					log(("ParseBidHistory(): Skipping table"));
 					foundHeader = 0;
 					--skipTables;
-				}
+				} else
+					extraColumns += checkHeaderColumns(row);
 			}
+			freeTableRow(row);
+			free(header);
 		}
 	}
 	if (!foundHeader) {
@@ -302,7 +321,7 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, time_t start, time_t *timeToFirs
 		break;
 	}
 	/* roll through table */
-	switch (numColumns(row)) {
+	switch (numColumns(row) - extraColumns) {
 	case 2:	/* auction with no bids */
 	    {
 		char *s = getNonTagFromString(row[1]);
@@ -316,7 +335,7 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, time_t start, time_t *timeToFirs
 			printf("# of bids: 0\n"
 			       "Currently: --  (your maximum bid: %s)\n",
 			       aip->bidPriceStr);
-			if (*options.username) // [TG] are you sure options.username is never NULL?
+			if (*options.username)
 				printf("High bidder: -- (NOT %s)\n", options.username);
 			else
 				printf("High bidder: --\n");
@@ -358,7 +377,7 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, time_t start, time_t *timeToFirs
 
 		/* count bids */
 		for (aip->bids = 1; (row = getTableRow(mp)); ) {
-			if (numColumns(row) == 5)
+			if (numColumns(row) - extraColumns == 5)
 				++aip->bids;
 			freeTableRow(row);
 		}
@@ -400,7 +419,7 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, time_t start, time_t *timeToFirs
 		/* find your purchase, count number of purchases */
 		/* blank, user, price, quantity, date, blank */
 		for (; row; row = getTableRow(mp)) {
-			if (numColumns(row) == 6) {
+			if (numColumns(row) - extraColumns == 6) {
 				int quantity = getIntFromString(row[3]);
 				char *bidder;
 
@@ -445,7 +464,7 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, time_t start, time_t *timeToFirs
 		/* find your bid, count number of bids */
 		/* blank, user, price, wanted, winning, date, blank */
 		for (; row; row = getTableRow(mp)) {
-			if (numColumns(row) == 7) {
+			if (numColumns(row) - extraColumns == 7) {
 				int bidderWinning = getIntFromString(row[4]);
 
 				++aip->bids;
@@ -485,13 +504,30 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, time_t start, time_t *timeToFirs
 		break;
 	    }
 	default:
-		bugReport("parseBidHistory", __FILE__, __LINE__, aip, mp, "%d columns in bid table", numColumns(row));
+		bugReport("parseBidHistory", __FILE__, __LINE__, aip, mp, "%d columns in bid table, extraColumns = %d", numColumns(row), extraColumns);
 		ret = auctionError(aip, ae_nohighbid, NULL);
 		freeTableRow(row);
 	}
 
 	return ret;
 } /* parseBidHistory() */
+
+static int
+checkHeaderColumns(char **row)
+{
+	char *lastHeader = getNonTagFromString(row[numColumns(row)-2]);
+	int ret = 0;
+
+	if (!strncmp(lastHeader, "Bidding Details", 15)) {
+		log(("checkHeaderColumns(): this table has Bidding Details column"));
+		++ret;
+	} else if (!strncmp(lastHeader, "Action", 6)) {
+		log(("checkHeaderColumns(): this table has Action column"));
+		++ret;
+	}
+	free(lastHeader);
+	return ret;
+}
 
 static long
 getSeconds(char *timestr)

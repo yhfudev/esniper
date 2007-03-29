@@ -6,7 +6,7 @@
 #
 
 SRC = auction.c auctionfile.c auctioninfo.c buffer.c esniper.c \
-	http.c options.c util.c
+	history.c html.c http.c options.c util.c
 
 # System dependencies
 # HP-UX 10.20

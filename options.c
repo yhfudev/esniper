@@ -93,7 +93,7 @@ readConfigFile(const char *filename, optionTable_t *table)
 
 			count = 0;
 			do {
-				addchar(buf, bufsize, count, c);
+				addchar(buf, bufsize, count, (char)c);
 				c = getc(fp);
 			} while (c != EOF && !isspace(c) && c != '=');
 			addchar(buf, bufsize, count, '\0');
@@ -112,7 +112,7 @@ readConfigFile(const char *filename, optionTable_t *table)
 				if (c != EOF && c != '\n' && c != '\r') {
 					value = &buf[count];
 					do {
-						addchar(buf, bufsize, count, c);
+						addchar(buf, bufsize, count, (char)c);
 						c = getc(fp);
 					} while (c != EOF && c != '\n' && c != '\r');
 					/* strip trailing whitespace */

@@ -71,7 +71,7 @@ readAuctionFile(const char *filename, auctionInfo ***aip)
 			/* get auction number */
 			line = count;
 			do {
-				addchar(buf, bufsize, count, c);
+				addchar(buf, bufsize, count, (char)c);
 			} while (isdigit(c = getc(fp)));
 			while (isspace(c) && c != '\n' && c != '\r')
 				c = getc(fp);
@@ -88,7 +88,7 @@ readAuctionFile(const char *filename, auctionInfo ***aip)
 				addchar(buf, bufsize, count, ' ');
 				/* get price */
 				for (; isdigit(c) || c == '.' || c == ','; c = getc(fp))
-					addchar(buf, bufsize, count, c);
+					addchar(buf, bufsize, count, (char)c);
 				while (isspace(c) && c != '\n' && c != '\r')
 					c = getc(fp);
 				if (c == '#')	/* comment? */

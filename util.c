@@ -399,7 +399,7 @@ getUntil(memBuf_t *mp, int until)
 				logChar(EOF);
 			return buf;
 		}
-		addchar(buf, bufsize, count, c);
+		addchar(buf, bufsize, count, (char)c);
 	}
 	if (options.debug)
 		logChar(EOF);
@@ -489,7 +489,7 @@ prompt(const char *p, int noecho)
 
 	/* read value */
 	for (c = getc(stdin); c != EOF && c != '\n' && c != '\r'; c = getc(stdin))
-		addcharinc(buf, size, count, c, (size_t)20);
+		addcharinc(buf, size, count, (char)c, (size_t)20);
 	terminc(buf, size, count, (size_t)20);
 
 	if (noecho) {	/* echo on */

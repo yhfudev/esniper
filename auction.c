@@ -47,10 +47,11 @@
 #define newRemain(aip) (aip->endTime - time(NULL) - aip->latency - options.bidtime)
 
 static time_t loginTime = 0;	/* Time of last login */
+static time_t defaultLoginInterval = 12 * 60 * 60;	/* ebay login interval */
 
 static int acceptBid(const char *pagename, auctionInfo *aip);
 static int bid(auctionInfo *aip);
-static int ebayLogin(auctionInfo *aip);
+static int ebayLogin(auctionInfo *aip, int interval);
 static char *getIdInternal(char *s, size_t len);
 static int getInfoTiming(auctionInfo *aip, time_t *timeToFirstByte);
 static int getQuantity(int want, int available);
@@ -215,6 +216,8 @@ getInfoTiming(auctionInfo *aip, time_t *timeToFirstByte)
 	time_t start;
 
 	log(("\n\n*** getInfo auction %s price %s user %s\n", aip->auction, aip->bidPriceStr, options.username));
+	if (ebayLogin(aip, 0))
+		return 1;
 
 	for (i = 0; i < 3; ++i) {
 		memBuf_t *mp = NULL;
@@ -229,7 +232,7 @@ getInfoTiming(auctionInfo *aip, time_t *timeToFirstByte)
 		ret = parseBidHistory(mp, aip, start, timeToFirstByte);
 		freeMembuf(mp);
 		if (i == 0 && ret == 1 && aip->auctionError == ae_mustsignin) {
-			if (ebayLogin(aip))
+			if (ebayLogin(aip, -1))
 				break;
 		} else if (aip->auctionError == ae_notime)
 			/* Blank time remaining -- give it another chance */
@@ -262,6 +265,8 @@ preBid(auctionInfo *aip)
 	int ret = 0;
 	int found = 0;
 
+	if (ebayLogin(aip, 0))
+		return 1;
 	sprintf(quantityStr, "%d", quantity);
 	urlLen = sizeof(PRE_BID_URL) + strlen(aip->auction) + strlen(aip->bidPriceStr) + strlen(quantityStr) - 6;
 	url = (char *)myMalloc(urlLen);
@@ -328,12 +333,12 @@ static const char LOGIN_1_URL[] = "https://signin.ebay.com/ws/eBayISAPI.dll?Sign
 static const char LOGIN_2_URL[] = "https://signin.ebay.com/ws/eBayISAPI.dll?SignInWelcome&userid=%s&pass=%s&keepMeSignInOption=1";
 
 /*
- * Ebay login
+ * Ebay login.  Make sure loging has been done with the given interval.
  *
- * returns 0 on success, 1 on failure.
+ * Returns 0 on success, 1 on failure.
  */
 static int
-ebayLogin(auctionInfo *aip)
+ebayLogin(auctionInfo *aip, int interval)
 {
 	memBuf_t *mp = NULL;
 	size_t urlLen;
@@ -341,6 +346,18 @@ ebayLogin(auctionInfo *aip)
 	pageInfo_t *pp;
 	int ret = 0;
 	char *password;
+
+	/* negative value forces login */
+	if (interval >= 0) {
+		if (interval == 0)
+			interval = defaultLoginInterval;	/* default: 12 hours */
+		if ((time(NULL) - loginTime) <= interval)
+			return 0;
+	}
+
+	cleanupCurlStuff();
+	if (initCurlStuff())
+		return auctionError(aip, ae_unknown, NULL);
 
 	if (!(mp = httpGet(LOGIN_1_URL, NULL))) {
 		freeMembuf(mp);
@@ -518,6 +535,8 @@ bid(auctionInfo *aip)
 	if (!aip->bidkey || !aip->bidpass || !aip->biduiid)
 		return auctionError(aip, ae_bidkey, NULL);
 
+	if (ebayLogin(aip, 0))
+		return 1;
 	sprintf(quantityStr, "%d", quantity);
 
 	/* create url */
@@ -624,14 +643,10 @@ watch(auctionInfo *aip)
 			remain = newRemain(aip);
 
 		/*
-		 * if we're less than five minutes away and login was
-		 * more than five minutes ago, re-login
+		 * Check login when we are close to bidding.
 		 */
-		if (remain <= 300 && (time(NULL) - loginTime) > 300) {
-			cleanupCurlStuff();
-			if (initCurlStuff())
-				return auctionError(aip, ae_unknown, NULL);
-			if (ebayLogin(aip))
+		if (remain <= 300) {
+			if (ebayLogin(aip, defaultLoginInterval - 600))
 				return 1;
 			remain = newRemain(aip);
 		}
@@ -726,11 +741,7 @@ snipeAuction(auctionInfo *aip)
 	     options.quantity, tmpUsername, options.bidtime));
 	free(tmpUsername);
 
-	cleanupCurlStuff();
-	if (initCurlStuff())
-		exit(1);
-
-	if (ebayLogin(aip)) {
+	if (ebayLogin(aip, 0)) {
 		printAuctionError(aip, stderr);
 		return 0;
 	}
@@ -872,7 +883,7 @@ printMyItems(void)
 	char **row;
 	auctionInfo *dummy = newAuctionInfo("0", "0");
 
-	if (ebayLogin(dummy)) {
+	if (ebayLogin(dummy, 0)) {
 		printAuctionError(dummy, stderr);
 		freeAuction(dummy);
 		return 1;
