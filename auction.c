@@ -395,6 +395,8 @@ ebayLogin(auctionInfo *aip, int interval)
 			loginTime = time(NULL);
 		else if (pp->pageName && !strcmp(pp->pageName, "PageSignIn"))
 			ret = auctionError(aip, ae_login, NULL);
+		else if (pp->srcId && !strcmp(pp->srcId, "Captcha.xsl"))
+			ret = auctionError(aip, ae_captcha, NULL);
 		else {
 			ret = auctionError(aip, ae_login, NULL);
 			bugReport("ebayLogin", __FILE__, __LINE__, aip, mp, "unknown pageinfo");

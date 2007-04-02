@@ -244,6 +244,7 @@ static const char *auctionErrorString[] = {
 	"Auction %s: Must sign in\n",
 	"Auction %s: Cannot bid on item (fixed price item?)\n",
 	"Auction %s: Dutch auction bid must have higher price or quantity than prior bid\n",
+	"Auction %s: Login failed due to captcha.  Please see\nhttp://esniper.sf.net/captcha.html for more details\n",
 	/* ae_unknown must be last error */
 	"Auction %s: Unknown error code %d\n",
 };
@@ -478,7 +479,9 @@ sortAuctions(auctionInfo **auctions, int numAuctions, int *quantity)
 				--j;	/* doesn't count as an attempt */
 				printLog(stderr, "%s: Will retry, sleeping for an hour\n", timestamp());
 				sleep(3600);
-			}
+			} else if (auctions[i]->auctionError == ae_login ||
+				   auctions[i]->auctionError == ae_captcha)
+				return 0;
 		}
 		printLog(stdout, "\n");
 	}
