@@ -322,6 +322,14 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, time_t start, time_t *timeToFirs
 	}
 	/* roll through table */
 	switch (numColumns(row) - extraColumns) {
+	case 1:
+		if (extraColumns != 1) {
+			bugReport("parseBidHistory", __FILE__, __LINE__, aip, mp, "%d columns in bid table, extraColumns = %d", numColumns(row), extraColumns);
+			ret = auctionError(aip, ae_nohighbid, NULL);
+			freeTableRow(row);
+			break;
+		}
+		/* Fall through */
 	case 2:	/* auction with no bids */
 	    {
 		char *s = getNonTagFromString(row[1]);

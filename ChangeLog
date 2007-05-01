@@ -1,3 +1,7 @@
+2007-04-30
+	* Fix for bug 1710376.  Bid history parsing error on auction with
+	  no bids.
+
 2007-04-02
 	* Added captcha error.
 	* 2.16.1 released.
