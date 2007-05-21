@@ -1,3 +1,7 @@
+2007-05-21
+	* Fix segmentation fault caused by auctions with no bids and a
+	  starting bid of $200 or more.
+
 2007-04-30
 	* Fix for bug 1710376.  Bid history parsing error on auction with
 	  no bids.
