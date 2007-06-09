@@ -467,6 +467,9 @@ makeBidError(const char *pagename, auctionInfo *aip)
 	if (!*pagename ||
 	    !strcmp(pagename, "AuctionEnded"))
 		return aip->bidResult = auctionError(aip, ae_ended, NULL);
+	if (!strcmp(pagename, "AuctionEnded_BINblock") ||
+	    !strcmp(pagename, "AuctionEnded_BINblock "))
+		return aip->bidResult = auctionError(aip, ae_cancelled, NULL);
 	if (!strcmp(pagename, "Password"))
 		return aip->bidResult = auctionError(aip, ae_badpass, NULL);
 	if (!strcmp(pagename, "MinBid"))

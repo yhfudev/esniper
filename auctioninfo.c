@@ -245,6 +245,7 @@ static const char *auctionErrorString[] = {
 	"Auction %s: Cannot bid on item (fixed price item?)\n",
 	"Auction %s: Dutch auction bid must have higher price or quantity than prior bid\n",
 	"Auction %s: Login failed due to captcha.  Please see\nhttp://esniper.sf.net/captcha.html for more details\n",
+	"Auction %s: Cancelled\n",	/* Seller cancel only? */
 	/* ae_unknown must be last error */
 	"Auction %s: Unknown error code %d\n",
 };

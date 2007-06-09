@@ -1,3 +1,7 @@
+2007-06-08
+	* Fixed bug 1733869, recognize error message when seller ends
+	  auction early.
+
 2007-05-21
 	* Fix segmentation fault caused by auctions with no bids and a
 	  starting bid of $200 or more.
