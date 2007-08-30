@@ -123,8 +123,7 @@ readFile(FILE *fp)
 	int c;
 
 	if (membuf.memory)
-		clearMembuf(&membuf);
-
+		free(membuf.memory);
 	membuf.size = BUFINC;
 	membuf.memory = (char *)myMalloc(membuf.size);
 	while ((c = getc(fp)) != EOF) {

@@ -952,7 +952,8 @@ testParser(int flag)
 	    {
 		/* run through bid history parser */
 		auctionInfo *aip = newAuctionInfo("1", "2");
-		int ret = parseBidHistory(mp, aip, options.username, time(NULL), NULL);
+		time_t start = time(NULL), end;
+		int ret = parseBidHistory(mp, aip, start, &end);
 
 		printf("ret = %d\n", ret);
 		printAuctionError(aip, stdout);
@@ -1000,7 +1001,7 @@ testParser(int flag)
 				memBuf_t buf;
 
 				strToMemBuf(row[columnNum], &buf);
-				printf("\t\tcolumn %d: %s\n", columnNum, getNonTag(cmp));
+				printf("\t\tcolumn %d: %s\n", columnNum, getNonTag(mp));
 				free(row[columnNum]);
 			}
 		}
