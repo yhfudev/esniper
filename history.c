@@ -179,15 +179,23 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, time_t start, time_t *timeToFirs
 		return auctionError(aip, ae_nohighbid, NULL);
 	if (!strcmp("Reserve not met", line))
 		aip->reserve = 1;
+	else if (!strcmp("User IDs will appear as", line))
+		;
 	else {
 		aip->reserve = 0;
 		/* start of header?  Probably a purchase */
 		if ((foundHeader = !strncmp("Bidder", line, 6)) ||
 		    (foundHeader = !strncmp("User ID", line, 7))) {
+			int extra;
+
 			log(("ParseBidHistory(): found table with header \"%s\"\n", line));
 			/* get other headers to check them */
 			row = getTableRow(mp);
-			extraColumns += checkHeaderColumns(row);
+			extra = checkHeaderColumns(row);
+			if (extra < 0)
+				foundHeader = 0;
+			else
+				extraColumns += extra;
 			freeTableRow(row);
 		}
 	}
@@ -301,8 +309,14 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, time_t start, time_t *timeToFirs
 					log(("ParseBidHistory(): Skipping table"));
 					foundHeader = 0;
 					--skipTables;
-				} else
-					extraColumns += checkHeaderColumns(row);
+				} else {
+					int extra = checkHeaderColumns(row);
+
+					if (extra < 0)
+						foundHeader = 0;
+					else
+						extraColumns += extra;
+				}
 			}
 			freeTableRow(row);
 			free(header);
@@ -523,10 +537,14 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, time_t start, time_t *timeToFirs
 static int
 checkHeaderColumns(char **row)
 {
-	char *lastHeader = getNonTagFromString(row[numColumns(row)-2]);
+	int n = numColumns(row);
+	char *lastHeader = n >= 2 ? getNonTagFromString(row[n-2]) : NULL;
 	int ret = 0;
 
-	if (!strncmp(lastHeader, "Bidding Details", 15)) {
+	if (lastHeader == NULL) {
+		log(("checkHeaderColumns(): this is not a table header"));
+		--ret;
+	} else if (!strncmp(lastHeader, "Bidding Details", 15)) {
 		log(("checkHeaderColumns(): this table has Bidding Details column"));
 		++ret;
 	} else if (!strncmp(lastHeader, "Action", 6)) {
