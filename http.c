@@ -297,6 +297,37 @@ memUngetc(memBuf_t *mp)
 		mp->readptr--;
 }
 
+void
+memReset(memBuf_t *mp)
+{
+	mp->readptr = mp->memory;
+}
+
+void memSkip(memBuf_t *mp, int n)
+{
+	++mp->readptr;
+}
+
+char *
+memStr(memBuf_t *mp, const char *s)
+{
+	char *ret = strstr(mp->readptr, s);
+
+	if (ret)
+		mp->readptr = ret;
+	return ret;
+}
+
+char *
+memChr(memBuf_t *mp, char c)
+{
+	char *ret = strchr(mp->readptr, c);
+
+	if (ret)
+		mp->readptr = ret;
+	return ret;
+}
+
 time_t
 getTimeToFirstByte(memBuf_t *mp)
 {

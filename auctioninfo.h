@@ -87,6 +87,7 @@ typedef struct {
 	int quantityBid;/* number of items currently bid on */
 	int bids;	/* number of bids made */
 	double price;	/* current price */
+	char *shipping;	/* shipping cost */
 	char *currency;	/* currency used in auction */
 	int bidResult;	/* result code from bid (-1=no bid yet, 0=success, 1 = error) */
 	int reserve;	/* auction has reserve and it hasn't been met. */

@@ -33,10 +33,18 @@
 #include "history.h"
 #include "esniper.h"
 
-static int checkHeaderColumns(char **row);
 static long getSeconds(char *timestr);
 
 static const char PRIVATE[] = "private auction - bidders' identities protected";
+
+#define VIEWBIDS 1
+#define VIEWTRANSACTIONS 2
+
+#define NOTHING 0
+#define PRICE 1
+#define QUANTITY 2
+#define SHIPPING 4
+#define EVERYTHING (PRICE | QUANTITY | SHIPPING)
 
 /*
  * parseBidHistory(): parses bid history page (pageName: PageViewBids)
@@ -50,33 +58,25 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, time_t start, time_t *timeToFirs
 {
 	char *line;
 	char **row;
-	int foundHeader = 0;	/* found header for bid table */
+	int rowCount;
 	int ret = 0;		/* 0 = OK, 1 = failed */
+	int foundHeader = 0;	/* found bid history table header */
 	char *pagename;
-	int pageType = 0;	/* 0 = bidHistory, 1 = buyer and bid history */
-	int extraColumns = 0; /* 1 if Bidding Details or Action column in table */
-	int skipTables = 0;	/* number of bid history tables to skip */
+	int pageType;
+	int got;
 
 	resetAuctionError(aip);
 
 	if (timeToFirstByte)
 		*timeToFirstByte = getTimeToFirstByte(mp);
 
-	/*
-	 * Auction title
-	 */
 	pagename = getPageName(mp);
-	if (!strcmp(pagename, "PageViewBids")) {
+	if (!strncmp(pagename, "PageViewBids", 12)) {
+		pageType = VIEWBIDS;
 		/* bid history or expired/bad auction number */
 		while ((line = getNonTag(mp))) {
 			if (!strcmp(line, "Bid History")) {
 				log(("parseBidHistory(): got \"Bid History\"\n"));
-				break;
-			}
-			if (!strcmp(line, "Buyer and Bid History")) {
-				log(("parseBidHistory(): got \"Buyer and Bid History\"\n"));
-				pageType = 1;
-				skipTables = 1;
 				break;
 			}
 			if (!strcmp(line, "Unknown Item")) {
@@ -84,49 +84,101 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, time_t start, time_t *timeToFirs
 				return auctionError(aip, ae_baditem, NULL);
 			}
 		}
-		if (!line) {
-			log(("parseBidHistory(): No title, place 1\n"));
-			return auctionError(aip, ae_notitle, NULL);
-		}
-	} else if (!strcmp(pagename, "PageViewTransactions")) {
+	} else if (!strncmp(pagename, "PageViewTransactions", 20)) {
 		/* transaction history -- buy it now only */
+		pageType = VIEWTRANSACTIONS;
 	} else if (!strcmp(pagename, "PageSignIn")) {
 		return auctionError(aip, ae_mustsignin, NULL);
+	} else {
+		bugReport("parseBidHistory", __FILE__, __LINE__, aip, mp, "unknown pagename");
+		return auctionError(aip, ae_notitle, NULL);
 	}
 
-	/*
-	 * Auction item
-	 */
-	while ((line = getNonTag(mp))) {
-		if (!strcmp(line, "Item title:")) {
-			line = getNonTag(mp);
-			break;
+	/* Auction number */
+	memReset(mp);
+	if (memStr(mp, "\"BHitemNo\"")) {
+		memChr(mp, '>');
+		memSkip(mp, 1);
+		line = getNonTag(mp);	/* Item number: */
+		line = getNonTag(mp);	/* number */
+		if (!line) {
+			log(("parseBidHistory(): No item number"));
+			return auctionError(aip, ae_baditem, NULL);
 		}
+	} else {
+		log(("parseBidHistory(): BHitemNo not found"));
+		return auctionError(aip, ae_baditem, NULL);
 	}
-	if (!line) {
-		log(("parseBidHistory(): No title, place 2\n"));
-		return auctionError(aip, ae_notitle, NULL);
+#if DEBUG
+	free(aip->auction);
+	aip->auction = myStrdup(line);
+#else
+	if (strcmp(aip->auction, line)) {
+		log(("parseBidHistory(): auction number %s does not match given number %s", line, aip->auction));
+		return auctionError(aip, ae_baditem, NULL);
+	}
+#endif
+
+	/* Auction title */
+	memReset(mp);
+	if (memStr(mp, "\"BHitemTitle\"")) {
+		memChr(mp, '>');
+		memSkip(mp, 1);
+		line = getNonTag(mp);	/* title */
+		if (!line) {
+			log(("parseBidHistory(): No item title"));
+			return auctionError(aip, ae_baditem, NULL);
+		}
+	} else if (memStr(mp, "\"BHitemDesc\"")) {
+		memChr(mp, '>');
+		memSkip(mp, 1);
+		line = getNonTag(mp);	/* title */
+		if (!line || !strcmp(line, "See item description")) {
+			log(("parseBidHistory(): No item title, place 2"));
+			return auctionError(aip, ae_baditem, NULL);
+		}
+	} else {
+		log(("parseBidHistory(): BHitemTitle not found"));
+		return auctionError(aip, ae_baditem, NULL);
 	}
 	free(aip->title);
 	aip->title = myStrdup(line);
-	while ((line = getNonTag(mp))) {
-		char *tmp;
-
-		if (line[strlen(line) - 1] == ':')
-			break;
-		tmp = aip->title;
-		aip->title = myStrdup2(tmp, line);
-		free(tmp);
-	}
 	printLog(stdout, "Auction %s: %s\n", aip->auction, aip->title);
 
-	/*
-	 * Quantity/Current price/Time remaining
-	 */
+	/* price, shipping, quantity */
+	memReset(mp);
 	aip->quantity = 1;	/* If quantity not found, assume 1 */
-	for (; line; line = getNonTag(mp)) {
-		if (!strcmp("Quantity:", line) ||
-		    !strcmp("Quantity left:", line)) {
+	got = NOTHING;
+	while (got != EVERYTHING && memStr(mp, "\"BHCtBid\"")) {
+		memChr(mp, '>');
+		memSkip(mp, 1);
+		line = getNonTag(mp);
+
+		/* Can sometimes get starting bid, but that's not the price
+		 * we are looking for.
+		 */
+		if (!strcasecmp(line, "Current bid:") ||
+		    !strcasecmp(line, "Winning bid:") ||
+		    !strcasecmp(line, "Your maximum bid:") ||
+		    !strcasecmp(line, "price:")) {
+			char *saveptr;
+
+			line = getNonTag(mp);
+			if (!line)
+				return auctionError(aip, ae_noprice, NULL);
+			log(("Currently: %s\n", line));
+			aip->price = atof(priceFixup(line, aip));
+			if (aip->price < 0.01)
+				return auctionError(aip, ae_convprice, line);
+			got |= PRICE;
+
+			/* reserve not met? */
+			saveptr = mp->readptr;
+			line = getNonTag(mp);
+			aip->reserve = !strcasecmp(line, "Reserve not met");
+			if (!aip->reserve)
+				mp->readptr = saveptr;
+		} else if (!strcasecmp(line, "Quantity:")) {
 			line = getNonTag(mp);
 			if (!line)
 				return auctionError(aip, ae_noquantity, NULL);
@@ -135,34 +187,34 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, time_t start, time_t *timeToFirs
 			if (aip->quantity < 0 || (aip->quantity == 0 && errno == EINVAL))
 				return auctionError(aip, ae_noquantity, NULL);
 			log(("quantity: %d", aip->quantity));
-		} else if (!strcmp("Currently:", line)) {
+			got |= QUANTITY;
+		} else if (!strcasecmp(line, "Shipping:")) {
 			line = getNonTag(mp);
-			if (!line)
-				return auctionError(aip, ae_noprice, NULL);
-			log(("Currently: %s\n", line));
-			aip->price = atof(priceFixup(line, aip));
-			if (aip->price < 0.01)
-				return auctionError(aip, ae_convprice, line);
-		} else if (!strcmp("Time left:", line)) {
-			/* Use getTableCell() instead of getNonTag(), because
-			 * for about a second at the end of an auction the
-			 * time is left blank.  getTableCell() will give you
-			 * a cell, even if it is empty.  getNonTag() will
-			 * happily skip over to the next real text (like
-			 * "Reserve not met", or whatever).
-			 */
-			getTableCell(mp); /* end of "Time left:" cell */
-			getTableCell(mp); /* spacer */
-			free(aip->remainRaw);
-			aip->remainRaw = getNonTagFromString(getTableCell(mp));
-			break;
+			if (line) {
+				free(aip->shipping);
+				aip->shipping = myStrdup(line);
+			}
+			got |= SHIPPING;
 		}
 	}
-	if (!aip->remainRaw)
+
+	/* Time Left */
+	memReset(mp);
+	if (aip->quantity == 0 || memStr(mp, "Time Ended:")) {
+		free(aip->remainRaw);
+		aip->remainRaw = myStrdup("--");
+		aip->remain = 0;
+	} else if (memStr(mp, "timeLeft")) {
+		memChr(mp, '>');
+		memSkip(mp, 1);
+		free(aip->remainRaw);
+		aip->remainRaw = myStrdup(getNonTag(mp));
+		aip->remain = getSeconds(aip->remainRaw);
+		if (aip->remain < 0)
+			return auctionError(aip, ae_badtime, aip->remainRaw);
+	} else
 		return auctionError(aip, ae_notime, NULL);
-	if ((aip->remain = getSeconds(aip->remainRaw)) < 0)
-		return auctionError(aip, ae_badtime, aip->remainRaw);
-	printLog(stdout, "Time remaining: %s (%ld seconds)\n", line, aip->remain);
+	printLog(stdout, "Time remaining: %s (%ld seconds)\n", aip->remainRaw, aip->remain);
 	if (aip->remain) {
 		struct tm *tmPtr;
 		char timestr[20];
@@ -171,32 +223,36 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, time_t start, time_t *timeToFirs
 		/* formated time/date output */
 		tmPtr = localtime(&(aip->endTime));
 		strftime(timestr , 20, "%d/%m/%Y %H:%M:%S", tmPtr);
+#if !DEBUG
 		printLog(stdout, "End time: %s\n", timestr);
+#endif
 	} else
 		aip->endTime = aip->remain;
 
-	if (!(line = getNonTag(mp)))
-		return auctionError(aip, ae_nohighbid, NULL);
-	if (!strcmp("Reserve not met", line))
-		aip->reserve = 1;
-	else if (!strcmp("User IDs will appear as", line))
-		;
-	else {
-		aip->reserve = 0;
-		/* start of header?  Probably a purchase */
-		if ((foundHeader = !strncmp("Bidder", line, 6)) ||
-		    (foundHeader = !strncmp("User ID", line, 7))) {
-			int extra;
-
-			log(("ParseBidHistory(): found table with header \"%s\"\n", line));
-			/* get other headers to check them */
-			row = getTableRow(mp);
-			extra = checkHeaderColumns(row);
-			if (extra < 0)
-				foundHeader = 0;
-			else
-				extraColumns += extra;
-			freeTableRow(row);
+	/* bid history */
+	memReset(mp);
+	aip->bids = -1;
+	if (memStr(mp, "Total Bids:")) {
+		line = getNonTag(mp);	/* Total Bids: */
+		line = getNonTag(mp);	/* number */
+		log(("bids: %d", line));
+		if (line) {
+			errno = 0;
+			aip->bids = (int)strtol(line, NULL, 10);
+			if (aip->bids < 0 || (aip->bids == 0 && errno == EINVAL))
+				aip->bids = -1;
+			else if (aip->bids == 0) {
+				aip->quantityBid = 0;
+				aip->price = 0;
+				printf("# of bids: %d\n"
+				       "Currently: --  (your maximum bid: %s)\n",
+				       aip->bids, aip->bidPriceStr);
+				if (*options.username)
+					printf("High bidder: -- (NOT %s)\n", options.username);
+				else
+					printf("High bidder: --\n");
+				return 0;
+			}
 		}
 	}
 
@@ -208,17 +264,15 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, time_t start, time_t *timeToFirs
 	 *	Single item auction:
 	 *	    Header line:
 	 *		""
-	 *		"User ID"
+	 *		"Bidder"
 	 *		"Bid Amount"
-	 *		"Date of bid"
-	 *		"Bidding Details" (new, not on all auctions)
+	 *		"Bid Time"
 	 *		""
 	 *	    For each bid:
 	 *			""
 	 *			<user>
 	 *			<amount>
 	 *			<date>
-	 *			<view bidder details> (new, not on all auctions)
 	 *			""
 	 *	    (plus multiple rows of 1 column between entries)
 	 *
@@ -233,20 +287,16 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, time_t start, time_t *timeToFirs
 	 *	    Header line:
 	 *		""
 	 *		"User ID"
-	 *		"Bid Amount"
+	 *		"Price"
 	 *		"Qty"
-	 *		"Date of Purchase"
-	 *		"Bidding Details" (new, not on all auctions)
-	 *		"Action" (new, not on all auctions)
+	 *		"Date"
 	 *		""
 	 *	    For each bid:
 	 *			""
 	 *			<user>
-	 *			<amount>
+	 *			<price>
 	 *			<quantity>
 	 *			<date>
-	 *			<view bidder details> (new, not on all auctions)
-	 *			<action> (new, not on all auctions)
 	 *			""
 	 *	    (plus multiple rows of 1 column between entries)
 	 *
@@ -260,22 +310,20 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, time_t start, time_t *timeToFirs
 	 *	Dutch auction:
 	 *	    Header line:
 	 *		""
-	 *		"User ID"
+	 *		"Bidder"
 	 *		"Bid Amount"
-	 *		"Quantity wanted"
-	 *		"Quantity winning"
-	 *		"Date of Bid"
-	 *		"Bidding Details" (new, not on all auctions)
+	 *		"Qty Wanted"
+	 *		"Qty Winning"
+	 *		"Bid Time"
 	 *		""
 	 *
 	 *	    For each bid:
 	 *			""
 	 *			<user>
-	 *			<amount>
+	 *			<price>
 	 *			<quantity wanted>
 	 *			<quantity winning>
 	 *			<date>
-	 *			<view bidder details> (new, not on all auctions)
 	 *			""
 	 *	    (plus multiple rows of 1 column between entries)
 	 *
@@ -286,46 +334,35 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, time_t start, time_t *timeToFirs
 	 *	    Dutch auctions cannot be private.
 	 *
 	 *	If there are no bids, the text "No bids have been placed."
-	 *	will be the first entry in the table.
+	 *	will be the first entry in the table.  If there are bids,
+	 *	the last bidder might be "Starting Price", which should
+	 *	not be counted.
 	 */
-	/* find header line */
-	if (foundHeader && skipTables > 0) {
-		log(("ParseBidHistory(): Skipping table"));
-		foundHeader = 0;
-		--skipTables;
-	}
+
+	/* find bid history table */
+	memReset(mp);
 	while (!foundHeader && getTableStart(mp)) {
-		while (!foundHeader && (row = getTableRow(mp))) {
-			int ncolumns = numColumns(row);
-			char *rawHeader = (ncolumns >= 5) ? row[1] : NULL;
+		int ncolumns;
+		char *saveptr = mp->readptr;
+
+		row = getTableRow(mp);
+		ncolumns = numColumns(row);
+		if (ncolumns >= 5) {
+			char *rawHeader = row[1];
 			char *header = getNonTagFromString(rawHeader);
 
 			foundHeader = header &&
 					(!strncmp(header, "Bidder", 6) ||
 					 !strncmp(header, "User ID", 7));
-			if (foundHeader) {
-				log(("ParseBidHistory(): found table with header \"%s\"\n", line));
-				if (skipTables > 0) {
-					log(("ParseBidHistory(): Skipping table"));
-					foundHeader = 0;
-					--skipTables;
-				} else {
-					int extra = checkHeaderColumns(row);
-
-					if (extra < 0)
-						foundHeader = 0;
-					else
-						extraColumns += extra;
-				}
-			}
-			freeTableRow(row);
-			free(header);
 		}
+		if (!foundHeader)
+			mp->readptr = saveptr;
 	}
 	if (!foundHeader) {
 		bugReport("parseBidHistory", __FILE__, __LINE__, aip, mp, "Cannot find bid table header");
 		return auctionError(aip, ae_nohighbid, NULL);
 	}
+
 	/* skip over initial single-column rows */
 	while ((row = getTableRow(mp))) {
 		if (numColumns(row) == 1) {
@@ -334,16 +371,9 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, time_t start, time_t *timeToFirs
 		}
 		break;
 	}
+
 	/* roll through table */
-	switch (numColumns(row) - extraColumns) {
-	case 1:
-		if (extraColumns != 1) {
-			bugReport("parseBidHistory", __FILE__, __LINE__, aip, mp, "%d columns in bid table, extraColumns = %d", numColumns(row), extraColumns);
-			ret = auctionError(aip, ae_nohighbid, NULL);
-			freeTableRow(row);
-			break;
-		}
-		/* Fall through */
+	switch (numColumns(row)) {
 	case 2:	/* auction with no bids */
 	    {
 		char *s = getNonTagFromString(row[1]);
@@ -352,11 +382,10 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, time_t start, time_t *timeToFirs
 		    !strcmp("No purchases have been made.", s)) {
 			aip->quantityBid = 0;
 			aip->bids = 0;
-			/* can't determine starting bid on history page */
 			aip->price = 0;
-			printf("# of bids: 0\n"
+			printf("# of bids: %d\n"
 			       "Currently: --  (your maximum bid: %s)\n",
-			       aip->bidPriceStr);
+			       aip->bids, aip->bidPriceStr);
 			if (*options.username)
 				printf("High bidder: -- (NOT %s)\n", options.username);
 			else
@@ -369,6 +398,7 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, time_t start, time_t *timeToFirs
 		free(s);
 		break;
 	    }
+
 	case 5: /* single auction with bids */
 	    {
 		/* blank, user, price, date, blank */
@@ -398,10 +428,19 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, time_t start, time_t *timeToFirs
 		freeTableRow(row);
 
 		/* count bids */
-		for (aip->bids = 1; (row = getTableRow(mp)); ) {
-			if (numColumns(row) - extraColumns == 5)
-				++aip->bids;
-			freeTableRow(row);
+		if (aip->bids < 0) {
+			int foundStartPrice = 0;
+			for (aip->bids = 1; !foundStartPrice && (row = getTableRow(mp)); ) {
+				if (numColumns(row) == 5) {
+					char *bidder = getNonTagFromString(row[1]);
+
+					foundStartPrice = !strcmp(bidder, "Starting Price");
+					if (!foundStartPrice)
+						++aip->bids;
+					free(bidder);
+				}
+				freeTableRow(row);
+			}
 		}
 		printLog(stdout, "# of bids: %d\n", aip->bids);
 
@@ -441,7 +480,7 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, time_t start, time_t *timeToFirs
 		/* find your purchase, count number of purchases */
 		/* blank, user, price, quantity, date, blank */
 		for (; row; row = getTableRow(mp)) {
-			if (numColumns(row) - extraColumns == 6) {
+			if (numColumns(row) == 6) {
 				int quantity = getIntFromString(row[3]);
 				char *bidder;
 
@@ -486,7 +525,7 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, time_t start, time_t *timeToFirs
 		/* find your bid, count number of bids */
 		/* blank, user, price, wanted, winning, date, blank */
 		for (; row; row = getTableRow(mp)) {
-			if (numColumns(row) - extraColumns == 7) {
+			if (numColumns(row) == 7) {
 				int bidderWinning = getIntFromString(row[4]);
 
 				++aip->bids;
@@ -526,34 +565,13 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, time_t start, time_t *timeToFirs
 		break;
 	    }
 	default:
-		bugReport("parseBidHistory", __FILE__, __LINE__, aip, mp, "%d columns in bid table, extraColumns = %d", numColumns(row), extraColumns);
+		bugReport("parseBidHistory", __FILE__, __LINE__, aip, mp, "%d columns in bid table", numColumns(row));
 		ret = auctionError(aip, ae_nohighbid, NULL);
 		freeTableRow(row);
 	}
 
 	return ret;
 } /* parseBidHistory() */
-
-static int
-checkHeaderColumns(char **row)
-{
-	int n = numColumns(row);
-	char *lastHeader = n >= 2 ? getNonTagFromString(row[n-2]) : NULL;
-	int ret = 0;
-
-	if (lastHeader == NULL) {
-		log(("checkHeaderColumns(): this is not a table header"));
-		--ret;
-	} else if (!strncmp(lastHeader, "Bidding Details", 15)) {
-		log(("checkHeaderColumns(): this table has Bidding Details column"));
-		++ret;
-	} else if (!strncmp(lastHeader, "Action", 6)) {
-		log(("checkHeaderColumns(): this table has Action column"));
-		++ret;
-	}
-	free(lastHeader);
-	return ret;
-}
 
 static long
 getSeconds(char *timestr)

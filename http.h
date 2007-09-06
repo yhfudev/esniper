@@ -39,6 +39,10 @@ typedef struct {
 extern int memEof(memBuf_t *mp);
 extern int memGetc(memBuf_t *mp);
 extern void memUngetc(memBuf_t *mp);
+extern void memReset(memBuf_t *mp);
+extern void memSkip(memBuf_t *mp, int n);
+extern char *memStr(memBuf_t *mp, const char *s);
+extern char *memChr(memBuf_t *mp, char c);
 extern time_t getTimeToFirstByte(memBuf_t *mp);
 
 extern int initCurlStuff(void);
