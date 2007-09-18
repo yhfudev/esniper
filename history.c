@@ -57,7 +57,7 @@ int
 parseBidHistory(memBuf_t *mp, auctionInfo *aip, time_t start, time_t *timeToFirstByte)
 {
 	char *line;
-	char **row;
+	char **row = NULL;
 	int rowCount;
 	int ret = 0;		/* 0 = OK, 1 = failed */
 	int foundHeader = 0;	/* found bid history table header */
@@ -354,9 +354,11 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, time_t start, time_t *timeToFirs
 			foundHeader = header &&
 					(!strncmp(header, "Bidder", 6) ||
 					 !strncmp(header, "User ID", 7));
+			free(header);
 		}
 		if (!foundHeader)
 			mp->readptr = saveptr;
+		freeTableRow(row);
 	}
 	if (!foundHeader) {
 		bugReport("parseBidHistory", __FILE__, __LINE__, aip, mp, "Cannot find bid table header");
@@ -365,11 +367,9 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, time_t start, time_t *timeToFirs
 
 	/* skip over initial single-column rows */
 	while ((row = getTableRow(mp))) {
-		if (numColumns(row) == 1) {
-			freeTableRow(row);
-			continue;
-		}
-		break;
+		if (numColumns(row) != 1)
+			break;
+		freeTableRow(row);
 	}
 
 	/* roll through table */
