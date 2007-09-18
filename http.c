@@ -255,8 +255,10 @@ initCurlStuffFailed(void)
 void
 cleanupCurlStuff(void)
 {
-	curl_easy_cleanup(easyhandle);
-	easyhandle = NULL;
+	if (easyhandle) {
+		curl_easy_cleanup(easyhandle);
+		easyhandle = NULL;
+	}
 	curl_global_cleanup();
 	curlInitDone = 0;
 }
