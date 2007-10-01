@@ -4,6 +4,7 @@
 	* Add calls to bugReport() for many error in parsing the bid
 	  history.  Hopefully this will allow quicker response to new
 	  bid history page changes.
+	* Modified configure's libcurl check (patch 1718317)
 
 2007-06-08
 	* Fixed bug 1733869, recognize error message when seller ends

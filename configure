@@ -2892,33 +2892,160 @@ cURL is available from http://curl.haxx.se/" >&2;}
    { (exit 1); exit 1; }; }
 fi
 
-curl_ver=`$CURL_CONFIG --version | sed -e "s/libcurl //g"`
-curl_ver_hex=0x`$CURL_CONFIG --vernum`
-curl_ver_dec=`$AWK 'BEGIN {printf("%d\n", '"$curl_ver_hex"')}' </dev/null`
-
 check_min=7.1.1
-check_min_hex=0x070101
-check_min_dec=`$AWK 'BEGIN {printf("%d\n", '"$check_min_hex"')}' </dev/null`
 
-check_good=7.11.2
-check_good_hex=0x070b02
-check_good_dec=`$AWK 'BEGIN {printf("%d\n", '"$check_good_hex"')}' </dev/null`
 
-echo "$as_me:$LINENO: checking for cURL version" >&5
-echo $ECHO_N "checking for cURL version... $ECHO_C" >&6
-if test $curl_ver_dec -lt $check_min_dec;then
-  { { echo "$as_me:$LINENO: error: cURL $check_min or newer required
-cURL is available from http://curl.haxx.se/" >&5
-echo "$as_me: error: cURL $check_min or newer required
-cURL is available from http://curl.haxx.se/" >&2;}
+
+echo "$as_me:$LINENO: checking for curl_easy_setopt in -lcurl" >&5
+echo $ECHO_N "checking for curl_easy_setopt in -lcurl... $ECHO_C" >&6
+if test "${ac_cv_lib_curl_curl_easy_setopt+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lcurl  $LIBS"
+cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+
+/* Override any gcc2 internal prototype to avoid an error.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+/* We use char because int might match the return type of a gcc2
+   builtin and then its argument prototype would still apply.  */
+char curl_easy_setopt ();
+int
+main ()
+{
+curl_easy_setopt ();
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_cv_lib_curl_curl_easy_setopt=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+ac_cv_lib_curl_curl_easy_setopt=no
+fi
+rm -f conftest.err conftest.$ac_objext \
+      conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+echo "$as_me:$LINENO: result: $ac_cv_lib_curl_curl_easy_setopt" >&5
+echo "${ECHO_T}$ac_cv_lib_curl_curl_easy_setopt" >&6
+if test $ac_cv_lib_curl_curl_easy_setopt = yes; then
+  cat >>confdefs.h <<_ACEOF
+#define HAVE_LIBCURL 1
+_ACEOF
+
+  LIBS="-lcurl $LIBS"
+
+else
+  { { echo "$as_me:$LINENO: error: cURL $check_min or newer required \
+(cURL is available from http://curl.haxx.se/)" >&5
+echo "$as_me: error: cURL $check_min or newer required \
+(cURL is available from http://curl.haxx.se/)" >&2;}
    { (exit 1); exit 1; }; }
 fi
 
-if test $curl_ver_dec -lt $check_good_dec;then
-   CURL_ADDITIONAL="-D NEED_CURL_EASY_STRERROR"
+
+echo "$as_me:$LINENO: checking for curl_easy_strerror in -lcurl" >&5
+echo $ECHO_N "checking for curl_easy_strerror in -lcurl... $ECHO_C" >&6
+if test "${ac_cv_lib_curl_curl_easy_strerror+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lcurl  $LIBS"
+cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+
+/* Override any gcc2 internal prototype to avoid an error.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+/* We use char because int might match the return type of a gcc2
+   builtin and then its argument prototype would still apply.  */
+char curl_easy_strerror ();
+int
+main ()
+{
+curl_easy_strerror ();
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_cv_lib_curl_curl_easy_strerror=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+ac_cv_lib_curl_curl_easy_strerror=no
 fi
-echo "$as_me:$LINENO: result: $curl_ver" >&5
-echo "${ECHO_T}$curl_ver" >&6
+rm -f conftest.err conftest.$ac_objext \
+      conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+echo "$as_me:$LINENO: result: $ac_cv_lib_curl_curl_easy_strerror" >&5
+echo "${ECHO_T}$ac_cv_lib_curl_curl_easy_strerror" >&6
+if test $ac_cv_lib_curl_curl_easy_strerror = yes; then
+  CURL_ADDITIONAL=""
+else
+  CURL_ADDITIONAL="-D NEED_CURL_EASY_STRERROR"
+fi
+
 
 echo "$as_me:$LINENO: checking for cURL SSL support" >&5
 echo $ECHO_N "checking for cURL SSL support... $ECHO_C" >&6

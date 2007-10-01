@@ -17,33 +17,17 @@ if test "X$CURL_CONFIG" = "X"; then
 cURL is available from http://curl.haxx.se/)
 fi
 
-curl_ver=`$CURL_CONFIG --version | sed -e "s/libcurl //g"`
-curl_ver_hex=0x`$CURL_CONFIG --vernum`
-dnl use awk instead of straight printf, because printf of hex fails on solaris
-curl_ver_dec=`$AWK 'BEGIN {printf("%d\n", '"$curl_ver_hex"')}' </dev/null`
-
-dnl check version all other curl_easy were added in 7.1.1
+dnl check version curl_easy were added in 7.1.1
 check_min=7.1.1
-check_min_hex=0x070101
-dnl use awk instead of straight printf, because printf of hex fails on solaris
-check_min_dec=`$AWK 'BEGIN {printf("%d\n", '"$check_min_hex"')}' </dev/null`
 
-dnl check version curl_easy_strerror was added in 7.11.2
-check_good=7.11.2
-check_good_hex=0x070b02
-dnl use awk instead of straight printf, because printf of hex fails on solaris
-check_good_dec=`$AWK 'BEGIN {printf("%d\n", '"$check_good_hex"')}' </dev/null`
+AC_CHECK_LIB(curl, curl_easy_setopt, 
+		   [],
+		   AC_MSG_ERROR([cURL $check_min or newer required \
+(cURL is available from http://curl.haxx.se/)]))
 
-AC_MSG_CHECKING(for cURL version)
-if test $curl_ver_dec -lt $check_min_dec;then
-  AC_MSG_ERROR([cURL $check_min or newer required
-cURL is available from http://curl.haxx.se/])
-fi
-
-if test $curl_ver_dec -lt $check_good_dec;then
-   CURL_ADDITIONAL="-D NEED_CURL_EASY_STRERROR"
-fi
-AC_MSG_RESULT($curl_ver)
+AC_CHECK_LIB(curl, curl_easy_strerror, 
+		   CURL_ADDITIONAL="",
+		   CURL_ADDITIONAL="-D NEED_CURL_EASY_STRERROR")
 
 dnl check for curl SSL support
 AC_MSG_CHECKING(for cURL SSL support)
