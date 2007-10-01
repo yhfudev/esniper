@@ -52,6 +52,8 @@ typedef struct {
 	char *historyHost;
 	char *prebidHost;
 	char *bidHost;
+	char *loginHost;
+	char *myeBayHost;
 	int curldebug;
 } option_t;
 

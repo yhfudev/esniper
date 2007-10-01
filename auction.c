@@ -187,7 +187,7 @@ getQuantity(int want, int available)
 	return available - 1;
 }
 
-static const char GETINFO[] = "http://offer.ebay.com/ws/eBayISAPI.dll?ViewBids&item=";
+static const char HISTORY_URL[] = "http://%s/ws/eBayISAPI.dll?ViewBids&item=%s";
 
 /*
  * getInfo(): Get info on auction from bid history page.
@@ -222,8 +222,12 @@ getInfoTiming(auctionInfo *aip, time_t *timeToFirstByte)
 	for (i = 0; i < 3; ++i) {
 		memBuf_t *mp = NULL;
 
-		if (!aip->query)
-			aip->query = myStrdup2(GETINFO, aip->auction);
+		if (!aip->query) {
+			int urlLen = sizeof(HISTORY_URL) + strlen(options.historyHost) + strlen(aip->auction) - (2*2);
+
+			aip->query = (char *)myMalloc(urlLen);
+			sprintf(aip->query, HISTORY_URL, options.historyHost, aip->auction);
+		}
 		start = time(NULL);
 		if (!(mp = httpGet(aip->query, NULL))) {
 			freeMembuf(mp);
@@ -247,7 +251,7 @@ getInfoTiming(auctionInfo *aip, time_t *timeToFirstByte)
  * Note: quant=1 is just to dupe eBay into allowing the pre-bid to get
  *	 through.  Actual quantity will be sent with bid.
  */
-static const char PRE_BID_URL[] = "http://offer.ebay.com/ws/eBayISAPI.dll?MfcISAPICommand=MakeBid&fb=2&co_partner_id=&item=%s&maxbid=%s&quant=%s";
+static const char PRE_BID_URL[] = "http://%s/ws/eBayISAPI.dll?MfcISAPICommand=MakeBid&fb=2&co_partner_id=&item=%s&maxbid=%s&quant=%s";
 
 /*
  * Get bid key
@@ -268,9 +272,9 @@ preBid(auctionInfo *aip)
 	if (ebayLogin(aip, 0))
 		return 1;
 	sprintf(quantityStr, "%d", quantity);
-	urlLen = sizeof(PRE_BID_URL) + strlen(aip->auction) + strlen(aip->bidPriceStr) + strlen(quantityStr) - 6;
+	urlLen = sizeof(PRE_BID_URL) + strlen(options.prebidHost) + strlen(aip->auction) + strlen(aip->bidPriceStr) + strlen(quantityStr) - (4*2);
 	url = (char *)myMalloc(urlLen);
-	sprintf(url, PRE_BID_URL, aip->auction, aip->bidPriceStr, quantityStr);
+	sprintf(url, PRE_BID_URL, options.prebidHost, aip->auction, aip->bidPriceStr, quantityStr);
 	log(("\n\n*** preBid(): url is %s\n", url));
 	mp = httpGet(url, NULL);
 	free(url);
@@ -329,8 +333,8 @@ preBid(auctionInfo *aip)
 	return ret;
 }
 
-static const char LOGIN_1_URL[] = "https://signin.ebay.com/ws/eBayISAPI.dll?SignIn";
-static const char LOGIN_2_URL[] = "https://signin.ebay.com/ws/eBayISAPI.dll?SignInWelcome&userid=%s&pass=%s&keepMeSignInOption=1";
+static const char LOGIN_1_URL[] = "https://%s/ws/eBayISAPI.dll?SignIn";
+static const char LOGIN_2_URL[] = "https://%s/ws/eBayISAPI.dll?SignInWelcome&userid=%s&pass=%s&keepMeSignInOption=1";
 
 /*
  * Ebay login.  Make sure loging has been done with the given interval.
@@ -359,22 +363,24 @@ ebayLogin(auctionInfo *aip, int interval)
 	if (initCurlStuff())
 		return auctionError(aip, ae_unknown, NULL);
 
-	if (!(mp = httpGet(LOGIN_1_URL, NULL))) {
-		freeMembuf(mp);
+	urlLen = sizeof(LOGIN_1_URL) + strlen(options.loginHost) - (1*2);
+	url = (char *)myMalloc(urlLen);
+	sprintf(url, LOGIN_1_URL, options.loginHost);
+	mp = httpGet(url, NULL);
+	free(url);
+	if (!mp)
 		return httpError(aip);
-	}
-
 	freeMembuf(mp);
 	mp = NULL;
 
-	urlLen = sizeof(LOGIN_2_URL) + strlen(options.usernameEscape);
+	urlLen = sizeof(LOGIN_2_URL) + strlen(options.loginHost) + strlen(options.usernameEscape) - (3*2);
 	password = getPassword();
-	url = malloc(urlLen + strlen(password));
-	logUrl = malloc(urlLen + 5);
+	url = (char *)myMalloc(urlLen + strlen(password));
+	logUrl = (char *)myMalloc(urlLen + 5);
 
-	sprintf(url, LOGIN_2_URL, options.usernameEscape, password);
+	sprintf(url, LOGIN_2_URL, options.loginHost, options.usernameEscape, password);
 	freePassword(password);
-	sprintf(logUrl, LOGIN_2_URL, options.usernameEscape, "*****");
+	sprintf(logUrl, LOGIN_2_URL, options.loginHost, options.usernameEscape, "*****");
 
 	mp = httpGet(url, logUrl);
 	free(url);
@@ -518,7 +524,7 @@ parseBid(memBuf_t *mp, auctionInfo *aip)
 	return 0;	/* prevent another bid */
 } /* parseBid() */
 
-static const char BID_URL[] = "http://offer.ebay.com/ws/eBayISAPI.dll?MfcISAPICommand=MakeBid&BIN_button=Confirm%%20Bid&item=%s&key=%s&maxbid=%s&quant=%s&user=%s&pass=%s&uiid=%s&javascriptenabled=0&mode=1";
+static const char BID_URL[] = "http://%s/ws/eBayISAPI.dll?MfcISAPICommand=MakeBid&BIN_button=Confirm%%20Bid&item=%s&key=%s&maxbid=%s&quant=%s&user=%s&pass=%s&uiid=%s&javascriptenabled=0&mode=1";
 
 /*
  * Place bid.
@@ -545,15 +551,15 @@ bid(auctionInfo *aip)
 	sprintf(quantityStr, "%d", quantity);
 
 	/* create url */
-	urlLen = sizeof(BID_URL) + strlen(aip->auction) + strlen(aip->bidkey) + strlen(aip->bidPriceStr) + strlen(quantityStr) + strlen(options.usernameEscape) + strlen(aip->bidpass) + strlen(aip->biduiid) - 12;
+	urlLen = sizeof(BID_URL) + strlen(options.bidHost) + strlen(aip->auction) + strlen(aip->bidkey) + strlen(aip->bidPriceStr) + strlen(quantityStr) + strlen(options.usernameEscape) + strlen(aip->bidpass) + strlen(aip->biduiid) - (8*2);
 	url = (char *)myMalloc(urlLen);
-	sprintf(url, BID_URL, aip->auction, aip->bidkey, aip->bidPriceStr, quantityStr, options.usernameEscape, aip->bidpass, aip->biduiid);
+	sprintf(url, BID_URL, options.bidHost, aip->auction, aip->bidkey, aip->bidPriceStr, quantityStr, options.usernameEscape, aip->bidpass, aip->biduiid);
 
 	logUrl = (char *)myMalloc(urlLen);
 	tmpUsername = stars(strlen(options.usernameEscape));
 	tmpPassword = stars(strlen(aip->bidpass));
 	tmpUiid = stars(strlen(aip->biduiid));
-	sprintf(logUrl, BID_URL, aip->auction, aip->bidkey, aip->bidPriceStr, quantityStr, tmpUsername, tmpPassword, tmpUiid);
+	sprintf(logUrl, BID_URL, options.bidHost, aip->auction, aip->bidkey, aip->bidPriceStr, quantityStr, tmpUsername, tmpPassword, tmpUiid);
 	free(tmpUsername);
 	free(tmpPassword);
 	free(tmpUiid);
@@ -812,8 +818,6 @@ snipeAuction(auctionInfo *aip)
 	return won;
 }
 
-static const char* MYITEMS_URL = "http://my.ebay.com/ws/eBayISAPI.dll?MyeBay&CurrentPage=MyeBayWatching";
-
 #define MAX_TDS 6
 
 /*
@@ -877,6 +881,8 @@ printMyItemsRow(char **row, int printNewline)
 	return ret;
 }
 
+static const char MYITEMS_URL[] = "http://%s/ws/eBayISAPI.dll?MyeBay&CurrentPage=MyeBayWatching";
+
 /*
  * TODO: allow user configuration of myItems.
  */
@@ -887,13 +893,20 @@ printMyItems(void)
 	const char *table;
 	char **row;
 	auctionInfo *dummy = newAuctionInfo("0", "0");
+	char *url;
+	int urlLen;
 
 	if (ebayLogin(dummy, 0)) {
 		printAuctionError(dummy, stderr);
 		freeAuction(dummy);
 		return 1;
 	}
-	if (!(mp = httpGet(MYITEMS_URL, NULL))) {
+	urlLen = sizeof(MYITEMS_URL) + strlen(options.myeBayHost) - (1*2);
+	url = (char *)myMalloc(urlLen);
+	sprintf(url, MYITEMS_URL, options.myeBayHost);
+	mp = httpGet(url, NULL);
+	free(url);
+	if (!mp) {
 		httpError(dummy);
 		printAuctionError(dummy, stderr);
 		freeAuction(dummy);

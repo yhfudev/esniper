@@ -1,3 +1,7 @@
+2007-10-01
+	* Changed to  work with eBay's new bid history page (bug 1782953)
+	* Use configurable hosts in all URLs (bug 1782954)
+
 2007-06-08
 	* Fixed bug 1733869, recognize error message when seller ends
 	  auction early.

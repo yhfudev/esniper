@@ -67,6 +67,8 @@ static const char DEFAULT_CONF_FILE[] = ".esniper";
 #define DEFAULT_HISTORY_HOST "offer.ebay.com"
 #define DEFAULT_PREBID_HOST "offer.ebay.com"
 #define DEFAULT_BID_HOST "offer.ebay.com"
+#define DEFAULT_LOGIN_HOST "signin.ebay.com"
+#define DEFAULT_MYEBAY_HOST "my.ebay.com"
 
 option_t options = {
 	NULL,		/* username */
@@ -89,6 +91,9 @@ option_t options = {
 	NULL,		/* historyHost */
 	NULL,		/* prebidHost */
 	NULL,		/* bidHost */
+	NULL,		/* loginHost */
+	NULL,		/* bidHost */
+	0		/* curldebug */
 };
 
 /* support functions */
@@ -502,6 +507,8 @@ static const char usageConfig1[] =
  "    historyHost = %s\n"
  "    prebidHost = %s\n"
  "    bidHost = %s\n"
+ "    loginHost = %s\n"
+ "    myeBayHost = %s\n"
  "  Numeric: (seconds may also be \"now\")\n"
  "    quantity = 1\n"
  "    seconds = %d\n"
@@ -526,7 +533,7 @@ usage(int helplevel)
 		fprintf(stderr, usageLong3);
 	}
 	if (helplevel & USAGE_CONFIG) {
-		fprintf(stderr, usageConfig1, options.historyHost, options.prebidHost, options.bidHost, DEFAULT_BIDTIME);
+		fprintf(stderr, usageConfig1, options.historyHost, options.prebidHost, options.bidHost, options.loginHost, options.myeBayHost, DEFAULT_BIDTIME);
 		fprintf(stderr, usageConfig2);
 	}
 	if (helplevel == USAGE_SUMMARY)
@@ -573,6 +580,8 @@ main(int argc, char *argv[])
    {"historyHost",NULL,(void*)&options.historyHost,OPTION_STRING,   NULL},
    {"prebidHost",NULL,(void*)&options.prebidHost,  OPTION_STRING,   NULL},
    {"bidHost", NULL, (void*)&options.bidHost,      OPTION_STRING,   NULL},
+   {"loginHost",NULL,(void*)&options.loginHost,    OPTION_STRING,   NULL},
+   {"myeBayHost",NULL,(void*)&options.myeBayHost,  OPTION_STRING,   NULL},
    {NULL,       "?", (void*)&options.usage,        OPTION_BOOL,     NULL},
    {NULL,       "h", (void*)&options.usage,        OPTION_STRING,   &SetLongHelp},
    {NULL,       "H", (void*)&options.usage,        OPTION_STRING,   &SetConfigHelp},
@@ -593,6 +602,8 @@ main(int argc, char *argv[])
 	options.historyHost = myStrdup(DEFAULT_HISTORY_HOST);
 	options.prebidHost = myStrdup(DEFAULT_PREBID_HOST);
 	options.bidHost = myStrdup(DEFAULT_BID_HOST);
+	options.loginHost = myStrdup(DEFAULT_LOGIN_HOST);
+	options.myeBayHost = myStrdup(DEFAULT_MYEBAY_HOST);
 
 	/* first, check for debug, configuration file and auction file
 	 * options but accept all other options to avoid error messages
