@@ -103,10 +103,12 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, time_t start, time_t *timeToFirs
 		line = getNonTag(mp);	/* number */
 		if (!line) {
 			log(("parseBidHistory(): No item number"));
+			bugReport("parseBidHistory", __FILE__, __LINE__, aip, mp, "no item number");
 			return auctionError(aip, ae_baditem, NULL);
 		}
 	} else {
 		log(("parseBidHistory(): BHitemNo not found"));
+		bugReport("parseBidHistory", __FILE__, __LINE__, aip, mp, "no item number");
 		return auctionError(aip, ae_baditem, NULL);
 	}
 #if DEBUG
@@ -115,6 +117,7 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, time_t start, time_t *timeToFirs
 #else
 	if (strcmp(aip->auction, line)) {
 		log(("parseBidHistory(): auction number %s does not match given number %s", line, aip->auction));
+		bugReport("parseBidHistory", __FILE__, __LINE__, aip, mp, "mismatched item number");
 		return auctionError(aip, ae_baditem, NULL);
 	}
 #endif
@@ -127,6 +130,7 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, time_t start, time_t *timeToFirs
 		line = getNonTag(mp);	/* title */
 		if (!line) {
 			log(("parseBidHistory(): No item title"));
+			bugReport("parseBidHistory", __FILE__, __LINE__, aip, mp, "item title not found");
 			return auctionError(aip, ae_baditem, NULL);
 		}
 	} else if (memStr(mp, "\"BHitemDesc\"")) {
@@ -135,10 +139,12 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, time_t start, time_t *timeToFirs
 		line = getNonTag(mp);	/* title */
 		if (!line || !strcmp(line, "See item description")) {
 			log(("parseBidHistory(): No item title, place 2"));
+			bugReport("parseBidHistory", __FILE__, __LINE__, aip, mp, "item description not found");
 			return auctionError(aip, ae_baditem, NULL);
 		}
 	} else {
 		log(("parseBidHistory(): BHitemTitle not found"));
+		bugReport("parseBidHistory", __FILE__, __LINE__, aip, mp, "item title or description not found");
 		return auctionError(aip, ae_baditem, NULL);
 	}
 	free(aip->title);
@@ -164,12 +170,16 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, time_t start, time_t *timeToFirs
 			char *saveptr;
 
 			line = getNonTag(mp);
-			if (!line)
+			if (!line) {
+				bugReport("parseBidHistory", __FILE__, __LINE__, aip, mp, "item price not found");
 				return auctionError(aip, ae_noprice, NULL);
+			}
 			log(("Currently: %s\n", line));
 			aip->price = atof(priceFixup(line, aip));
-			if (aip->price < 0.01)
+			if (aip->price < 0.01) {
+				bugReport("parseBidHistory", __FILE__, __LINE__, aip, mp, "item price could not be converted");
 				return auctionError(aip, ae_convprice, line);
+			}
 			got |= PRICE;
 
 			/* reserve not met? */
@@ -180,12 +190,16 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, time_t start, time_t *timeToFirs
 				mp->readptr = saveptr;
 		} else if (!strcasecmp(line, "Quantity:")) {
 			line = getNonTag(mp);
-			if (!line)
+			if (!line) {
+				bugReport("parseBidHistory", __FILE__, __LINE__, aip, mp, "item quantity not found");
 				return auctionError(aip, ae_noquantity, NULL);
+			}
 			errno = 0;
 			aip->quantity = (int)strtol(line, NULL, 10);
-			if (aip->quantity < 0 || (aip->quantity == 0 && errno == EINVAL))
+			if (aip->quantity < 0 || (aip->quantity == 0 && errno == EINVAL)) {
+				bugReport("parseBidHistory", __FILE__, __LINE__, aip, mp, "item quantity could not be converted");
 				return auctionError(aip, ae_noquantity, NULL);
+			}
 			log(("quantity: %d", aip->quantity));
 			got |= QUANTITY;
 		} else if (!strcasecmp(line, "Shipping:")) {
@@ -210,10 +224,14 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, time_t start, time_t *timeToFirs
 		free(aip->remainRaw);
 		aip->remainRaw = myStrdup(getNonTag(mp));
 		aip->remain = getSeconds(aip->remainRaw);
-		if (aip->remain < 0)
+		if (aip->remain < 0) {
+			bugReport("parseBidHistory", __FILE__, __LINE__, aip, mp, "remaining time could not be converted");
 			return auctionError(aip, ae_badtime, aip->remainRaw);
-	} else
+		}
+	} else {
+		bugReport("parseBidHistory", __FILE__, __LINE__, aip, mp, "remaining time not found");
 		return auctionError(aip, ae_notime, NULL);
+	}
 	printLog(stdout, "Time remaining: %s (%ld seconds)\n", aip->remainRaw, aip->remain);
 	if (aip->remain) {
 		struct tm *tmPtr;
@@ -412,6 +430,7 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, time_t start, time_t *timeToFirs
 		if (aip->price < 0.01) {
 			free(winner);
 			free(currently);
+			bugReport("parseBidHistory", __FILE__, __LINE__, aip, mp, "bid price could not be converted");
 			return auctionError(aip, ae_convprice, currently);
 		}
 		printLog(stdout, "Currently: %s  (your maximum bid: %s)\n",
