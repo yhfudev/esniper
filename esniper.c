@@ -850,7 +850,7 @@ main(int argc, char *argv[])
 		numAuctions = readAuctionFile(options.auctfilename, &auctions);
 	} else {
 		numAuctions = argc / 2;
-		auctions = (auctionInfo **)malloc(numAuctions * sizeof(auctionInfo *));
+		auctions = (auctionInfo **)myMalloc(numAuctions * sizeof(auctionInfo *));
 		for (i = 0; i < argc/2; i++)
 			auctions[i] = newAuctionInfo(argv[2*i], argv[2*i+1]);
 	}
