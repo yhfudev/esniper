@@ -5,7 +5,7 @@ From checked-out source directory...
 First, setup environment variables:
 
 	CVS_RSH=ssh; export CVS_RSH
-	CVSROOT=:ext:esniper@cvs.esniper.sourceforge.net:/cvsroot/esniper
+	CVSROOT=:ext:esniper@esniper.cvs.sourceforge.net:/cvsroot/esniper
 	export CVSROOT
 	# change these to whatever is current
 	MAJOR=2
