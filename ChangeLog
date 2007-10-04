@@ -1,3 +1,7 @@
+2007-10-04
+	* 2.17.1 released.
+	* Fixed bug 1807254, unknown time interval "Refresh".
+
 2007-10-02
 	* 2.17.0 released.
 

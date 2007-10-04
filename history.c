@@ -223,7 +223,21 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, time_t start, time_t *timeToFirs
 		memSkip(mp, 1);
 		free(aip->remainRaw);
 		aip->remainRaw = myStrdup(getNonTag(mp));
-		aip->remain = getSeconds(aip->remainRaw);
+		if (!strcasecmp(aip->remainRaw, "Refresh")) {
+			/* Refresh is the label on the next button.  If we
+			 * see this, time left must be empty.  Assume 1 second.
+			 */
+			free(aip->remainRaw);
+			aip->remainRaw = myStrdup("");
+			aip->remain = 1;
+		} else if (!strncasecmp(aip->remainRaw, "undefined", 9)) {
+			/* Shows up very rarely, seems to be an intermediate
+			 * step between emtpy time left and time ended.
+			 * Assume 1 second.
+			 */
+			aip->remain = 1;
+		} else
+			aip->remain = getSeconds(aip->remainRaw);
 		if (aip->remain < 0) {
 			bugReport("parseBidHistory", __FILE__, __LINE__, aip, mp, "remaining time could not be converted");
 			return auctionError(aip, ae_badtime, aip->remainRaw);
