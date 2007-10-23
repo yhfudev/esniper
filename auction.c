@@ -55,7 +55,7 @@ static int ebayLogin(auctionInfo *aip, int interval);
 static char *getIdInternal(char *s, size_t len);
 static int getInfoTiming(auctionInfo *aip, time_t *timeToFirstByte);
 static int getQuantity(int want, int available);
-static int makeBidError(const char *pagename, auctionInfo *aip);
+static int makeBidError(const pageInfo_t *pageInfo, auctionInfo *aip);
 static int match(memBuf_t *mp, const char *str);
 static int parseBid(memBuf_t *mp, auctionInfo *aip);
 static int preBid(auctionInfo *aip);
@@ -320,14 +320,16 @@ preBid(auctionInfo *aip)
 		}
 	}
 	if (found < 7) {
-		char *pagename;
+		pageInfo_t *pageInfo;
 
 		mp->readptr = mp->memory;
-		pagename = getPageName(mp);
-		if ((ret = makeBidError(pagename, aip)) < 0) {
+		pageInfo = getPageInfo(mp);
+		ret = makeBidError(pageInfo, aip);
+		if (ret < 0) {
 			ret = auctionError(aip, ae_bidkey, NULL);
 			bugReport("preBid", __FILE__, __LINE__, aip, mp, "cannot find bid key, uiid or password, found = %d", found);
 		}
+		freePageInfo(pageInfo);
 	}
 	freeMembuf(mp);
 	return ret;
@@ -462,12 +464,20 @@ acceptBid(const char *pagename, auctionInfo *aip)
  * Returns -1 if page not recognized, 0 if bid accepted, 1 if bid not accepted.
  */
 static int
-makeBidError(const char *pagename, auctionInfo *aip)
+makeBidError(const pageInfo_t *pageInfo, auctionInfo *aip)
 {
 	static const char MAKEBIDERROR[] = "MakeBidError";
+	const char *pagename = pageInfo->pageName;
 
-	if (!pagename ||
-	    strncmp(pagename, MAKEBIDERROR, sizeof(MAKEBIDERROR) - 1))
+	if (!pagename) {
+		const char *srcId = pageInfo->srcId;
+
+		if (srcId && !strcmp(srcId, "ViewItem"))
+			return aip->bidResult = auctionError(aip, ae_ended, NULL);
+		else
+			return -1;
+	}
+	if (strncmp(pagename, MAKEBIDERROR, sizeof(MAKEBIDERROR) - 1))
 		return -1;
 	pagename += sizeof(MAKEBIDERROR) - 1;
 	if (!*pagename ||
@@ -511,17 +521,21 @@ parseBid(memBuf_t *mp, auctionInfo *aip)
 	 * example AcceptBid_HighBidder_rebid (you were already the high
 	 * bidder and placed another bid).
 	 */
-	char *pagename = getPageName(mp);
+	pageInfo_t *pageInfo = getPageInfo(mp);
 	int ret;
 
 	aip->bidResult = -1;
-	log(("parseBid(): pagename = %s\n", pagename));
-	if ((ret = acceptBid(pagename, aip)) >= 0 ||
-	    (ret = makeBidError(pagename, aip)) >= 0)
-		return ret;
-	bugReport("parseBid", __FILE__, __LINE__, aip, mp, "unknown pagename");
-	printLog(stdout, "Cannot determine result of bid\n");
-	return 0;	/* prevent another bid */
+	log(("parseBid(): pagename = %s\n", pageInfo->pageName));
+	if ((ret = acceptBid(pageInfo->pageName, aip)) >= 0 ||
+	    (ret = makeBidError(pageInfo, aip)) >= 0) {
+		;
+	} else {
+		bugReport("parseBid", __FILE__, __LINE__, aip, mp, "unknown pagename");
+		printLog(stdout, "Cannot determine result of bid\n");
+		ret = 0;	/* prevent another bid */
+	}
+	freePageInfo(pageInfo);
+	return ret;
 } /* parseBid() */
 
 static const char BID_URL[] = "http://%s/ws/eBayISAPI.dll?MfcISAPICommand=MakeBid&BIN_button=Confirm%%20Bid&item=%s&key=%s&maxbid=%s&quant=%s&user=%s&pass=%s&uiid=%s&javascriptenabled=0&mode=1";
