@@ -54,9 +54,7 @@ extern memBuf_t *httpPost(const char *url, const char *data, const char *logData
 extern void freeMembuf(memBuf_t *mp);
 extern memBuf_t *strToMemBuf(const char *s, memBuf_t *buf);
 
-#ifdef DEBUG
 #include <stdio.h>
 extern memBuf_t *readFile(FILE *fp);
-#endif
 
 #endif /* HTTP_H_INCLUDED */

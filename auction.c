@@ -233,7 +233,7 @@ getInfoTiming(auctionInfo *aip, time_t *timeToFirstByte)
 			freeMembuf(mp);
 			return httpError(aip);
 		}
-		ret = parseBidHistory(mp, aip, start, timeToFirstByte);
+		ret = parseBidHistory(mp, aip, start, timeToFirstByte, 0);
 		freeMembuf(mp);
 		if (i == 0 && ret == 1 && aip->auctionError == ae_mustsignin) {
 			if (ebayLogin(aip, -1))
@@ -950,7 +950,6 @@ printMyItems(void)
 	return 0;
 }
 
-#if DEBUG
 /* secret option - test parser */
 void
 testParser(int flag)
@@ -980,7 +979,7 @@ testParser(int flag)
 		/* run through bid history parser */
 		auctionInfo *aip = newAuctionInfo("1", "2");
 		time_t start = time(NULL), end;
-		int ret = parseBidHistory(mp, aip, start, &end);
+		int ret = parseBidHistory(mp, aip, start, &end, 1);
 
 		printf("ret = %d\n", ret);
 		printAuctionError(aip, stdout);
@@ -1036,4 +1035,3 @@ testParser(int flag)
 	    }
 	}
 }
-#endif

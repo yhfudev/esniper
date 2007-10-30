@@ -54,7 +54,7 @@ static const char PRIVATE[] = "private auction - bidders' identities protected";
  *	1 error (badly formatted page, etc) - sets auctionError
  */
 int
-parseBidHistory(memBuf_t *mp, auctionInfo *aip, time_t start, time_t *timeToFirstByte)
+parseBidHistory(memBuf_t *mp, auctionInfo *aip, time_t start, time_t *timeToFirstByte, int debugMode)
 {
 	char *line;
 	char **row = NULL;
@@ -111,16 +111,16 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, time_t start, time_t *timeToFirs
 		bugReport("parseBidHistory", __FILE__, __LINE__, aip, mp, "no item number");
 		return auctionError(aip, ae_baditem, NULL);
 	}
-#if DEBUG
-	free(aip->auction);
-	aip->auction = myStrdup(line);
-#else
-	if (strcmp(aip->auction, line)) {
-		log(("parseBidHistory(): auction number %s does not match given number %s", line, aip->auction));
-		bugReport("parseBidHistory", __FILE__, __LINE__, aip, mp, "mismatched item number");
-		return auctionError(aip, ae_baditem, NULL);
+	if (debugMode) {
+		free(aip->auction);
+		aip->auction = myStrdup(line);
+	} else {
+		if (strcmp(aip->auction, line)) {
+			log(("parseBidHistory(): auction number %s does not match given number %s", line, aip->auction));
+			bugReport("parseBidHistory", __FILE__, __LINE__, aip, mp, "mismatched item number");
+			return auctionError(aip, ae_baditem, NULL);
+		}
 	}
-#endif
 
 	/* Auction title */
 	memReset(mp);
@@ -255,9 +255,8 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, time_t start, time_t *timeToFirs
 		/* formated time/date output */
 		tmPtr = localtime(&(aip->endTime));
 		strftime(timestr , 20, "%d/%m/%Y %H:%M:%S", tmPtr);
-#if !DEBUG
-		printLog(stdout, "End time: %s\n", timestr);
-#endif
+		if (!debugMode)
+			printLog(stdout, "End time: %s\n", timestr);
 	} else
 		aip->endTime = aip->remain;
 

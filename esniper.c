@@ -548,9 +548,7 @@ main(int argc, char *argv[])
 	int won = 0;	/* number of items won */
 	auctionInfo **auctions = NULL;
 	int c, i, numAuctions = 0, numAuctionsOrig = 0;
-#if DEBUG
 	int XFlag = 0;
-#endif
 
    /* this table describes options and config entries */
    static optionTable_t optiontab[] = {
@@ -589,11 +587,7 @@ main(int argc, char *argv[])
    };
 
 	/* all known options */
-	static const char optionstring[]="bc:dhHil:mnp:Pq:rs:u:Uv"
-#if DEBUG
-		"X"
-#endif
-		;
+	static const char optionstring[]="bc:dhHil:mnp:Pq:rs:u:UvX";
 
 	atexit(cleanup);
 	progname = basename(argv[0]);
@@ -628,11 +622,9 @@ main(int argc, char *argv[])
 			if (parseGetoptValue(c, optarg, optiontab))
 				options.usage |= USAGE_SUMMARY;
 			break;
-#if DEBUG
 		case 'X': /* secret option - for testing page parsing */
 			++XFlag;
 			break;
-#endif
 		case 'v': /* version */
 			printVersion();
 			exit(0);
@@ -787,30 +779,26 @@ main(int argc, char *argv[])
 	log(("options.myitems=%d\n", options.myitems));
 
 	if (!options.usage) {
-#if DEBUG
-	    if (!XFlag) {
-#endif
-		if (options.auctfilename) {
-			/* should never happen */
-			if (argc != 1) {
-				printLog(stderr, "Error: arguments specified after auction filename.\n");
+		if (!XFlag) {
+			if (options.auctfilename) {
+				/* should never happen */
+				if (argc != 1) {
+					printLog(stderr, "Error: arguments specified after auction filename.\n");
+					options.usage |= USAGE_SUMMARY;
+				}
+			} else if (options.myitems) {
+				if (argc != 0) {
+					printLog(stderr, "Error: auctions specified with -m option.\n");
+					options.usage |= USAGE_SUMMARY;
+				}
+			} else if (argc < 2) {
+				printLog(stderr, "Error: no auctions specified.\n");
+				options.usage |= USAGE_SUMMARY;
+			} else if (argc % 2) {
+				printLog(stderr, "Error: auctions and prices must be specified in pairs.\n");
 				options.usage |= USAGE_SUMMARY;
 			}
-		} else if (options.myitems) {
-			if (argc != 0) {
-				printLog(stderr, "Error: auctions specified with -m option.\n");
-				options.usage |= USAGE_SUMMARY;
-			}
-		} else if (argc < 2) {
-			printLog(stderr, "Error: no auctions specified.\n");
-			options.usage |= USAGE_SUMMARY;
-		} else if (argc % 2) {
-			printLog(stderr, "Error: auctions and prices must be specified in pairs.\n");
-			options.usage |= USAGE_SUMMARY;
 		}
-#if DEBUG
-	    }
-#endif
 		if (!options.username) {
 			if (options.info) {
 				options.username = myStrdup("");
@@ -835,12 +823,10 @@ main(int argc, char *argv[])
 		}
 	}
 
-#if DEBUG
 	if (XFlag) {
 		testParser(XFlag);
 		exit(0);
 	}
-#endif
 
 	if (options.usage)
 		exit(usage(options.usage));

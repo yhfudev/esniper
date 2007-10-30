@@ -44,9 +44,7 @@ typedef struct {
 extern pageInfo_t *getPageInfo(memBuf_t *mp);
 extern void freePageInfo(pageInfo_t *pp);
 
-#if DEBUG
 /* secret option */
 extern void testParser(int flag);
-#endif
 
 #endif /* AUCTION_H_INCLUDED */

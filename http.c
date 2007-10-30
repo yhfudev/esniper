@@ -110,7 +110,6 @@ freeMembuf(memBuf_t *mp)
 	}
 }
 
-#ifdef DEBUG
 /*
  * Create a membuf from a file.
  */
@@ -137,7 +136,6 @@ readFile(FILE *fp)
 	membuf.readptr = membuf.memory;
 	return &membuf;
 }
-#endif
 
 static memBuf_t *
 httpRequest(const char *url, const char *logUrl, const char *data, const char *logData, enum requestType rt)

@@ -38,6 +38,6 @@
  *	1 error (badly formatted page, etc) - sets auctionError
  */
 extern int
-parseBidHistory(memBuf_t *mp, auctionInfo *aip, time_t start, time_t *timeToFirstByte);
+parseBidHistory(memBuf_t *mp, auctionInfo *aip, time_t start, time_t *timeToFirstByte, int debugMode);
 
 #endif /*HISTORY_H_*/
