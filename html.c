@@ -399,9 +399,11 @@ freeTableRow(char **row)
 {
 	char **cpp;
 
-	for (cpp = row; *cpp; ++cpp)
-		free(*cpp);
-	free(row);
+	if (row) {
+		for (cpp = row; *cpp; ++cpp)
+			free(*cpp);
+		free(row);
+	}
 }
 
 /*
