@@ -195,11 +195,14 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, time_t start, time_t *timeToFirs
 				return auctionError(aip, ae_noquantity, NULL);
 			}
 			errno = 0;
-			aip->quantity = (int)strtol(line, NULL, 10);
-			if (aip->quantity < 0 || (aip->quantity == 0 && errno == EINVAL)) {
-				bugReport("parseBidHistory", __FILE__, __LINE__, aip, mp, "item quantity could not be converted");
-				return auctionError(aip, ae_noquantity, NULL);
-			}
+			if (isdigit(*line)) {
+				aip->quantity = (int)strtol(line, NULL, 10);
+				if (aip->quantity < 0 || (aip->quantity == 0 && errno == EINVAL)) {
+					bugReport("parseBidHistory", __FILE__, __LINE__, aip, mp, "item quantity could not be converted");
+					return auctionError(aip, ae_noquantity, NULL);
+				}
+			} else
+				aip->quantity = 1;
 			log(("quantity: %d", aip->quantity));
 			got |= QUANTITY;
 		} else if (!strcasecmp(line, "Shipping:")) {
