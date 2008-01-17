@@ -832,7 +832,7 @@ snipeAuction(auctionInfo *aip)
 	return won;
 }
 
-#define MAX_TDS 6
+#define MAX_TDS 7
 
 /*
  * On first call, use printNewline to 0.  On subsequent calls, use return
@@ -841,7 +841,7 @@ snipeAuction(auctionInfo *aip)
 static int
 printMyItemsRow(char **row, int printNewline)
 {
-	const char *myitems_description[7][MAX_TDS] = {
+	const char *myitems_description[MAX_TDS + 1][MAX_TDS] = {
 		{0, 0, 0, 0, 0, 0},
 		{"Note:\t\t%s\n", 0, 0, 0, 0, 0},
 		{0, 0, 0, 0, 0, 0},
@@ -849,7 +849,9 @@ printMyItemsRow(char **row, int printNewline)
 		{0, 0, "Description:\t%s\n", 0, 0, 0},
 		{0, 0, 0, 0, 0, 0},
 		{0, "Price:\t\t%s\n", "Shipping:\t%s\n", "Bids:\t\t%s\n",
-		 "Seller:\t\t%s\n", "Time:\t\t%s\n"}
+		 "Seller:\t\t%s\n", "Time:\t\t%s\n", 0},
+		{0, "Price:\t\t%s\n", "Shipping:\t%s\n", "Bids:\t\t%s\n",
+		 "Seller:\t\t%s\n", 0, "Time:\t\t%s\n"}
 	};
 	int nColumns = numColumns(row);
 	int column = 0;
