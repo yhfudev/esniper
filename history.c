@@ -29,6 +29,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "html.h"
+#include "auction.h"
 #include "auctioninfo.h"
 #include "history.h"
 #include "esniper.h"
@@ -61,7 +62,7 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, time_t start, time_t *timeToFirs
 	int rowCount;
 	int ret = 0;		/* 0 = OK, 1 = failed */
 	int foundHeader = 0;	/* found bid history table header */
-	char *pagename;
+	pageInfo_t *pp;
 	int pageType;
 	int got;
 
@@ -70,27 +71,34 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, time_t start, time_t *timeToFirs
 	if (timeToFirstByte)
 		*timeToFirstByte = getTimeToFirstByte(mp);
 
-	pagename = getPageName(mp);
-	if (!strncmp(pagename, "PageViewBids", 12)) {
-		pageType = VIEWBIDS;
-		/* bid history or expired/bad auction number */
-		while ((line = getNonTag(mp))) {
-			if (!strcmp(line, "Bid History")) {
-				log(("parseBidHistory(): got \"Bid History\"\n"));
-				break;
+	if (pp = getPageInfo(mp)) {
+		if (pp->srcId && !strcmp(pp->srcId, "Captcha.xsl"))
+			return auctionError(aip, ae_captcha, NULL);
+		if (pp->pageName && !strncmp(pp->pageName, "PageViewBids", 12)) {
+			pageType = VIEWBIDS;
+			/* bid history or expired/bad auction number */
+			while ((line = getNonTag(mp))) {
+				if (!strcmp(line, "Bid History")) {
+					log(("parseBidHistory(): got \"Bid History\"\n"));
+					break;
+				}
+				if (!strcmp(line, "Unknown Item")) {
+					log(("parseBidHistory(): got \"Unknown Item\"\n"));
+					return auctionError(aip, ae_baditem, NULL);
+				}
 			}
-			if (!strcmp(line, "Unknown Item")) {
-				log(("parseBidHistory(): got \"Unknown Item\"\n"));
-				return auctionError(aip, ae_baditem, NULL);
-			}
+		} else if (pp->pageName && !strncmp(pp->pageName, "PageViewTransactions", 20)) {
+			/* transaction history -- buy it now only */
+			pageType = VIEWTRANSACTIONS;
+		} else if (pp->pageName && !strcmp(pp->pageName, "PageSignIn")) {
+			return auctionError(aip, ae_mustsignin, NULL);
+		} else {
+			bugReport("parseBidHistory", __FILE__, __LINE__, aip, mp, "unknown pagename");
+			return auctionError(aip, ae_notitle, NULL);
 		}
-	} else if (!strncmp(pagename, "PageViewTransactions", 20)) {
-		/* transaction history -- buy it now only */
-		pageType = VIEWTRANSACTIONS;
-	} else if (!strcmp(pagename, "PageSignIn")) {
-		return auctionError(aip, ae_mustsignin, NULL);
 	} else {
-		bugReport("parseBidHistory", __FILE__, __LINE__, aip, mp, "unknown pagename");
+		log(("parseBidHistory(): pageinfo is NULL\n"));
+		bugReport("parseBidHistory", __FILE__, __LINE__, aip, mp, "pageInfo is NULL");
 		return auctionError(aip, ae_notitle, NULL);
 	}
 
