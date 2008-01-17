@@ -2,6 +2,7 @@
 	* Fixed bug 1869454: Fails with Time ramining: -- (0 seconds).
 	* Fixed bug 1823864: Captcha on bid history.
 	* Fixed bug 1861822: crash parsing watch list.
+	* Fixed bug 1849113: Failed to make bid when using bid assistant
 
 2007-11-22
 	* Fixed bug 1835531, segfault on bid history.

@@ -477,6 +477,10 @@ makeBidError(const pageInfo_t *pageInfo, auctionInfo *aip)
 		else
 			return -1;
 	}
+	if (!strncmp(pagename, "BidManager", 10) ||
+	    !strncmp(pagename, "BidAssistant", 12))
+		return aip->bidResult = auctionError(aip, ae_bidassistant, NULL);
+
 	if (strncmp(pagename, MAKEBIDERROR, sizeof(MAKEBIDERROR) - 1))
 		return -1;
 	pagename += sizeof(MAKEBIDERROR) - 1;
