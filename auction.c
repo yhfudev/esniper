@@ -109,6 +109,7 @@ getPageInfo(memBuf_t *mp)
 	int needMore = 3;
 
 	log(("getPageInfo():\n"));
+	memReset(mp);
 	while (needMore && (line = getTag(mp))) {
 		char *tmp;
 
@@ -135,6 +136,7 @@ getPageInfo(memBuf_t *mp)
 		}
 	}
 	log(("getPageInfo(): pageName = %s, pageId = %s, srcId = %s\n", nullStr(p.pageName), nullStr(p.pageId), nullStr(p.srcId)));
+	memReset(mp);
 	if (needMore == 3)
 		return NULL;
 	pp = (pageInfo_t *)myMalloc(sizeof(pageInfo_t));
@@ -320,10 +322,8 @@ preBid(auctionInfo *aip)
 		}
 	}
 	if (found < 7) {
-		pageInfo_t *pageInfo;
+		pageInfo_t *pageInfo = getPageInfo(mp);
 
-		mp->readptr = mp->memory;
-		pageInfo = getPageInfo(mp);
 		ret = makeBidError(pageInfo, aip);
 		if (ret < 0) {
 			ret = auctionError(aip, ae_bidkey, NULL);
@@ -973,7 +973,7 @@ testParser(int flag)
 			printf("\"%s\"\n", line);
 
 		/* pagename? */
-		mp->readptr = mp->memory;
+		memReset(mp);
 		if ((line = getPageName(mp)))
 			printf("\nPAGENAME is \"%s\"\n", line);
 		else

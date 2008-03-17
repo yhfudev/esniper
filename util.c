@@ -325,7 +325,6 @@ bugReport(const char *func, const char *file, int line, auctionInfo *aip, memBuf
 			"\ttime = %d, offset = %d\n",
 			mp->memory, mp->size, mp->readptr,
 			mp->timeToFirstByte, mp->readptr - mp->memory);
-		mp->readptr = mp->memory;
 		if ((pp = getPageInfo(mp))) {
 			printLog(stdout,
 				 "\tpagename = \"%s\", pageid = \"%s\", srcid = \"%s\"\n",
