@@ -1,3 +1,6 @@
+2008-03-16
+	* Fixed bug 1915400: sign in request during pre-bid.
+
 2008-01-17
 	* Fixed bug 1869454: Fails with Time ramining: -- (0 seconds).
 	* Fixed bug 1823864: Captcha on bid history.

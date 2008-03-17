@@ -477,6 +477,8 @@ makeBidError(const pageInfo_t *pageInfo, auctionInfo *aip)
 		else
 			return -1;
 	}
+	if (!strcmp(pagename, "PageSignIn"))
+		return aip->bidResult = auctionError(aip, ae_mustsignin, NULL);
 	if (!strncmp(pagename, "BidManager", 10) ||
 	    !strncmp(pagename, "BidAssistant", 12))
 		return aip->bidResult = auctionError(aip, ae_bidassistant, NULL);
@@ -695,6 +697,9 @@ watch(auctionInfo *aip)
 				if (!preBid(aip) ||
 				    aip->auctionError == ae_bidkey)
 					break;
+				if (aip->auctionError == ae_mustsignin &&
+				    ebayLogin(aip, -1))
+					break;
 			}
 			if (aip->auctionError != ae_none &&
 			    aip->auctionError != ae_highbidder) {
@@ -791,10 +796,17 @@ snipeAuction(auctionInfo *aip)
 
 	if (aip->auctionError != ae_highbidder) {
 		printLog(stdout, "\nAuction %s: Bidding...\n", aip->auction);
-		if (bid(aip)) {
-			/* failed bid */
-			printAuctionError(aip, stderr);
-			return 0;
+		for (;;) {
+			if (bid(aip)) {
+				/* failed bid */
+				if (aip->auctionError == ae_mustsignin) {
+					if (!ebayLogin(aip, -1))
+						continue;
+				}
+				printAuctionError(aip, stderr);
+				return 0;
+			}
+			break;
 		}
 	}
 
