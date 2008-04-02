@@ -181,6 +181,7 @@ getNonTag(memBuf_t *mp)
 		case '\r':
 		case '\t':
 		case '\v':
+		case 0xC2: /* UTF-8 */
 		case 0xA0: /* iso-8859-1 nbsp */
 			if (count && buf[count-1] != ' ')
 				addchar(buf, bufsize, count, ' ');
