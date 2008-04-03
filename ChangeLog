@@ -1,3 +1,6 @@
+2003-04-03
+	* Fixed bug 1932457: Configure fails due to wrong curl LDFLAGS
+
 2003-04-02
 	* Fixed bug 1932025: Can't convert price.
 	* Fixed bug 1930772: Can't convert price.
