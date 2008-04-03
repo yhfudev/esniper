@@ -17,17 +17,23 @@ if test "X$CURL_CONFIG" = "X"; then
 cURL is available from http://curl.haxx.se/)
 fi
 
+CURLCFLAGS="`$CURL_CONFIG --cflags`"
+CURLLDFLAGS=`$CURL_CONFIG --libs`
+AC_SUBST(CURLCFLAGS)
+AC_SUBST(CURLLDFLAGS)
+LDFLAGS="$CURLLDFLAGS $LDFLAGS"
+
 dnl check version curl_easy were added in 7.1.1
 check_min=7.1.1
 
-AC_CHECK_LIB(curl, curl_easy_setopt, 
+AC_CHECK_FUNC(curl_easy_setopt, 
 		   [],
 		   AC_MSG_ERROR([cURL $check_min or newer required \
 (cURL is available from http://curl.haxx.se/)]))
 
-AC_CHECK_LIB(curl, curl_easy_strerror, 
-		   CURL_ADDITIONAL="",
-		   CURL_ADDITIONAL="-D NEED_CURL_EASY_STRERROR")
+AC_CHECK_FUNC(curl_easy_strerror, 
+		   [],
+		   CURLCFLAGS="$CURLCFLAGS -D NEED_CURL_EASY_STRERROR")
 
 dnl check for curl SSL support
 AC_MSG_CHECKING(for cURL SSL support)
@@ -37,11 +43,5 @@ cURL is available from http://curl.haxx.se/])
 else
   AC_MSG_RESULT(yes)
 fi
-
-CURLCFLAGS="`$CURL_CONFIG --cflags` $CURL_ADDITIONAL"
-CURLLDFLAGS=`$CURL_CONFIG --libs`
-
-AC_SUBST(CURLCFLAGS)
-AC_SUBST(CURLLDFLAGS)
 
 AC_OUTPUT(Makefile)

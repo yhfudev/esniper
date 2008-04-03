@@ -272,7 +272,7 @@ PACKAGE_STRING=
 PACKAGE_BUGREPORT=
 
 ac_unique_file="esniper.c"
-ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS INSTALL_PROGRAM INSTALL_SCRIPT INSTALL_DATA CYGPATH_W PACKAGE VERSION ACLOCAL AUTOCONF AUTOMAKE AUTOHEADER MAKEINFO install_sh STRIP ac_ct_STRIP INSTALL_STRIP_PROGRAM mkdir_p AWK SET_MAKE am__leading_dot AMTAR am__tar am__untar CC CFLAGS LDFLAGS CPPFLAGS ac_ct_CC EXEEXT OBJEXT DEPDIR am__include am__quote AMDEP_TRUE AMDEP_FALSE AMDEPBACKSLASH CCDEPMODE am__fastdepCC_TRUE am__fastdepCC_FALSE CURL_CONFIG CURLCFLAGS CURLLDFLAGS LIBOBJS LTLIBOBJS'
+ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS INSTALL_PROGRAM INSTALL_SCRIPT INSTALL_DATA CYGPATH_W PACKAGE VERSION ACLOCAL AUTOCONF AUTOMAKE AUTOHEADER MAKEINFO install_sh STRIP ac_ct_STRIP INSTALL_STRIP_PROGRAM mkdir_p AWK SET_MAKE am__leading_dot AMTAR am__tar am__untar CC CFLAGS LDFLAGS CPPFLAGS ac_ct_CC EXEEXT OBJEXT DEPDIR am__include am__quote AMDEP_TRUE AMDEP_FALSE AMDEPBACKSLASH CCDEPMODE am__fastdepCC_TRUE am__fastdepCC_FALSE CURL_CONFIG CURLLDFLAGS CURLCFLAGS LIBOBJS LTLIBOBJS'
 ac_subst_files=''
 
 # Initialize some variables set by options.
@@ -2892,35 +2892,67 @@ cURL is available from http://curl.haxx.se/" >&2;}
    { (exit 1); exit 1; }; }
 fi
 
+CURLCFLAGS="`$CURL_CONFIG --cflags`"
+CURLLDFLAGS=`$CURL_CONFIG --libs`
+
+
+LDFLAGS="$CURLLDFLAGS $LDFLAGS"
+
 check_min=7.1.1
 
 
-
-echo "$as_me:$LINENO: checking for curl_easy_setopt in -lcurl" >&5
-echo $ECHO_N "checking for curl_easy_setopt in -lcurl... $ECHO_C" >&6
-if test "${ac_cv_lib_curl_curl_easy_setopt+set}" = set; then
+echo "$as_me:$LINENO: checking for curl_easy_setopt" >&5
+echo $ECHO_N "checking for curl_easy_setopt... $ECHO_C" >&6
+if test "${ac_cv_func_curl_easy_setopt+set}" = set; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
-  ac_check_lib_save_LIBS=$LIBS
-LIBS="-lcurl  $LIBS"
-cat >conftest.$ac_ext <<_ACEOF
+  cat >conftest.$ac_ext <<_ACEOF
 /* confdefs.h.  */
 _ACEOF
 cat confdefs.h >>conftest.$ac_ext
 cat >>conftest.$ac_ext <<_ACEOF
 /* end confdefs.h.  */
+/* Define curl_easy_setopt to an innocuous variant, in case <limits.h> declares curl_easy_setopt.
+   For example, HP-UX 11i <limits.h> declares gettimeofday.  */
+#define curl_easy_setopt innocuous_curl_easy_setopt
+
+/* System header to define __stub macros and hopefully few prototypes,
+    which can conflict with char curl_easy_setopt (); below.
+    Prefer <limits.h> to <assert.h> if __STDC__ is defined, since
+    <limits.h> exists even on freestanding compilers.  */
+
+#ifdef __STDC__
+# include <limits.h>
+#else
+# include <assert.h>
+#endif
+
+#undef curl_easy_setopt
 
 /* Override any gcc2 internal prototype to avoid an error.  */
 #ifdef __cplusplus
 extern "C"
+{
 #endif
 /* We use char because int might match the return type of a gcc2
    builtin and then its argument prototype would still apply.  */
 char curl_easy_setopt ();
+/* The GNU C library defines this for functions which it implements
+    to always fail with ENOSYS.  Some functions are actually named
+    something starting with __ and the normal name is an alias.  */
+#if defined (__stub_curl_easy_setopt) || defined (__stub___curl_easy_setopt)
+choke me
+#else
+char (*f) () = curl_easy_setopt;
+#endif
+#ifdef __cplusplus
+}
+#endif
+
 int
 main ()
 {
-curl_easy_setopt ();
+return f != curl_easy_setopt;
   ;
   return 0;
 }
@@ -2947,26 +2979,20 @@ if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
   ac_status=$?
   echo "$as_me:$LINENO: \$? = $ac_status" >&5
   (exit $ac_status); }; }; then
-  ac_cv_lib_curl_curl_easy_setopt=yes
+  ac_cv_func_curl_easy_setopt=yes
 else
   echo "$as_me: failed program was:" >&5
 sed 's/^/| /' conftest.$ac_ext >&5
 
-ac_cv_lib_curl_curl_easy_setopt=no
+ac_cv_func_curl_easy_setopt=no
 fi
 rm -f conftest.err conftest.$ac_objext \
       conftest$ac_exeext conftest.$ac_ext
-LIBS=$ac_check_lib_save_LIBS
 fi
-echo "$as_me:$LINENO: result: $ac_cv_lib_curl_curl_easy_setopt" >&5
-echo "${ECHO_T}$ac_cv_lib_curl_curl_easy_setopt" >&6
-if test $ac_cv_lib_curl_curl_easy_setopt = yes; then
-  cat >>confdefs.h <<_ACEOF
-#define HAVE_LIBCURL 1
-_ACEOF
-
-  LIBS="-lcurl $LIBS"
-
+echo "$as_me:$LINENO: result: $ac_cv_func_curl_easy_setopt" >&5
+echo "${ECHO_T}$ac_cv_func_curl_easy_setopt" >&6
+if test $ac_cv_func_curl_easy_setopt = yes; then
+  :
 else
   { { echo "$as_me:$LINENO: error: cURL $check_min or newer required \
 (cURL is available from http://curl.haxx.se/)" >&5
@@ -2976,31 +3002,58 @@ echo "$as_me: error: cURL $check_min or newer required \
 fi
 
 
-echo "$as_me:$LINENO: checking for curl_easy_strerror in -lcurl" >&5
-echo $ECHO_N "checking for curl_easy_strerror in -lcurl... $ECHO_C" >&6
-if test "${ac_cv_lib_curl_curl_easy_strerror+set}" = set; then
+echo "$as_me:$LINENO: checking for curl_easy_strerror" >&5
+echo $ECHO_N "checking for curl_easy_strerror... $ECHO_C" >&6
+if test "${ac_cv_func_curl_easy_strerror+set}" = set; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
-  ac_check_lib_save_LIBS=$LIBS
-LIBS="-lcurl  $LIBS"
-cat >conftest.$ac_ext <<_ACEOF
+  cat >conftest.$ac_ext <<_ACEOF
 /* confdefs.h.  */
 _ACEOF
 cat confdefs.h >>conftest.$ac_ext
 cat >>conftest.$ac_ext <<_ACEOF
 /* end confdefs.h.  */
+/* Define curl_easy_strerror to an innocuous variant, in case <limits.h> declares curl_easy_strerror.
+   For example, HP-UX 11i <limits.h> declares gettimeofday.  */
+#define curl_easy_strerror innocuous_curl_easy_strerror
+
+/* System header to define __stub macros and hopefully few prototypes,
+    which can conflict with char curl_easy_strerror (); below.
+    Prefer <limits.h> to <assert.h> if __STDC__ is defined, since
+    <limits.h> exists even on freestanding compilers.  */
+
+#ifdef __STDC__
+# include <limits.h>
+#else
+# include <assert.h>
+#endif
+
+#undef curl_easy_strerror
 
 /* Override any gcc2 internal prototype to avoid an error.  */
 #ifdef __cplusplus
 extern "C"
+{
 #endif
 /* We use char because int might match the return type of a gcc2
    builtin and then its argument prototype would still apply.  */
 char curl_easy_strerror ();
+/* The GNU C library defines this for functions which it implements
+    to always fail with ENOSYS.  Some functions are actually named
+    something starting with __ and the normal name is an alias.  */
+#if defined (__stub_curl_easy_strerror) || defined (__stub___curl_easy_strerror)
+choke me
+#else
+char (*f) () = curl_easy_strerror;
+#endif
+#ifdef __cplusplus
+}
+#endif
+
 int
 main ()
 {
-curl_easy_strerror ();
+return f != curl_easy_strerror;
   ;
   return 0;
 }
@@ -3027,23 +3080,22 @@ if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
   ac_status=$?
   echo "$as_me:$LINENO: \$? = $ac_status" >&5
   (exit $ac_status); }; }; then
-  ac_cv_lib_curl_curl_easy_strerror=yes
+  ac_cv_func_curl_easy_strerror=yes
 else
   echo "$as_me: failed program was:" >&5
 sed 's/^/| /' conftest.$ac_ext >&5
 
-ac_cv_lib_curl_curl_easy_strerror=no
+ac_cv_func_curl_easy_strerror=no
 fi
 rm -f conftest.err conftest.$ac_objext \
       conftest$ac_exeext conftest.$ac_ext
-LIBS=$ac_check_lib_save_LIBS
 fi
-echo "$as_me:$LINENO: result: $ac_cv_lib_curl_curl_easy_strerror" >&5
-echo "${ECHO_T}$ac_cv_lib_curl_curl_easy_strerror" >&6
-if test $ac_cv_lib_curl_curl_easy_strerror = yes; then
-  CURL_ADDITIONAL=""
+echo "$as_me:$LINENO: result: $ac_cv_func_curl_easy_strerror" >&5
+echo "${ECHO_T}$ac_cv_func_curl_easy_strerror" >&6
+if test $ac_cv_func_curl_easy_strerror = yes; then
+  :
 else
-  CURL_ADDITIONAL="-D NEED_CURL_EASY_STRERROR"
+  CURLCFLAGS="$CURLCFLAGS -D NEED_CURL_EASY_STRERROR"
 fi
 
 
@@ -3059,12 +3111,6 @@ else
   echo "$as_me:$LINENO: result: yes" >&5
 echo "${ECHO_T}yes" >&6
 fi
-
-CURLCFLAGS="`$CURL_CONFIG --cflags` $CURL_ADDITIONAL"
-CURLLDFLAGS=`$CURL_CONFIG --libs`
-
-
-
 
           ac_config_files="$ac_config_files Makefile"
 cat >confcache <<\_ACEOF
@@ -3767,8 +3813,8 @@ s,@CCDEPMODE@,$CCDEPMODE,;t t
 s,@am__fastdepCC_TRUE@,$am__fastdepCC_TRUE,;t t
 s,@am__fastdepCC_FALSE@,$am__fastdepCC_FALSE,;t t
 s,@CURL_CONFIG@,$CURL_CONFIG,;t t
-s,@CURLCFLAGS@,$CURLCFLAGS,;t t
 s,@CURLLDFLAGS@,$CURLLDFLAGS,;t t
+s,@CURLCFLAGS@,$CURLCFLAGS,;t t
 s,@LIBOBJS@,$LIBOBJS,;t t
 s,@LTLIBOBJS@,$LTLIBOBJS,;t t
 CEOF
