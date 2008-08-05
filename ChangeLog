@@ -1,7 +1,13 @@
-2003-04-03
+2008-08-04
+	* 2.19.0 released
+	* Fixed bug 2036585: enable cookies
+
+2008-04-03
+	* 2.18.1 released
 	* Fixed bug 1932457: Configure fails due to wrong curl LDFLAGS
 
-2003-04-02
+2008-04-02
+	* 2.18.0 released
 	* Fixed bug 1932025: Can't convert price.
 	* Fixed bug 1930772: Can't convert price.
 

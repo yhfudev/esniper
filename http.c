@@ -228,6 +228,11 @@ initCurlStuff(void)
 	if ((curlrc = curl_easy_setopt(easyhandle, CURLOPT_USERAGENT, "Mozilla/4.7 [en] (X11; U; Linux 2.2.12 i686)")))
 		return initCurlStuffFailed();
 
+	/* some servers don't like requests that are made without a user-agent
+	 * field, so we provide one */
+	if ((curlrc = curl_easy_setopt(easyhandle, CURLOPT_COOKIEFILE, "")))
+		return initCurlStuffFailed();
+
 	slist = curl_slist_append(slist, "Accept: text/*");
 	slist = curl_slist_append(slist, "Accept-Language: en");
 	slist = curl_slist_append(slist, "Accept-Charset: iso-8859-1,*,utf-8");
