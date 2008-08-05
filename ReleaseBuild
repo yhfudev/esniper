@@ -76,10 +76,8 @@ Edit Changes and Notes:
 
 Copy files to sourceforge:
 
-	ftp upload.sourceforge.net -> anonymous
-		cd incoming
-		bin
-		prompt
+	sftp esniper@frs.sourceforge.net
+		cd uploads
 		mput *.tgz
 		quit
 
@@ -90,7 +88,8 @@ Go to www.sourceforge.net:
 	- type in release number and click "create this release"
 	- cut/paste notes and changes, ensure "preserve text" is selected
 	- select file(s) to import
-	- mark each type (one at a time...)
+	- mark each type (one at a time...).  Source .tgz file should be
+	  processor "platform independent" and file type "Source .gz".
 	- click "send notice"
 	- click file releases, then edit releases, then find the previous
 	  release and edit it.  Change the status to hidden and submit.
