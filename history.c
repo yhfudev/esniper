@@ -234,6 +234,13 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, time_t start, time_t *timeToFirs
 		memSkip(mp, 1);
 		free(aip->remainRaw);
 		aip->remainRaw = myStrdup(getNonTag(mp));
+		if (!strcasecmp(aip->remainRaw, "Duration:")) {
+			/* Duration may follow Time left.  If we
+			 * see this, time left must be empty.  Assume 1 second.
+			 */
+			free(aip->remainRaw);
+			aip->remainRaw = myStrdup("");
+			aip->remain = 1;
 		if (!strcasecmp(aip->remainRaw, "Refresh")) {
 			/* Refresh is the label on the next button.  If we
 			 * see this, time left must be empty.  Assume 1 second.
@@ -626,6 +633,10 @@ getSeconds(char *timestr)
 	static char ended[] = "ended";
 	long accum = 0;
 	long num;
+
+	/* skip leading space */
+	while (*timestr && isspace((int)*timestr))
+		++timestr;
 
 	/* Time is blank in transition between "Time left: 1 seconds" and
 	 * "Time left: auction has ended".  I don't know if blank means
