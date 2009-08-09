@@ -640,7 +640,6 @@ setPassword(char *password)
 
 	/* http escape password, clear original */
 	len = strlen(password);
-	toLowerString(password);
 	escapedPassword = curl_escape(password, len);
 	for (i = 0; i < len; ++i)
 		password[i] = '\0';
