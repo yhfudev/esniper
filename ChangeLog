@@ -1,3 +1,9 @@
+2009-10-14
+	* 2.20.0 released
+	* Fixed bug 2875827 and others: Error encountered in function ebayLogin
+	* Fixed bug 2862437 and others: Unknown time interval "Duration:"
+	                                remaining time could not be converted
+
 2008-08-04
 	* 2.19.0 released
 	* Fixed bug 2036585: enable cookies
