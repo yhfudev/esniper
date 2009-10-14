@@ -43,6 +43,7 @@ extern void memReset(memBuf_t *mp);
 extern void memSkip(memBuf_t *mp, int n);
 extern char *memStr(memBuf_t *mp, const char *s);
 extern char *memChr(memBuf_t *mp, char c);
+extern char *memGetMetaRefresh(memBuf_t *mp);
 extern time_t getTimeToFirstByte(memBuf_t *mp);
 
 extern int initCurlStuff(void);

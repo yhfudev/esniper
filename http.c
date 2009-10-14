@@ -142,6 +142,7 @@ httpRequest(const char *url, const char *logUrl, const char *data, const char *l
 {
 	const char *nonNullData = data ? data : "";
 	memBuf_t *mp = (memBuf_t *)myMalloc(sizeof(memBuf_t));
+        char *metaRefresh;
 
 	mp->memory = mp->readptr = NULL;
 	mp->size = 0;
@@ -173,6 +174,14 @@ httpRequest(const char *url, const char *logUrl, const char *data, const char *l
 
 	if ((curlrc = curl_easy_perform(easyhandle)))
 		return httpRequestFailed(mp);
+
+        log(("checking for META Refresh"));
+        if((metaRefresh = memGetMetaRefresh(mp)) != NULL)
+        {
+           log(("page redirection by META Refresh: %s\n", metaRefresh));
+           freeMembuf(mp);
+           return httpGet(metaRefresh, NULL);
+        }
 
 	return mp;
 }
@@ -331,6 +340,112 @@ memChr(memBuf_t *mp, char c)
 	if (ret)
 		mp->readptr = ret;
 	return ret;
+}
+
+/* get META refresh URL (if any) */
+char *
+memGetMetaRefresh(memBuf_t *mp)
+{
+   char *cp;
+   static char *buf = NULL;
+   char *bufptr;
+   static int bufsize = 0;
+   char c;
+   char *metaRefresh = NULL;
+
+   if(!buf)
+   {
+      bufsize = 1024;
+      buf = myMalloc(bufsize);
+   }
+
+   /* look for all "meta" tags until Refresh found */
+   while(!metaRefresh && (cp = memStr(mp, "<meta")) != NULL)
+   {
+      bufptr = buf;
+      /* copy whole tag to buffer for processing */
+      do
+      {
+         *bufptr++ = c = memGetc(mp);
+         if(bufptr > buf + (bufsize -1))
+         {
+            bufsize += 1024;
+            buf = myRealloc(buf, bufsize);
+         }
+      }
+      while(c && c != '>');
+
+      /* terminate string */
+      *bufptr = '\0';
+      log(("found META tag: %s", buf));
+
+      cp = strstr(buf, "http-equiv=");
+      if(!cp)
+      {
+         log(("no http-equiv, looking for next"));
+         continue;
+      }
+      cp += 11;
+
+      if(strncasecmp(cp, "\"Refresh\"", 9))
+      {
+         log(("no Refresh, looking for next"));
+         continue;
+      }
+
+      cp = strstr(buf, "content=\"");
+      if(!cp)
+      {
+         log(("no content, looking for next"));
+         continue;
+      }
+      cp += 9;
+
+      /* skip delay value (everything until ';') */
+      while(*cp && *cp != ';') cp++;
+      /* if not end of string skip ';' */
+      if(*cp) cp++;
+      /* and skip whitespace */
+      while(*cp && isspace(*cp)) cp++;
+
+      /* now there should be "url=" with optional whitespace around '=' */
+      if(strncasecmp(cp, "url", 3))
+      {
+         log(("no url key, looking for next"));
+         continue;
+      }
+      cp += 3;
+
+      while(*cp && isspace(*cp)) cp++;
+      if(*cp != '=')
+      {
+         log(("no = after url, looking for next"));
+         continue;
+      }
+      cp++;
+      while(*cp && isspace(*cp)) cp++;
+
+      /* this is the beginning of the redirection URL */
+      bufptr = cp;
+      cp = strchr(bufptr, '"');
+      if(!cp)
+      {
+         log(("no closing \", looking for next"));
+         continue;
+      }
+      /* cut off terminating '"' and other trailing garbage */
+      *cp = '\0';
+      metaRefresh = bufptr;
+   }
+
+   if(metaRefresh)
+      log(("found redirection"));
+   else
+      log(("no redirection found"));
+
+   memReset(mp);
+
+   return metaRefresh;
 }
 
 time_t
