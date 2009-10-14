@@ -241,6 +241,7 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, time_t start, time_t *timeToFirs
 			free(aip->remainRaw);
 			aip->remainRaw = myStrdup("");
 			aip->remain = 1;
+                }
 		if (!strcasecmp(aip->remainRaw, "Refresh")) {
 			/* Refresh is the label on the next button.  If we
 			 * see this, time left must be empty.  Assume 1 second.
