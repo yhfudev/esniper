@@ -528,6 +528,8 @@ makeBidError(const pageInfo_t *pageInfo, auctionInfo *aip)
 		return aip->bidResult = auctionError(aip, ae_dutchsamebidquantity, NULL);
 	if (!strcasecmp(pagename, "BuyerBlockPrefItemCountLimitExceeded"))
 		return aip->bidResult = auctionError(aip, ae_buyerblockprefitemcountlimitexceeded, NULL);
+	if (!strcasecmp(pagename, "BidGreaterThanBin_BINblock"))
+		return aip->bidResult = auctionError(aip, ae_bidgreaterthanbin_binblock, NULL);
 	/* unknown MakeBidError page */
 	return -1;
 }

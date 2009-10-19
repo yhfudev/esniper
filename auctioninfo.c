@@ -248,6 +248,7 @@ static const char *auctionErrorString[] = {
 	"Auction %s: Cancelled\n",	/* Seller cancel only? */
 	"Auction %s: Do not use esniper and eBay's bid assisant together!\n",
 	"Auction %s: You are currently winning or have bought the maximum-allowed number of this seller's items in the last 10 days.\n",
+	"Auction %s: Your maximum bid is above or equal to the Buy It Now price. Your bid must be lower.\n",
 	/* ae_unknown must be last error */
 	"Auction %s: Unknown error code %d\n",
 };

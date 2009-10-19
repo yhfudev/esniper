@@ -65,6 +65,7 @@ enum auctionErrorCode {
 	ae_cancelled,
 	ae_bidassistant,
 	ae_buyerblockprefitemcountlimitexceeded,
+	ae_bidgreaterthanbin_binblock,
 	/* ae_unknown must be last error */
 	ae_unknown
 };
