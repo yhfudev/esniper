@@ -490,43 +490,43 @@ makeBidError(const pageInfo_t *pageInfo, auctionInfo *aip)
 	if (!pagename) {
 		const char *srcId = pageInfo->srcId;
 
-		if (srcId && !strcmp(srcId, "ViewItem"))
+		if (srcId && !strcasecmp(srcId, "ViewItem"))
 			return aip->bidResult = auctionError(aip, ae_ended, NULL);
 		else
 			return -1;
 	}
-	if (!strcmp(pagename, "PageSignIn"))
+	if (!strcasecmp(pagename, "PageSignIn"))
 		return aip->bidResult = auctionError(aip, ae_mustsignin, NULL);
-	if (!strncmp(pagename, "BidManager", 10) ||
-	    !strncmp(pagename, "BidAssistant", 12))
+	if (!strncasecmp(pagename, "BidManager", 10) ||
+	    !strncasecmp(pagename, "BidAssistant", 12))
 		return aip->bidResult = auctionError(aip, ae_bidassistant, NULL);
 
-	if (strncmp(pagename, MAKEBIDERROR, sizeof(MAKEBIDERROR) - 1))
+	if (strncasecmp(pagename, MAKEBIDERROR, sizeof(MAKEBIDERROR) - 1))
 		return -1;
 	pagename += sizeof(MAKEBIDERROR) - 1;
 	if (!*pagename ||
-	    !strcmp(pagename, "AuctionEnded"))
+	    !strcasecmp(pagename, "AuctionEnded"))
 		return aip->bidResult = auctionError(aip, ae_ended, NULL);
-	if (!strcmp(pagename, "AuctionEnded_BINblock") ||
-	    !strcmp(pagename, "AuctionEnded_BINblock "))
+	if (!strcasecmp(pagename, "AuctionEnded_BINblock") ||
+	    !strcasecmp(pagename, "AuctionEnded_BINblock "))
 		return aip->bidResult = auctionError(aip, ae_cancelled, NULL);
-	if (!strcmp(pagename, "Password"))
+	if (!strcasecmp(pagename, "Password"))
 		return aip->bidResult = auctionError(aip, ae_badpass, NULL);
-	if (!strcmp(pagename, "MinBid"))
+	if (!strcasecmp(pagename, "MinBid"))
 		return aip->bidResult = auctionError(aip, ae_bidprice, NULL);
-	if (!strcmp(pagename, "BuyerBlockPref"))
+	if (!strcasecmp(pagename, "BuyerBlockPref"))
 		return aip->bidResult = auctionError(aip, ae_buyerblockpref, NULL);
-	if (!strcmp(pagename, "BuyerBlockPrefDoesNotShipToLocation"))
+	if (!strcasecmp(pagename, "BuyerBlockPrefDoesNotShipToLocation"))
 		return aip->bidResult = auctionError(aip, ae_buyerblockprefdoesnotshiptolocation, NULL);
-	if (!strcmp(pagename, "BuyerBlockPrefNoLinkedPaypalAccount"))
+	if (!strcasecmp(pagename, "BuyerBlockPrefNoLinkedPaypalAccount"))
 		return aip->bidResult = auctionError(aip, ae_buyerblockprefnolinkedpaypalaccount, NULL);
-	if (!strcmp(pagename, "HighBidder"))
+	if (!strcasecmp(pagename, "HighBidder"))
 		return aip->bidResult = auctionError(aip, ae_highbidder, NULL);
-	if (!strcmp(pagename, "CannotBidOnItem"))
+	if (!strcasecmp(pagename, "CannotBidOnItem"))
 		return aip->bidResult = auctionError(aip, ae_cannotbid, NULL);
-	if (!strcmp(pagename, "DutchSameBidQuantity"))
+	if (!strcasecmp(pagename, "DutchSameBidQuantity"))
 		return aip->bidResult = auctionError(aip, ae_dutchsamebidquantity, NULL);
-	if (!strcmp(pagename, "BuyerBlockPrefItemCountLimitExceeded"))
+	if (!strcasecmp(pagename, "BuyerBlockPrefItemCountLimitExceeded"))
 		return aip->bidResult = auctionError(aip, ae_buyerblockprefitemcountlimitexceeded, NULL);
 	/* unknown MakeBidError page */
 	return -1;
