@@ -247,6 +247,7 @@ static const char *auctionErrorString[] = {
 	"Auction %s: Login failed due to captcha.  Please see\nhttp://esniper.sf.net/captcha.html for more details\n",
 	"Auction %s: Cancelled\n",	/* Seller cancel only? */
 	"Auction %s: Do not use esniper and eBay's bid assisant together!\n",
+	"Auction %s: You are currently winning or have bought the maximum-allowed number of this seller's items in the last 10 days.\n",
 	/* ae_unknown must be last error */
 	"Auction %s: Unknown error code %d\n",
 };
