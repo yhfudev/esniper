@@ -1,110 +1,162 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2//EN">
-<HTML>
-<HEAD>
-<TITLE>esniper: a lightweight eBay sniping tool</TITLE>
-</HEAD>
-<BODY background="bg524.jpg">
-<a href="http://sourceforge.net"><img
-src="http://sourceforge.net/sflogo.php?group_id=45285&type=4"
-width="125" height="37" border="0" alt="SourceForge.net Logo"></a>
-<br>
-<center><b><font size=+4>esniper</font></b></center>
-<font>
+<html>
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=iso-8859-1">
+  <title>esniper: a lightweight eBay sniping tool</title>
+  <style type="text/css">
+.question {font-weight:bold;}
+h1 {text-align:center;}
+
+  </style>
+</head>
+
+<body background="bg524.jpg">
 <p>
-esniper is a simple, lightweight tool for sniping ebay auctions.  It runs
-on all flavors of linux, unix and Windows, and should adapt easily to
-other operating systems.
+<a href="http://sourceforge.net">
+<img src="http://sourceforge.net/sflogo.php?group_id=45285&amp;type=4" width="125"
+height="37" border="0" alt="SourceForge.net"></a>
+</p>
+
+<h1>esniper</h1>
+
 <p>
-You can download the
-<a href="http://prdownloads.sourceforge.net/esniper/esniper-2-20-0.tgz?download">
-source code</a>,
-<a href="http://sourceforge.net/tracker/?func=add&group_id=45285&atid=442436">
-report bugs</a>,
-and a bunch of other things from
+esniper is a simple, lightweight tool for sniping ebay auctions. It runs on
+all flavors of linux, unix and Windows, and should adapt easily to other
+operating systems. 
+</p>
+
+<p>
+You can download the 
+<a href="http://prdownloads.sourceforge.net/esniper/esniper-2-21-0.tgz?download">source
+code</a>,
+<a href="http://sourceforge.net/tracker/?func=add&amp;group_id=45285&amp;atid=442436">report
+bugs</a>,
+and a bunch of other things from 
 <a href="http://sourceforge.net/projects/esniper/">sourceforge.net</a>.
+</p>
+
 <p>
-To be informed of new releases and major bugs,
+To be informed of new releases and major bugs, 
 <a href="http://lists.sourceforge.net/lists/listinfo/esniper-announce">subscribe</a>
-to the esniper-announce mailing list.
+to the esniper-announce mailing list. 
+</p>
+
 <p>
-To compile and run esniper you need
-<a href="http://www.openssl.org/">SSL</a> and
+To compile and run esniper you need 
+<a href="http://www.openssl.org/">SSL</a> and 
 <a href="http://curl.haxx.se/libcurl/">libCurl</a>.
-Most recent linux releases should have these libraries already installed.
-If your system doesn't have these libraries or they are out of date, you
-will need to download, build and install these libraries first.  You must
-build and install SSL before building and installing libCurl.
-<p>
-If you are using Windows, you will need to use either
-<a href="http://www.cygwin.com/">cygwin</a> or
-<a href="http://www.mingw.org/">MinGW and MSYS</a>
-for a development environment, and SSL and libCurl.  I hope to have a
-prebuilt Windows binary available in the near future.
-<p>
-If you need documentation, you can read the
-<a href="esniper_man.html">manual page</a>, or download a
-<a href="esniper.1">
-unix man compatible version</a>
-and place it in /usr/local/man/man1 on your computer.
-<p>
-esniper can use configuration and auction files to tell it how to bid and what
-to bid on.  Sample files
-(<a href="sample_config.txt">configuration</a>,
-<a href="sample_auction.txt">auction</a>) are available.
-<p>
-If you want to be notified of updates to esniper, subscribe to the
-<a href="https://lists.sourceforge.net/lists/listinfo/esniper-announce">
-esniper-announce mailing list</a>.
-<p>
-FAQ:
-<ul>
-<li><b>What is sniping?</b>
-<ul><li>Sniping is the act of bidding on an auction with
-just a few seconds remaining.
-</ul>
-<li><b>Why snipe?</b>
-<ul><li>Because it is better than bidding early.  For more information on
-sniping, including reasons for and against, click
-<a href="http://www.moyen.org/snipe/">here</a>.
-</ul>
-<li><b>What's wrong with bidding early?</b>
-<ul>
-<li>In a perfect world, nothing.  The world isn't perfect, though.  Most
-eBay bids are
-<a href="http://pages.ebay.com/help/buyerguide/bidding-prxy.html">
-proxy bids</a>.  If everybody understood that, figured out how much they
-wanted to pay, and bid their maximum, sniping would not be useful.
-However, many bidders have no idea how much they want to pay, so they bid
-in small increments until they beat your proxy.  If you bid your maximum
-at the end of the auction, you greatly reduce the chances of being bid
-up by such a bidder.
-</ul>
-<li><b>Is sniping against eBay policy</b>
-<ul><li>No.  You may bid at any time in an eBay auction.</ul>
-<li><b>I think sniping is evil</b>
-<ul><li>You are entitled to your opinion, but you may want to check out
-<a href="http://www.moyen.org/snipe/">
-this very comprehensive site</a>
-first so you can make an informed decision.</ul>
-<li><b>Is using a program to snipe against eBay policy</b>
-<ul><li>
-This is a difficult question to answer.  In paragraph 7 of eBay's
-<a href="http://pages.ebay.com/help/community/png-user.html">
-user agreement</a>, &quot;you will not user any ... automatic device, or
-manual process to monitor or copy our web pages&quot;.  From this, it
-appears just reloading an auction page a few times could be illegal (manual
-monitoring).  Auction services which automatically retrieve closing prices,
-such as Andale and PayPal, seem to go against this clause, too.
-</ul>
-<li><b>esniper is complaining about a CAPTCHA.  What's that?</b>
-<ul><li>It's a security measure to prevent 'bots (like esniper)
-from working.  See
-<a href="captcha.html">here</a>
-for more details.
-</ul>
-</ul>
-</font>
+Most recent linux releases
+should have these libraries already installed. If your system doesn't have
+these libraries or they are out of date, you will need to download, build and
+install these libraries first. You must build and install SSL before building
+and installing libCurl. 
+</p>
 
-</BODY>
-</HTML>
+<p>
+If you are using Windows, you will need to use either 
+<a href="http://www.cygwin.com/">cygwin</a> or 
+<a href="http://www.mingw.org/">MinGW and MSYS</a> 
+for a development environment,
+and SSL and libCurl. I hope to have a prebuilt Windows binary available in the
+future. 
+</p>
 
+<p>
+If you need documentation, you can read the 
+<a href="esniper_man.html">manual page</a>, or download a 
+<a href="esniper.1">unix man compatible version</a> 
+and place it in /usr/local/man/man1 on your
+computer. 
+</p>
+
+<p>
+esniper can use configuration and auction files to tell it how to bid and
+what to bid on. Sample files (<a href="sample_config.txt">configuration</a>, 
+<a href="sample_auction.txt">auction</a>) are available. 
+</p>
+
+<p>
+If you want to be notified of updates to esniper, subscribe to the 
+<a href="https://lists.sourceforge.net/lists/listinfo/esniper-announce">esniper-announce
+mailing list</a>.
+</p>
+
+<h2>FAQ:</h2>
+<ul>
+  <li><span class="question">What is sniping?</span> 
+    <ul>
+      <li class="answer">Sniping is the act of bidding on an auction with just a few seconds
+        remaining. </li>
+    </ul>
+  </li>
+  <li><span class="question">Why snipe?</span> 
+    <ul>
+      <li class="answer">Because it is better than bidding early. For more information on
+        sniping, including reasons for and against, click <a
+        href="http://www.moyen.org/snipe/">here</a>. </li>
+    </ul>
+  </li>
+  <li><span class="question">What's wrong with bidding early?</span> 
+    <ul>
+      <li class="answer">In a perfect world, nothing. The world isn't perfect, though. Most
+        eBay bids are <a
+        href="http://pages.ebay.com/help/buyerguide/bidding-prxy.html">proxy
+        bids</a>. If everybody understood that, figured out how much they
+        wanted to pay, and bid their maximum, sniping would not be useful.
+        However, many bidders have no idea how much they want to pay, so they
+        bid in small increments until they beat your proxy. If you bid your
+        maximum at the end of the auction, you greatly reduce the chances of
+        being bid up by such a bidder. </li>
+    </ul>
+  </li>
+  <li><span class="question">Is sniping against eBay policy</span> 
+    <ul>
+      <li class="answer">No. You may bid at any time in an eBay auction.</li>
+    </ul>
+  </li>
+  <li><span class="question">I think sniping is evil</span> 
+    <ul>
+      <li class="answer">You are entitled to your opinion, but you may want to check out <a
+        href="http://www.moyen.org/snipe/">this very comprehensive site</a>
+        first so you can make an informed decision.</li>
+    </ul>
+  </li>
+  <li><span class="question">Is using a program to snipe against eBay policy</span> 
+    <ul>
+      <li class="answer">This is a difficult question to answer. In paragraph 7 of eBay's <a
+        href="http://pages.ebay.com/help/community/png-user.html">user
+        agreement</a>, "you will not user any ... automatic device, or manual
+        process to monitor or copy our web pages". From this, it appears just
+        reloading an auction page a few times could be illegal (manual
+        monitoring). Auction services which automatically retrieve closing
+        prices, such as Andale and PayPal, seem to go against this clause, too.
+      </li>
+    </ul>
+  </li>
+  <li><span class="question">When I try to run esniper, it complains it can't find cygwin1.dll</span> 
+    <ul>
+      <li class="answer">Did you download <a
+        href="http://prdownloads.sourceforge.net/esniper/cygwin1.dll">cygwin1.dll</a>
+        and place it in the same directory as esniper.exe? </li>
+    </ul>
+  </li>
+  <li><span class="question">What is cygwin1.dll, anyway?</span> 
+    <ul>
+      <li class="answer">It is part of <a href="http://www.cygwin.com/">cygwin</a>, a package
+        that emulates unix on top of Windows.
+     </li>
+    </ul>
+  </li>
+  <li><span class="question">esniper is complaining about a CAPTCHA. What's
+    that?</span>
+    <ul>
+      <li class="answer">It's a security measure to prevent 'bots (like esniper) from working.
+        See <a href="captcha.html">here</a> for more details. <br>
+        When eBay asks to solve a captcha this might be related to a weak eBay
+        password. Try to change your password.
+      </li>
+    </ul>
+  </li>
+</ul>
+</body>
+</html>
