@@ -1,5 +1,6 @@
 #! /bin/sh
 set -x
+set -e
 
 #How to build a release:
 #
@@ -46,7 +47,10 @@ mkdir $CURRENT
 #Copy Changes and Notes from the previous build:
 
 cp ChangeLog $CURRENT/Changes
-cp $PREV/Notes $PREV/index.html $CURRENT
+
+# files Notes and index.html do not exist in older releases available on sf.net
+#cp $PREV/Notes $PREV/index.html $CURRENT
+cp index.html $CURRENT
 echo $CURRENT >$CURRENT/version.txt
 
 #Create source tar:
