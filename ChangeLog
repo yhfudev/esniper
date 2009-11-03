@@ -1,3 +1,9 @@
+2009-11-03
+	* 2.21.0 released
+	* Fixed bug 2217106: MakeBidErrorBuyerBlockPrefNoLinkedPayPalAccount
+	* Fixed bug 2631855: MakeBidErrorBuyerBlockPrefItemCountLimitExceeded
+	* Fixed bug 2151466: MakeBidErrorBidGreaterThanBin_BINblock
+
 2009-10-14
 	* 2.20.0 released
 	* Fixed bug 2875827 and others: Error encountered in function ebayLogin
