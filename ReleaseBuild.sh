@@ -12,9 +12,9 @@ CVSROOT=:ext:esniper@esniper.cvs.sourceforge.net:/cvsroot/esniper
 export CVSROOT
 # change these to whatever is current
 MAJOR=2
-MINOR=20
+MINOR=21
 STEP=0
-PREV=2.19.0
+PREV=2.20.0
 # these don't change
 CURRENT=$MAJOR.$MINOR.$STEP
 CURRFILE=esniper-$MAJOR-$MINOR-$STEP
@@ -37,7 +37,7 @@ cvs update configure.in aclocal.m4 Makefile.am configure Makefile.in
 
 #Tag source:
 
-echo cvs tag -F $CURRTAG
+cvs tag -F $CURRTAG
 
 #Create a directory:
 
