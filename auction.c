@@ -419,6 +419,8 @@ ebayLogin(auctionInfo *aip, int interval)
 		        !strncasecmp(pp->pageName, "My eBay", 7))
                     ))
 			loginTime = time(NULL);
+		else if (pp->pageName && !strcmp(pp->pageName, "Welcome to eBay"))
+			ret = auctionError(aip, ae_badpass, NULL);
 		else if (pp->pageName && !strcmp(pp->pageName, "PageSignIn"))
 			ret = auctionError(aip, ae_login, NULL);
 		else if (pp->srcId && !strcmp(pp->srcId, "Captcha.xsl"))
