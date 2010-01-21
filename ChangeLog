@@ -1,3 +1,7 @@
+2010-01-21
+	* 2.22.0 released
+	* Fixed bug 2936564: Can't get item number or title
+
 2009-11-03
 	* 2.21.0 released
 	* Fixed bug 2217106: MakeBidErrorBuyerBlockPrefNoLinkedPayPalAccount

@@ -104,7 +104,8 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, time_t start, time_t *timeToFirs
 
 	/* Auction number */
 	memReset(mp);
-	if (memStr(mp, "\"BHitemNo\"")) {
+	if (memStr(mp, "\"BHCtBidLabel\"") ||
+		memStr(mp, "\"BHitemNo\"")) { /* obsolete as of 2.22 */
 		memChr(mp, '>');
 		memSkip(mp, 1);
 		line = getNonTag(mp);	/* Item number: */
@@ -132,22 +133,15 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, time_t start, time_t *timeToFirs
 
 	/* Auction title */
 	memReset(mp);
-	if (memStr(mp, "\"BHitemTitle\"")) {
+	if (memStr(mp, "\"itemTitle\"") ||
+		memStr(mp, "\"BHitemTitle\"") || /* obsolete as of 2.22 */
+		memStr(mp, "\"BHitemDesc\"")) {	/* obsolete before 2.22 */
 		memChr(mp, '>');
 		memSkip(mp, 1);
 		line = getNonTag(mp);	/* title */
 		if (!line) {
 			log(("parseBidHistory(): No item title"));
 			bugReport("parseBidHistory", __FILE__, __LINE__, aip, mp, "item title not found");
-			return auctionError(aip, ae_baditem, NULL);
-		}
-	} else if (memStr(mp, "\"BHitemDesc\"")) {
-		memChr(mp, '>');
-		memSkip(mp, 1);
-		line = getNonTag(mp);	/* title */
-		if (!line || !strcmp(line, "See item description")) {
-			log(("parseBidHistory(): No item title, place 2"));
-			bugReport("parseBidHistory", __FILE__, __LINE__, aip, mp, "item description not found");
 			return auctionError(aip, ae_baditem, NULL);
 		}
 	} else {
