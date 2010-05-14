@@ -416,6 +416,7 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, time_t start, time_t *timeToFirs
 		freeTableRow(row);
 	}
 
+	log(("numColumns=%d", numColumns(row)));
 	/* roll through table */
 	switch (numColumns(row)) {
 	case 2:	/* auction with no bids */
@@ -447,6 +448,10 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, time_t start, time_t *timeToFirs
 	    {
 		/* blank, user, price, date, blank */
 		char *winner = getNonTagFromString(row[1]);
+                if(!strcasecmp(winner, "Member Id:"))
+                {
+                   winner = getNthNonTagFromString(row[1], 2);
+                }
 		char *currently = getNonTagFromString(row[2]);
 
 		aip->quantityBid = 1;

@@ -40,6 +40,7 @@ extern const char *getTag(memBuf_t *mp);
  * and leaving only a single space for all internal whitespace.
  */
 extern char *getNonTag(memBuf_t *mp);
+extern char *getNthNonTagFromString(const char *s, int n);
 extern char *getNonTagFromString(const char *s);
 extern int getIntFromString(const char *s);
 

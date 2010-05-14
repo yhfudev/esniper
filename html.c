@@ -233,6 +233,20 @@ getNonTag(memBuf_t *mp)
 } /* getNonTag() */
 
 char *
+getNthNonTagFromString(const char *s, int n)
+{
+	memBuf_t buf;
+        int i;
+
+	strToMemBuf(s, &buf);
+        for(i=1; i<n; i++)
+        {
+           getNonTag(&buf);
+        }
+	return myStrdup(getNonTag(&buf));
+}
+
+char *
 getNonTagFromString(const char *s)
 {
 	memBuf_t buf;
@@ -327,11 +341,13 @@ getTableCell(memBuf_t *mp)
 	size_t count = 0;
 
 	while ((cp = getTag(mp))) {
-		if (nesting == 1 && !strncmp(cp, "td", 2) &&
+		if (nesting == 1 && 
+                    (!strncmp(cp, "td", 2) || !strncmp(cp, "th", 2)) &&
 		    (isspace((int)*(cp+2)) || *(cp+2) == '\0')) {
 			/* found <td>, now must find </td> */
 			start = mp->readptr;
-		} else if (nesting == 1 && !strcmp(cp, "/td")) {
+		} else if (nesting == 1 && 
+                           (!strcmp(cp, "/td") || !strcmp(cp, "/th"))) {
 			/* end of this item */
 			for (end = mp->readptr - 1; *end != '<'; --end)
 				;
