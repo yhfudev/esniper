@@ -872,7 +872,9 @@ snipeAuction(auctionInfo *aip)
 	return won;
 }
 
-#define MAX_TDS 7
+//Max \td in the description table (is 8 on 02 of May 2010):
+#define MAX_TDS 8
+#define MAX_TDS_LENGTH 6
 
 /*
  * On first call, use printNewline to 0.  On subsequent calls, use return
@@ -881,37 +883,25 @@ snipeAuction(auctionInfo *aip)
 static int
 printMyItemsRow(char **row, int printNewline)
 {
-	const char *myitems_description[MAX_TDS + 1][MAX_TDS] = {
-		{0, 0, 0, 0, 0, 0},
-		{"Note:\t\t%s\n", 0, 0, 0, 0, 0},
+	const char *myitems_description[MAX_TDS][MAX_TDS_LENGTH] = {
 		{0, 0, 0, 0, 0, 0},
 		{0, 0, 0, 0, 0, 0},
-		{0, 0, "Description:\t%s\n", 0, 0, 0},
-		{0, 0, 0, 0, 0, 0},
-		{0, "Price:\t\t%s\n", "Shipping:\t%s\n", "Bids:\t\t%s\n",
-		 "Seller:\t\t%s\n", "Time:\t\t%s\n", 0},
-		{0, "Price:\t\t%s\n", "Shipping:\t%s\n", "Bids:\t\t%s\n",
-		 "Seller:\t\t%s\n", 0, "Time:\t\t%s\n"}
+		{"Description:\t%s\n", "Seller:\t\t%s", 0, "(%s)", 0,"/%s\n"},
+		{ "Bids:\t\t%s\n", 0, 0, 0, 0, 0},
+		{ "Price:\t\t%s\n", 0, 0, 0, 0, 0},
+		{ "Shipping:\t%s\n", 0, 0, 0, 0, 0},
+		{ "Time left:\t%s\n", 0, 0, 0, 0, 0},
+		{ 0, 0, 0, 0, 0, 0},
 	};
-	int nColumns = numColumns(row);
 	int column = 0;
 	int ret = printNewline;
+	int item_nr=0;	// count no_tag item
 
-	if (nColumns == 4) {
-		if (printNewline)
-			printf("\n");
-		else
-			ret = 1;
-	}
 	for (; row[column]; ++column) {
 		memBuf_t buf;
 		char *value = NULL;
 
-		if (column >= MAX_TDS || !myitems_description[nColumns][column])
-			continue;
-		strToMemBuf(row[column], &buf);
-		/* special case: ItemNr encoded in item URL */
-		if (nColumns == 4 && column == 2) {
+		if (column == 2) {	//item nr in 3rd (-1) column
 			static const char search[] = "item=";
 			char *tmp = strstr(row[column], search);
 
@@ -928,12 +918,21 @@ printMyItemsRow(char **row, int printNewline)
 				free(value);
 			}
 		}
-		value = getNonTag(&buf);
-		/* Note text is 2nd non-tag */
-		if (nColumns == 1 && column == 0)
+		strToMemBuf(row[column], &buf); //load new row
+		for (item_nr = 0; item_nr < MAX_TDS_LENGTH; item_nr++) {
 			value = getNonTag(&buf);
-		printLog(stdout, myitems_description[nColumns][column], value ? value : "");
+
+			// there may be a "ENDING SOON" message
+			if ((column==2)&&(item_nr==0)&&strstr(value,"ENDING SOON"))
+				value = getNonTag(&buf);
+			// when nothing interesting in row
+			if (column >= MAX_TDS || !myitems_description[column][item_nr])
+				continue;
+			//print the entry
+			printLog(stdout, myitems_description[column][item_nr], value ? value : "");
+		}
 	}
+	printf("\n");	// for spacing
 	return ret;
 }
 
@@ -973,7 +972,7 @@ printMyItems(void)
 		int printNewline = 0;
 
 		/* search for table containing my itmes */
-		if (!strstr(table, "id=\"Watching\""))
+		if (!strstr(table, "class=\"my_itl-iT\""))
 			continue;
 		/* skip first descriptive table row */
 		if ((row = getTableRow(mp)))
