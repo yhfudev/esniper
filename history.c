@@ -138,6 +138,7 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, time_t start, time_t *timeToFirs
 		memStr(mp, "\"BHitemDesc\"")) {	/* obsolete before 2.22 */
 		memChr(mp, '>');
 		memSkip(mp, 1);
+		line = getNonTag(mp);	/* Item title: */
 		line = getNonTag(mp);	/* title */
 		if (!line) {
 			log(("parseBidHistory(): No item title"));
