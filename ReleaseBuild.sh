@@ -50,7 +50,7 @@ echo Tagging source.
 cvs tag -F $CURRTAG
 
 
-echo Creating source tar file ${CURRENT}.tgz
+echo Creating source tar file ${CURRFILE}.tgz
 
 mkdir $CURRFILE $CURRFILE/frontends
 cp auction.c auction.h $CURRFILE
