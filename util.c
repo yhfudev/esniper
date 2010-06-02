@@ -41,6 +41,7 @@
 #	include <io.h>
 #	include <sys/timeb.h>
 #else
+#	include <pwd.h>
 #	include <sys/types.h>
 #	include <sys/time.h>
 #	include <termios.h>
@@ -166,7 +167,48 @@ logOpen(const auctionInfo *aip, const char *logdir)
 	if (logdir) {
 		char *tmp = logfilename;
 
+//not win32 --> *nix
+#if defined(WIN32)
 		logfilename = myStrdup3(logdir, "/", logfilename);
+#else
+		/*
+		 * Usually the logdir on *nix looks something like this: ~/esniper/logs
+		 * we want it to look (typically) like this: /home/user/esniper/logs/
+		 * (depends on environment HOME variable).
+		 *
+		 * Need to distinguish between * ~/ (i.e. $HOME) and
+		 * ~foo/ (i.e. foo's home directory in /etc/passwd).
+		 */
+		if (logdir[0] == '~') {
+			if (logdir[1] == '\0') {
+				logfilename = myStrdup3(getenv("HOME"), "/", logfilename);
+			} else if (logdir[1] == '/') {
+				logfilename = myStrdup4(getenv("HOME"), logdir+1, "/", logfilename);
+			} else {
+				const char *slash = strchr(logdir, '/');
+				struct passwd *pw;
+
+				if (slash) {
+					int namelen = slash - (logdir+1);
+					char *username = myMalloc(namelen + 1);
+
+					strncpy(username, logdir + 1, namelen);
+					username[namelen] = '\0';
+					pw = getpwnam(username);
+					free(username);
+				} else {
+					slash = logdir + strlen(logdir);
+					pw = getpwnam(logdir + 1);
+				}
+
+				if (pw)
+					logfilename = myStrdup4(pw->pw_dir, slash, "/", logfilename);
+				else
+					logfilename = myStrdup3(logdir, "/", logfilename);
+			}
+		} else
+			logfilename = myStrdup3(logdir, "/", logfilename);
+#endif
 		free(tmp);
 	}
 	logClose();
