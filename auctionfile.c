@@ -49,8 +49,8 @@ readAuctionFile(const char *filename, auctionInfo ***aip)
 {
 	FILE *fp = fopen(filename, "r");
 	char *buf = NULL;
-	size_t bufsize = 0, count = 0;
-	int c, i, j, line, numAuctions = 0;
+	size_t bufsize = 0, count = 0, line;
+	int c, i, j, numAuctions = 0;
 
 	if (fp == NULL) {
 		fprintf(stderr, "Cannot open auction file %s: %s\n", filename,
@@ -114,8 +114,7 @@ readAuctionFile(const char *filename, auctionInfo ***aip)
 	fclose(fp);
 
 	if (numAuctions > 0) {
-		*aip = (auctionInfo **)myMalloc(
-					sizeof(auctionInfo *) * numAuctions);
+		*aip = (auctionInfo **)myMalloc(sizeof(auctionInfo *) * (size_t)numAuctions);
 
 		for (i = 0, j = 0; i < numAuctions; ++i, ++j) {
 			char *auction, *bidPriceStr;

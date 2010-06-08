@@ -37,6 +37,7 @@
 #include "util.h"
 #include <ctype.h>
 #include <errno.h>
+#include <limits.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -300,6 +301,7 @@ static int
 parseIntValue(const char *name, const char *value,
 	const optionTable_t *tableptr, const char *filename, const char *line)
 {
+	long longval;
 	int intval;
 	char *endptr;
 
@@ -311,14 +313,15 @@ parseIntValue(const char *name, const char *value,
 				 line);
 		return 1;
 	}
-	intval = strtol(value, &endptr, 10);
-	if (*endptr != '\0') {
+	longval = strtol(value, &endptr, 10);
+	if (*endptr != '\0' || longval > INT_MAX || longval < INT_MIN) {
 		if (filename)
 			printLog(stderr, "Invalid integer value at configuration option \"%s\" in file %s\n", line, filename);
 		else
 			printLog(stderr, "Invalid integer value \"%s\" at command line option -%s\n", value, line);
 		return 1;
 	}
+	intval = (int)longval;
 
 	if (tableptr->checkfunc) {
 		/* check value with specific check function */

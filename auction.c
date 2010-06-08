@@ -241,7 +241,7 @@ getInfoTiming(auctionInfo *aip, time_t *timeToFirstByte)
 		memBuf_t *mp = NULL;
 
 		if (!aip->query) {
-			int urlLen = sizeof(HISTORY_URL) + strlen(options.historyHost) + strlen(aip->auction) - (2*2);
+			size_t urlLen = sizeof(HISTORY_URL) + strlen(options.historyHost) + strlen(aip->auction) - (2*2);
 
 			aip->query = (char *)myMalloc(urlLen);
 			sprintf(aip->query, HISTORY_URL, options.historyHost, aip->auction);
@@ -963,7 +963,7 @@ printMyItems(void)
 	char **row;
 	auctionInfo *dummy = newAuctionInfo("0", "0");
 	char *url;
-	int urlLen;
+	size_t urlLen;
 
 	if (ebayLogin(dummy, 0)) {
 		printAuctionError(dummy, stderr);
