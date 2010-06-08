@@ -521,10 +521,19 @@ prompt(const char *p, int noecho)
 		tmp = save & (~ENABLE_ECHO_INPUT);
 		SetConsoleMode(in, tmp);
 #else
+		/*
+		 * echo=ECHO is a silly hack to work around poorly defined constant
+		 * that trips up a poorly implemented warning.  tcflag_t is unsigned,
+		 * ECHO is signed.  gcc warns if you mix signed and unsigned in an
+		 * expression, but does not warn if you mix in an assignment with a
+		 * constant (assuming constant fits in the type of the variable).
+		 */
+		tcflag_t echo = ECHO;
+
 		tcgetattr(fileno(stdin), &save);
 		memcpy(&tmp, &save, sizeof(struct termios));
-		/* make misc.mk check will give a warning. */
-		tmp.c_lflag &= (~ECHO);
+		/* you'll get the warning here if you change ~echo to ~ECHO */
+		tmp.c_lflag &= ~echo;
 		tcsetattr(fileno(stdin), TCSANOW, &tmp);
 #endif
 	}
