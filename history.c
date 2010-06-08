@@ -59,7 +59,6 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, time_t start, time_t *timeToFirs
 {
 	char *line;
 	char **row = NULL;
-	int rowCount;
 	int ret = 0;		/* 0 = OK, 1 = failed */
 	int foundHeader = 0;	/* found bid history table header */
 	pageInfo_t *pp;
@@ -71,7 +70,7 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, time_t start, time_t *timeToFirs
 	if (timeToFirstByte)
 		*timeToFirstByte = getTimeToFirstByte(mp);
 
-	if (pp = getPageInfo(mp)) {
+	if ((pp = getPageInfo(mp))) {
 		if (pp->srcId && !strcmp(pp->srcId, "Captcha.xsl"))
 			return auctionError(aip, ae_captcha, NULL);
 		if (pp->pageName && !strncmp(pp->pageName, "PageViewBids", 12)) {
@@ -449,11 +448,10 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, time_t start, time_t *timeToFirs
 	    {
 		/* blank, user, price, date, blank */
 		char *winner = getNonTagFromString(row[1]);
-                if(!strcasecmp(winner, "Member Id:"))
-                {
-                   winner = getNthNonTagFromString(row[1], 2);
-                }
 		char *currently = getNonTagFromString(row[2]);
+
+		if (!strcasecmp(winner, "Member Id:"))
+		   winner = getNthNonTagFromString(row[1], 2);
 
 		aip->quantityBid = 1;
 

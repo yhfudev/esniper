@@ -194,7 +194,7 @@ getNonTag(memBuf_t *mp)
 
 				term(buf, bufsize, count);
 				if (*cp == '#') {
-					buf[amp-1] = atoi(cp+1);
+					buf[amp-1] = (char)atoi(cp+1);
 					count = amp;
 				} else if (!strcmp(cp, "amp")) {
 					count = amp;

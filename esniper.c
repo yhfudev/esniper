@@ -219,7 +219,7 @@ CheckSecs(const void *valueptr, const optionTable_t *tableptr,
 	}
 
 	/* else must be integer value */
-	intval = strtol((const char*)valueptr, &endptr, 10);
+	intval = (int)strtol((const char*)valueptr, &endptr, 10);
 	if (*endptr != '\0') {
 		if (filename)
 			printLog(stderr, "Configuration option \"%s\" in file %s", line, filename);

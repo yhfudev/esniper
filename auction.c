@@ -51,7 +51,8 @@ static time_t defaultLoginInterval = 12 * 60 * 60;	/* ebay login interval */
 
 static int acceptBid(const char *pagename, auctionInfo *aip);
 static int bid(auctionInfo *aip);
-static int ebayLogin(auctionInfo *aip, int interval);
+static int ebayLogin(auctionInfo *aip, time_t interval);
+static int forceEbayLogin(auctionInfo *aip);
 static char *getIdInternal(char *s, size_t len);
 static int getInfoTiming(auctionInfo *aip, time_t *timeToFirstByte);
 static int getQuantity(int want, int available);
@@ -253,7 +254,7 @@ getInfoTiming(auctionInfo *aip, time_t *timeToFirstByte)
 		ret = parseBidHistory(mp, aip, start, timeToFirstByte, 0);
 		freeMembuf(mp);
 		if (i == 0 && ret == 1 && aip->auctionError == ae_mustsignin) {
-			if (ebayLogin(aip, -1))
+			if (forceEbayLogin(aip))
 				break;
 		} else if (aip->auctionError == ae_notime)
 			/* Blank time remaining -- give it another chance */
@@ -353,13 +354,26 @@ preBid(auctionInfo *aip)
 static const char LOGIN_1_URL[] = "https://%s/ws/eBayISAPI.dll?SignIn";
 static const char LOGIN_2_URL[] = "https://%s/ws/eBayISAPI.dll?SignInWelcome&userid=%s&pass=%s&keepMeSignInOption=1";
 
+
+/*
+ * Force an ebay login.
+ *
+ * Returns 0 on success, 1 on failure.
+ */
+static int
+forceEbayLogin(auctionInfo *aip)
+{
+	loginTime = 0;
+	return ebayLogin(aip, 0);
+}
+
 /*
  * Ebay login.  Make sure loging has been done with the given interval.
  *
  * Returns 0 on success, 1 on failure.
  */
 static int
-ebayLogin(auctionInfo *aip, int interval)
+ebayLogin(auctionInfo *aip, time_t interval)
 {
 	memBuf_t *mp = NULL;
 	size_t urlLen;
@@ -369,7 +383,7 @@ ebayLogin(auctionInfo *aip, int interval)
 	char *password;
 
 	/* negative value forces login */
-	if (interval >= 0) {
+	if (loginTime > 0) {
 		if (interval == 0)
 			interval = defaultLoginInterval;	/* default: 12 hours */
 		if ((time(NULL) - loginTime) <= interval)
@@ -722,7 +736,7 @@ watch(auctionInfo *aip)
 				    aip->auctionError == ae_bidkey)
 					break;
 				if (aip->auctionError == ae_mustsignin &&
-				    ebayLogin(aip, -1))
+				    forceEbayLogin(aip))
 					break;
 			}
 			if (aip->auctionError != ae_none &&
@@ -743,15 +757,15 @@ watch(auctionInfo *aip)
 		 * at 2 hours, 1 hour, 5 minutes, 2 minutes
 		 */
 		if (remain <= 150)	/* 2 minutes + 30 seconds (slop) */
-			sleepTime = remain;
+			sleepTime = (unsigned int)remain;
 		else if (remain < 720)	/* 5 minutes + 2 minutes (slop) */
-			sleepTime = remain - 120;
+			sleepTime = (unsigned int)remain - 120;
 		else if (remain < 3900)	/* 1 hour + 5 minutes (slop) */
-			sleepTime = remain - 600;
+			sleepTime = (unsigned int)remain - 600;
 		else if (remain < 10800)/* 2 hours + 1 hour (slop) */
-			sleepTime = remain - 3600;
+			sleepTime = (unsigned int)remain - 3600;
 		else if (remain < 97200)/* 1 day + 3 hours (slop) */
-			sleepTime = remain - 7200;
+			sleepTime = (unsigned int)remain - 7200;
 		else			/* knock off one day */
 			sleepTime = 86400;
 
@@ -824,7 +838,7 @@ snipeAuction(auctionInfo *aip)
 			if (bid(aip)) {
 				/* failed bid */
 				if (aip->auctionError == ae_mustsignin) {
-					if (!ebayLogin(aip, -1))
+					if (!forceEbayLogin(aip))
 						continue;
 				}
 				printAuctionError(aip, stderr);
@@ -872,7 +886,7 @@ snipeAuction(auctionInfo *aip)
 	return won;
 }
 
-//Max \td in the description table (is 8 on 02 of May 2010):
+/* Max \td in the description table (is 8 on 02 of May 2010): */
 #define MAX_TDS 8
 #define MAX_TDS_LENGTH 6
 
@@ -895,13 +909,13 @@ printMyItemsRow(char **row, int printNewline)
 	};
 	int column = 0;
 	int ret = printNewline;
-	int item_nr=0;	// count no_tag item
+	int item_nr=0;	/* count no_tag item */
 
 	for (; row[column]; ++column) {
 		memBuf_t buf;
 		char *value = NULL;
 
-		if (column == 2) {	//item nr in 3rd (-1) column
+		if (column == 2) {	/* item nr in 3rd (-1) column */
 			static const char search[] = "item=";
 			char *tmp = strstr(row[column], search);
 
@@ -918,21 +932,21 @@ printMyItemsRow(char **row, int printNewline)
 				free(value);
 			}
 		}
-		strToMemBuf(row[column], &buf); //load new row
+		strToMemBuf(row[column], &buf); /* load new row */
 		for (item_nr = 0; item_nr < MAX_TDS_LENGTH; item_nr++) {
 			value = getNonTag(&buf);
 
-			// there may be a "ENDING SOON" message
+			/* there may be a "ENDING SOON" message */
 			if ((column==2)&&(item_nr==0)&&strstr(value,"ENDING SOON"))
 				value = getNonTag(&buf);
-			// when nothing interesting in row
+			/* when nothing interesting in row */
 			if (column >= MAX_TDS || !myitems_description[column][item_nr])
 				continue;
-			//print the entry
+			/* print the entry */
 			printLog(stdout, myitems_description[column][item_nr], value ? value : "");
 		}
 	}
-	printf("\n");	// for spacing
+	printf("\n");	/* for spacing */
 	return ret;
 }
 

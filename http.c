@@ -6,10 +6,10 @@
  * modification, are permitted provided that the following conditions are met:
  *
  * - Redistributions of source code must retain the above copyright notice,
- *   this list of conditions and the following disclaimer.
+ *	this list of conditions and the following disclaimer.
  * - Redistributions in binary form must reproduce the above copyright
- *   notice, this list of conditions and the following disclaimer in the
- *   documentation and/or other materials provided with the distribution.
+ *	notice, this list of conditions and the following disclaimer in the
+ *	documentation and/or other materials provided with the distribution.
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
@@ -26,6 +26,7 @@
 
 #include "http.h"
 #include "esniper.h"
+#include <ctype.h>
 #include <curl/curl.h>
 #include <curl/types.h>
 #include <curl/easy.h>
@@ -117,7 +118,7 @@ memBuf_t *
 readFile(FILE *fp)
 {
 	static memBuf_t membuf = { NULL, 0, NULL, 0 };
-	static const int BUFINC = 20 * 1024;
+	static const size_t BUFINC = 20 * 1024;
 	size_t i = 0;
 	int c;
 
@@ -142,7 +143,7 @@ httpRequest(const char *url, const char *logUrl, const char *data, const char *l
 {
 	const char *nonNullData = data ? data : "";
 	memBuf_t *mp = (memBuf_t *)myMalloc(sizeof(memBuf_t));
-        char *metaRefresh;
+	char *metaRefresh;
 
 	mp->memory = mp->readptr = NULL;
 	mp->size = 0;
@@ -175,13 +176,12 @@ httpRequest(const char *url, const char *logUrl, const char *data, const char *l
 	if ((curlrc = curl_easy_perform(easyhandle)))
 		return httpRequestFailed(mp);
 
-        log(("checking for META Refresh"));
-        if((metaRefresh = memGetMetaRefresh(mp)) != NULL)
-        {
-           log(("page redirection by META Refresh: %s\n", metaRefresh));
-           freeMembuf(mp);
-           return httpGet(metaRefresh, NULL);
-        }
+	log(("checking for META Refresh"));
+	if ((metaRefresh = memGetMetaRefresh(mp)) != NULL) {
+		log(("page redirection by META Refresh: %s\n", metaRefresh));
+		freeMembuf(mp);
+		return httpGet(metaRefresh, NULL);
+	}
 
 	return mp;
 }
@@ -216,7 +216,7 @@ initCurlStuff(void)
 
 	/* debug output, show what libcurl does */
 	if (options.curldebug &&
-	    (curlrc = curl_easy_setopt(easyhandle, CURLOPT_VERBOSE, 1)))
+		 (curlrc = curl_easy_setopt(easyhandle, CURLOPT_VERBOSE, 1)))
 		return initCurlStuffFailed();
 
 	/* follow all redirects */
@@ -225,7 +225,7 @@ initCurlStuff(void)
 
 	/* use proxy */
 	if (options.proxy &&
-	    (curlrc = curl_easy_setopt(easyhandle, CURLOPT_PROXY, options.proxy)))
+		 (curlrc = curl_easy_setopt(easyhandle, CURLOPT_PROXY, options.proxy)))
 		return initCurlStuffFailed();
 
 	/* send all data to this function */
@@ -346,106 +346,97 @@ memChr(memBuf_t *mp, char c)
 char *
 memGetMetaRefresh(memBuf_t *mp)
 {
-   char *cp;
-   static char *buf = NULL;
-   char *bufptr;
-   static int bufsize = 0;
-   char c;
-   char *metaRefresh = NULL;
+	char *cp;
+	static char *buf = NULL;
+	char *bufptr;
+	static size_t bufsize = 0;
+	char *metaRefresh = NULL;
 
-   if(!buf)
-   {
-      bufsize = 1024;
-      buf = myMalloc(bufsize);
-   }
+	if (!buf) {
+		bufsize = 1024;
+		buf = myMalloc(bufsize);
+	}
 
-   /* look for all "meta" tags until Refresh found */
-   while(!metaRefresh && (cp = memStr(mp, "<meta")) != NULL)
-   {
-      bufptr = buf;
-      /* copy whole tag to buffer for processing */
-      do
-      {
-         *bufptr++ = c = memGetc(mp);
-         if(bufptr > buf + (bufsize -1))
-         {
-            bufsize += 1024;
-            buf = myRealloc(buf, bufsize);
-         }
-      }
-      while(c && c != '>');
+	/* look for all "meta" tags until Refresh found */
+	while (!metaRefresh && (cp = memStr(mp, "<meta")) != NULL) {
+		int c;
 
-      /* terminate string */
-      *bufptr = '\0';
-      log(("found META tag: %s", buf));
+		bufptr = buf;
+		/* copy whole tag to buffer for processing */
+		for (c = memGetc(mp); c != EOF && c != '>'; c = memGetc(mp)) {
+			*bufptr++ = (char)c;
+			if (bufptr > buf + (bufsize -1)) {
+				bufsize += 1024;
+				buf = myRealloc(buf, bufsize);
+			}
+		}
 
-      cp = strstr(buf, "http-equiv=");
-      if(!cp)
-      {
-         log(("no http-equiv, looking for next"));
-         continue;
-      }
-      cp += 11;
+		/* terminate string */
+		*bufptr = '\0';
+		log(("found META tag: %s", buf));
 
-      if(strncasecmp(cp, "\"Refresh\"", 9))
-      {
-         log(("no Refresh, looking for next"));
-         continue;
-      }
+		cp = strstr(buf, "http-equiv=");
+		if (!cp) {
+			log(("no http-equiv, looking for next"));
+			continue;
+		}
+		cp += 11;
 
-      cp = strstr(buf, "content=\"");
-      if(!cp)
-      {
-         log(("no content, looking for next"));
-         continue;
-      }
-      cp += 9;
+		if (strncasecmp(cp, "\"Refresh\"", 9)) {
+			log(("no Refresh, looking for next"));
+			continue;
+		}
 
-      /* skip delay value (everything until ';') */
-      while(*cp && *cp != ';') cp++;
-      /* if not end of string skip ';' */
-      if(*cp) cp++;
-      /* and skip whitespace */
-      while(*cp && isspace(*cp)) cp++;
+		cp = strstr(buf, "content=\"");
+		if (!cp) {
+			log(("no content, looking for next"));
+			continue;
+		}
+		cp += 9;
 
-      /* now there should be "url=" with optional whitespace around '=' */
-      if(strncasecmp(cp, "url", 3))
-      {
-         log(("no url key, looking for next"));
-         continue;
-      }
-      cp += 3;
+		/* skip delay value (everything until ';') */
+		while(*cp && *cp != ';') cp++;
+		/* if not end of string skip ';' */
+		if(*cp) cp++;
+		/* and skip whitespace */
+		while(*cp && isspace(*cp)) cp++;
 
-      while(*cp && isspace(*cp)) cp++;
-      if(*cp != '=')
-      {
-         log(("no = after url, looking for next"));
-         continue;
-      }
-      cp++;
-      while(*cp && isspace(*cp)) cp++;
+		/* now there should be "url=" with optional whitespace around '=' */
+		if(strncasecmp(cp, "url", 3))
+		{
+			log(("no url key, looking for next"));
+			continue;
+		}
+		cp += 3;
 
-      /* this is the beginning of the redirection URL */
-      bufptr = cp;
-      cp = strchr(bufptr, '"');
-      if(!cp)
-      {
-         log(("no closing \", looking for next"));
-         continue;
-      }
-      /* cut off terminating '"' and other trailing garbage */
-      *cp = '\0';
-      metaRefresh = bufptr;
-   }
+		while(*cp && isspace(*cp)) cp++;
+		if (*cp != '=') {
+			log(("no = after url, looking for next"));
+			continue;
+		}
+		cp++;
+		while(*cp && isspace(*cp)) cp++;
 
-   if(metaRefresh)
-      log(("found redirection"));
-   else
-      log(("no redirection found"));
+		/* this is the beginning of the redirection URL */
+		bufptr = cp;
+		cp = strchr(bufptr, '"');
+		if (!cp) {
+			log(("no closing \", looking for next"));
+			continue;
+		}
+		/* cut off terminating '"' and other trailing garbage */
+		*cp = '\0';
+		metaRefresh = bufptr;
+	}
 
-   memReset(mp);
+	if (metaRefresh)
+		log(("found redirection"));
+	else
+		log(("no redirection found"));
 
-   return metaRefresh;
+	memReset(mp);
+
+	return metaRefresh;
 }
 
 time_t
@@ -531,8 +522,7 @@ static const char *
 curl_easy_strerror(CURLcode error)
 {
 	if (error < 0 || error >= CURL_LAST ||
-	    error >= (sizeof(curlErrorTable) / sizeof(const char *)))
-
+		 error >= (sizeof(curlErrorTable) / sizeof(const char *)))
 		return "unknown error";
 	return curlErrorTable[error];
 }

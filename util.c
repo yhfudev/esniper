@@ -167,7 +167,7 @@ logOpen(const auctionInfo *aip, const char *logdir)
 	if (logdir) {
 		char *tmp = logfilename;
 
-//not win32 --> *nix
+/* not win32 --> *nix */
 #if defined(WIN32)
 		logfilename = myStrdup3(logdir, "/", logfilename);
 #else
@@ -189,7 +189,7 @@ logOpen(const auctionInfo *aip, const char *logdir)
 				struct passwd *pw;
 
 				if (slash) {
-					int namelen = slash - (logdir+1);
+					size_t namelen = (size_t)(slash - (logdir+1));
 					char *username = myMalloc(namelen + 1);
 
 					strncpy(username, logdir + 1, namelen);
@@ -523,6 +523,7 @@ prompt(const char *p, int noecho)
 #else
 		tcgetattr(fileno(stdin), &save);
 		memcpy(&tmp, &save, sizeof(struct termios));
+		/* make misc.mk check will give a warning. */
 		tmp.c_lflag &= (~ECHO);
 		tcsetattr(fileno(stdin), TCSANOW, &tmp);
 #endif
@@ -585,7 +586,7 @@ boolValue(const char *value)
 char *
 priceFixup(char *price, auctionInfo *aip)
 {
-	int len, i, j, start = 0, end, count = 0;
+	size_t len, i, j, start = 0, end, count = 0;
 
 	if (!price)
 		return price;
@@ -677,12 +678,12 @@ setUsername(char *username)
 void
 setPassword(char *password)
 {
-	int i, len;
+	size_t i, len;
 	char *escapedPassword;
 
 	/* http escape password, clear original */
 	len = strlen(password);
-	escapedPassword = curl_escape(password, len);
+	escapedPassword = curl_escape(password, (int)len);
 	for (i = 0; i < len; ++i)
 		password[i] = '\0';
 	free(password);
