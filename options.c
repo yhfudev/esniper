@@ -306,7 +306,7 @@ parseIntValue(const char *name, const char *value,
 	char *endptr;
 
 	if (!value) {
-		if(filename)
+		if (filename)
 			printLog(stderr, "Configuration option \"%s\" in file %s needs an integer value\n", line, filename);
 		else
 			printLog(stderr, "Option -%s needs an integer value\n",

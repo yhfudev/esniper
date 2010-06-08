@@ -235,7 +235,7 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, time_t start, time_t *timeToFirs
 			free(aip->remainRaw);
 			aip->remainRaw = myStrdup("");
 			aip->remain = 1;
-                }
+		}
 		if (!strcasecmp(aip->remainRaw, "Refresh")) {
 			/* Refresh is the label on the next button.  If we
 			 * see this, time left must be empty.  Assume 1 second.
@@ -289,8 +289,8 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, time_t start, time_t *timeToFirs
 				aip->quantityBid = 0;
 				aip->price = 0;
 				printf("# of bids: %d\n"
-				       "Currently: --  (your maximum bid: %s)\n",
-				       aip->bids, aip->bidPriceStr);
+					"Currently: --  (your maximum bid: %s)\n",
+					aip->bids, aip->bidPriceStr);
 				if (*options.username)
 					printf("High bidder: -- (NOT %s)\n", options.username);
 				else
@@ -429,8 +429,8 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, time_t start, time_t *timeToFirs
 			aip->bids = 0;
 			aip->price = 0;
 			printf("# of bids: %d\n"
-			       "Currently: --  (your maximum bid: %s)\n",
-			       aip->bids, aip->bidPriceStr);
+				"Currently: --  (your maximum bid: %s)\n",
+				aip->bids, aip->bidPriceStr);
 			if (*options.username)
 				printf("High bidder: -- (NOT %s)\n", options.username);
 			else
@@ -544,7 +544,7 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, time_t start, time_t *timeToFirs
 		}
 		printf("# of bids: %d\n", aip->bids);
 		printf("Currently: %s  (your maximum bid: %s)\n",
-		       currently, aip->bidPriceStr);
+			currently, aip->bidPriceStr);
 		free(currently);
 		switch (aip->winning) {
 		case 0:
@@ -598,7 +598,7 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, time_t start, time_t *timeToFirs
 			aip->won = aip->winning;
 		printf("# of bids: %d\n", aip->bids);
 		printf("Currently: %s  (your maximum bid: %s)\n",
-		       currently, aip->bidPriceStr);
+			currently, aip->bidPriceStr);
 		free(currently);
 		if (aip->winning > 0) {
 			if (aip->winning == wanted)
@@ -642,8 +642,8 @@ getSeconds(char *timestr)
 	 * the auction is over, or it still running with less than 1 second.
 	 * I'll make the safer assumption and say that there is 1 second
 	 * remaining.
-         * bomm: The transition seems to have changed to "--". I will accept
-         * any string starting with "--".
+	 * bomm: The transition seems to have changed to "--". I will accept
+	 * any string starting with "--".
 	 */
 	if (!*timestr || !strncmp(timestr, "--", 2))
 		return 1;

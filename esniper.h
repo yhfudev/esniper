@@ -63,9 +63,9 @@ extern const char *getVersion(void);
 extern const char *getProgname(void);
 
 #ifdef __lint
-#define log(x) if(!options.debug) 0; else dlog x
+#define log(x) if (!options.debug) 0; else dlog x
 #else
-#define log(x) if(!options.debug) ; else dlog x
+#define log(x) if (!options.debug) ; else dlog x
 #endif
 
 #endif /* ESNIPER_H_INCLUDED */

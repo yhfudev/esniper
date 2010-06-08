@@ -108,19 +108,18 @@ getPageInfo(memBuf_t *mp)
 	int needPageId = 1;
 	int needSrcId = 1;
 	int needMore = 3;
-        char *title = NULL;
+	char *title = NULL;
 
 	log(("getPageInfo():\n"));
 	memReset(mp);
 	while (needMore && (line = getTag(mp))) {
 		char *tmp;
 
-                if (!strcasecmp(line, "title"))
-                {
-                    line = getNonTag(mp);
-                    if(line) title = myStrdup(line);
-                    continue;
-                }
+		if (!strcasecmp(line, "title")) {
+		    line = getNonTag(mp);
+		    if (line) title = myStrdup(line);
+		    continue;
+		}
 		if (strncmp(line, "!--", 3))
 			continue;
 		if (needPageName && (tmp = strstr(line, PAGENAME))) {
@@ -143,14 +142,14 @@ getPageInfo(memBuf_t *mp)
 			}
 		}
 	}
-        if(needPageName && title) {
-           log(("using title as page name: %s", title));
-           p.pageName = title;
-           --needPageName;
-           --needMore;
-           title = NULL;
-        }
-        if(title) free(title);
+	if (needPageName && title) {
+	   log(("using title as page name: %s", title));
+	   p.pageName = title;
+	   --needPageName;
+	   --needMore;
+	   title = NULL;
+	}
+	if (title) free(title);
 	log(("getPageInfo(): pageName = %s, pageId = %s, srcId = %s\n", nullStr(p.pageName), nullStr(p.pageId), nullStr(p.srcId)));
 	memReset(mp);
 	if (needMore == 3)
@@ -429,9 +428,9 @@ ebayLogin(auctionInfo *aip, time_t interval)
 		 */
 		if ((pp->srcId && !strcmp(pp->srcId, "SignInAlertSupressor"))||
 		    (pp->pageName &&
-                       (!strncasecmp(pp->pageName, "MyeBay", 6) ||
-		        !strncasecmp(pp->pageName, "My eBay", 7))
-                    ))
+			(!strncasecmp(pp->pageName, "MyeBay", 6) ||
+			 !strncasecmp(pp->pageName, "My eBay", 7))
+		    ))
 			loginTime = time(NULL);
 		else if (pp->pageName && !strcmp(pp->pageName, "Welcome to eBay"))
 			ret = auctionError(aip, ae_badpass, NULL);

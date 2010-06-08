@@ -236,13 +236,11 @@ char *
 getNthNonTagFromString(const char *s, int n)
 {
 	memBuf_t buf;
-        int i;
+	int i;
 
 	strToMemBuf(s, &buf);
-        for(i=1; i<n; i++)
-        {
-           getNonTag(&buf);
-        }
+	for (i = 1; i < n; i++)
+		getNonTag(&buf);
 	return myStrdup(getNonTag(&buf));
 }
 
@@ -342,12 +340,12 @@ getTableCell(memBuf_t *mp)
 
 	while ((cp = getTag(mp))) {
 		if (nesting == 1 && 
-                    (!strncmp(cp, "td", 2) || !strncmp(cp, "th", 2)) &&
+		    (!strncmp(cp, "td", 2) || !strncmp(cp, "th", 2)) &&
 		    (isspace((int)*(cp+2)) || *(cp+2) == '\0')) {
 			/* found <td>, now must find </td> */
 			start = mp->readptr;
 		} else if (nesting == 1 && 
-                           (!strcmp(cp, "/td") || !strcmp(cp, "/th"))) {
+			(!strcmp(cp, "/td") || !strcmp(cp, "/th"))) {
 			/* end of this item */
 			for (end = mp->readptr - 1; *end != '<'; --end)
 				;

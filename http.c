@@ -395,27 +395,26 @@ memGetMetaRefresh(memBuf_t *mp)
 		cp += 9;
 
 		/* skip delay value (everything until ';') */
-		while(*cp && *cp != ';') cp++;
+		while (*cp && *cp != ';') cp++;
 		/* if not end of string skip ';' */
-		if(*cp) cp++;
+		if (*cp) cp++;
 		/* and skip whitespace */
-		while(*cp && isspace(*cp)) cp++;
+		while (*cp && isspace(*cp)) cp++;
 
 		/* now there should be "url=" with optional whitespace around '=' */
-		if(strncasecmp(cp, "url", 3))
-		{
+		if (strncasecmp(cp, "url", 3)) {
 			log(("no url key, looking for next"));
 			continue;
 		}
 		cp += 3;
 
-		while(*cp && isspace(*cp)) cp++;
+		while (*cp && isspace(*cp)) cp++;
 		if (*cp != '=') {
 			log(("no = after url, looking for next"));
 			continue;
 		}
 		cp++;
-		while(*cp && isspace(*cp)) cp++;
+		while (*cp && isspace(*cp)) cp++;
 
 		/* this is the beginning of the redirection URL */
 		bufptr = cp;
