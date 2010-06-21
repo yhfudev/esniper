@@ -42,19 +42,19 @@
 #include <string.h>
 
 static int parseConfigValue(const char *name, const char *value,
-			    const optionTable_t *table, const char *filename,
+			    optionTable_t *table, const char *filename,
 			    const char *line);
 static int parseBoolValue(const char *name, const char *value,
-			  const optionTable_t *tableptr, const char *filename,
+			  optionTable_t *tableptr, const char *filename,
 			  const char *line, int neg);
 static int parseStringValue(const char *name, const char *value,
-			    const optionTable_t *tableptr, const char *filename,
+			    optionTable_t *tableptr, const char *filename,
 			    const char *line);
 static int parseIntValue(const char *name, const char *value,
-			 const optionTable_t *tableptr, const char *filename,
+			 optionTable_t *tableptr, const char *filename,
 			 const char *line);
 static int parseSpecialValue(const char *name, const char *value,
-			     const optionTable_t *tableptr,
+			     optionTable_t *tableptr,
 			     const char *filename, const char *line);
 
 /*
@@ -167,9 +167,9 @@ parseGetoptValue(int option, const char *optval, optionTable_t *table)
  */
 static int
 parseConfigValue(const char *name, const char *value,
-	const optionTable_t *table, const char *filename, const char *line)
+	optionTable_t *table, const char *filename, const char *line)
 {
-	const optionTable_t *tableptr;
+	optionTable_t *tableptr;
 	const char *tablename;
 	int ret = 0;
 
@@ -195,7 +195,8 @@ parseConfigValue(const char *name, const char *value,
 			ret = parseStringValue(name, value, tableptr, filename,
 				line);
 			break;
-		case OPTION_SPECIAL:
+		case OPTION_SPECINT:
+		case OPTION_SPECSTR:
 			ret = parseSpecialValue(name, value, tableptr, filename,
 				line);
 			break;
@@ -225,7 +226,7 @@ parseConfigValue(const char *name, const char *value,
  */
 static int
 parseBoolValue(const char *name, const char *value,
-	const optionTable_t *tableptr, const char *filename, const char *line,
+	optionTable_t *tableptr, const char *filename, const char *line,
 	int neg)
 {
 	int intval = boolValue(value);
@@ -244,6 +245,7 @@ parseBoolValue(const char *name, const char *value,
 			return 1;
 	} else
 		*(int*)(tableptr->value) = intval;
+	tableptr->isSet++;
 	log(("bool value for %s is %d\n", name, *(int*)(tableptr->value)));
 	return 0;
 }
@@ -255,7 +257,7 @@ parseBoolValue(const char *name, const char *value,
  */
 static int
 parseStringValue(const char *name, const char *value,
-	const optionTable_t *tableptr, const char *filename, const char *line)
+	optionTable_t *tableptr, const char *filename, const char *line)
 {
 	if (tableptr->checkfunc) {
 		/* Check value with specific check function.
@@ -267,6 +269,7 @@ parseStringValue(const char *name, const char *value,
 		free(*(char**)(tableptr->value));
 		*(char**)(tableptr->value) = myStrdup(value);
 	}
+	tableptr->isSet++;
 	log(("string value for %s is \"%s\"\n",
 	     name, nullStr(*(char**)(tableptr->value))));
 	return 0;
@@ -280,7 +283,7 @@ parseStringValue(const char *name, const char *value,
  */
 static int
 parseSpecialValue(const char *name, const char *value,
-	const optionTable_t *tableptr, const char *filename, const char *line)
+	optionTable_t *tableptr, const char *filename, const char *line)
 {
 	if (tableptr->checkfunc) { /* check value with check function */
 		if ((*tableptr->checkfunc)(value, tableptr, filename, line))
@@ -289,6 +292,7 @@ parseSpecialValue(const char *name, const char *value,
 		printLog(stderr, "Internal error: special type needs check function in option table (%s)", tableptr->configname ? tableptr->configname : tableptr->optionname);
 		return 1;
 	}
+	tableptr->isSet++;
 	return 0;
 }
 
@@ -299,7 +303,7 @@ parseSpecialValue(const char *name, const char *value,
  */
 static int
 parseIntValue(const char *name, const char *value,
-	const optionTable_t *tableptr, const char *filename, const char *line)
+	optionTable_t *tableptr, const char *filename, const char *line)
 {
 	long longval;
 	int intval;
@@ -329,6 +333,65 @@ parseIntValue(const char *name, const char *value,
 			return 1;
 	} else
 		*(int*)(tableptr->value) = intval;
+	tableptr->isSet++;
 	log(("integer value for %s is %d\n", name, *(int*)(tableptr->value)));
 	return 0;
 }
+
+char * logOptionValues(const optionTable_t *table)
+{
+	char *res = myStrdup("\tspecified options or config values:\n");
+	char *tmp;
+	char buf[1024];
+	const optionTable_t *tableptr;
+	for(tableptr = table; NULL != tableptr->value; ++tableptr)
+	{
+		if(tableptr->isSet)
+		{
+			if(tableptr->logging == LOG_NORMAL)
+			{
+				switch(tableptr->type)
+				{
+				case OPTION_STRING:
+				case OPTION_SPECSTR:
+					sprintf(buf, "\t %2d x %.15s(%.15s) = \"%.900s\"\n",
+						tableptr->isSet,
+						nullEmptyStr(tableptr->configname),
+						nullEmptyStr(tableptr->optionname),
+						nullStr(*(char**)(tableptr->value))
+						);
+					break;
+				case OPTION_INT:
+				case OPTION_SPECINT:
+				case OPTION_BOOL:
+				case OPTION_BOOL_NEG:
+					sprintf(buf, "\t %2d x %.15s(%.15s) = %d\n",
+						tableptr->isSet,
+						nullEmptyStr(tableptr->configname),
+						nullEmptyStr(tableptr->optionname),
+						*(int*)(tableptr->value)
+						);
+					break;
+				default:
+					sprintf(buf, "\t %2d x %.15s(%.15s) = (unknown type)\n",
+						tableptr->isSet,
+						nullEmptyStr(tableptr->configname),
+						nullEmptyStr(tableptr->optionname)
+						);
+					break;
+				}
+			} else {
+				sprintf(buf, "\t %2d x %.15s(%.15s) = ***\n",
+					tableptr->isSet,
+					nullEmptyStr(tableptr->configname),
+					nullEmptyStr(tableptr->optionname)
+					);
+			}
+			tmp = myStrdup2(res, buf);
+			free(res);
+			res = tmp;
+		}
+	}
+	return res;
+}
+

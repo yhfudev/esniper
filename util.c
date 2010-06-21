@@ -322,11 +322,12 @@ checkVersion(void)
  * Request user to file a bug report.
  */
 void
-bugReport(const char *func, const char *file, int line, auctionInfo *aip, memBuf_t *mp, const char *fmt, ...)
+bugReport(const char *func, const char *file, int line, auctionInfo *aip, memBuf_t *mp, const optionTable_t *optiontab, const char *fmt, ...)
 {
 	va_list arglist;
 	const char *version = getVersion();
 	const char *newVersion = checkVersion();
+	char *optionlog;
 
 	if (newVersion) {
 		printLog(stdout,
@@ -375,6 +376,11 @@ bugReport(const char *func, const char *file, int line, auctionInfo *aip, memBuf
 			freePageInfo(pp);
 		}
 	}
+	if(optiontab) {
+		optionlog = logOptionValues(optiontab);
+		printLog(stdout, "%s", optionlog);
+		free(optionlog);
+	}
 	printf("\t");
 	if (options.debug && logfile) {
 		va_start(arglist, fmt);
@@ -400,6 +406,8 @@ bugReport(const char *func, const char *file, int line, auctionInfo *aip, memBuf
 		} else
 			printLog(stdout, "\tFailed to create bug file %s: %s\n", bugname, strerror(errno));
 		free(bugname);
+	} else {
+		printLog(stdout, "\tPage content not available.");
 	}
 	printLog(stdout, "and click submit.\n");
 	fflush(stdout);
@@ -454,6 +462,15 @@ const char *
 nullStr(const char *s)
 {
 	return s ? s : "(null)";
+}
+
+/*
+ * Return a valid string, even if it is null
+ */
+const char *
+nullEmptyStr(const char *s)
+{
+	return s ? s : "";
 }
 
 /*

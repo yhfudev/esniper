@@ -31,6 +31,7 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include "http.h"
+#include "options.h"
 
 extern void *myMalloc(size_t);
 extern void *myRealloc(void *buf, size_t size);
@@ -45,12 +46,13 @@ extern void logOpen(const auctionInfo *aip, const char *logdir);
 extern void dlog(const char *fmt, ...);
 extern void printLog(FILE *fp, const char *fmt, ...);
 extern const char *checkVersion(void);
-extern void bugReport(const char *func, const char *file, int line, auctionInfo *aip, memBuf_t *mp, const char *fmt, ...);
+extern void bugReport(const char *func, const char *file, int line, auctionInfo *aip, memBuf_t *mp, const optionTable_t *optiontab, const char *fmt, ...);
 extern void logChar(int c);
 
 extern char *getUntil(memBuf_t *mp, int until);
 
 extern const char *nullStr(const char *);
+extern const char * nullEmptyStr(const char *s);
 extern char *timestamp(void);
 extern int skipline(FILE *fp);
 extern char *prompt(const char *p, int noecho);

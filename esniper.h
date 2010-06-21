@@ -58,6 +58,7 @@ typedef struct {
 } option_t;
 
 extern option_t options;
+extern optionTable_t optiontab[];
 
 extern const char *getVersion(void);
 extern const char *getProgname(void);

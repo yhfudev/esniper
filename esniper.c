@@ -96,20 +96,6 @@ option_t options = {
 	0		/* curldebug */
 };
 
-/* support functions */
-#if !defined(WIN32)
-static void sigAlarm(int sig);
-#endif
-static void sigTerm(int sig);
-static void cleanup(void);
-static int usage(int helptype);
-static void printRemain(int remain);
-static void printVersion(void);
-#define USAGE_SUMMARY	0x01
-#define USAGE_LONG	0x02
-#define USAGE_CONFIG	0x04
-int main(int argc, char *argv[]);
-
 /* used for option table */
 static int CheckDebug(const void *valueptr, const optionTable_t *tableptr,
 		      const char *filename, const char *line);
@@ -129,6 +115,60 @@ static int SetLongHelp(const void *valueptr, const optionTable_t *tableptr,
 		       const char *filename, const char *line);
 static int SetConfigHelp(const void *valueptr, const optionTable_t *tableptr,
 			 const char *filename, const char *line);
+static int CheckUser(const void *valueptr, const optionTable_t *tableptr,
+	  const char *filename, const char *line);
+static int CheckPass(const void *valueptr, const optionTable_t *tableptr,
+	  const char *filename, const char *line);
+
+/* this table describes options and config entries */
+optionTable_t optiontab[] = {
+   {"username", "u", (void*)&options.username,     OPTION_STRING,  LOG_CONFID, &CheckUser, 0},
+   {"password",NULL, (void*)&options.password,     OPTION_SPECSTR, LOG_CONFID, &CheckPass, 0},
+   {"seconds",  "s", (void*)&options.bidtime,      OPTION_SPECINT, LOG_NORMAL, &CheckSecs, 0},
+   {"quantity", "q", (void*)&options.quantity,     OPTION_INT,     LOG_NORMAL, &CheckQuantity, 0},
+   {"proxy",    "p", (void*)&options.proxy,        OPTION_STRING,  LOG_NORMAL, NULL, 0},
+   {NULL,       "P", (void*)&options.password,     OPTION_STRING,  LOG_CONFID,   &ReadPass, 0},
+   {NULL,       "U", (void*)&options.username,     OPTION_STRING,  LOG_NORMAL, &ReadUser, 0},
+   {NULL,       "c", (void*)&options.conffilename, OPTION_STRING,  LOG_NORMAL, &CheckConfigFile, 0},
+   /*
+    * -f can't be entered from command line, it's just a convenient way
+    * to integrate auction filename processing with option processing.
+    */
+   {NULL,       "f", (void*)&options.auctfilename, OPTION_STRING,  LOG_NORMAL, &CheckAuctionFile, 0},
+   {"reduce",  NULL, (void*)&options.reduce,       OPTION_BOOL,    LOG_NORMAL, NULL, 0},
+   {NULL,       "r", (void*)&options.reduce,       OPTION_BOOL_NEG,LOG_NORMAL, NULL, 0},
+   {"bid",     NULL, (void*)&options.bid,          OPTION_BOOL,    LOG_NORMAL, NULL, 0},
+   {NULL,       "n", (void*)&options.bid,          OPTION_BOOL_NEG,LOG_NORMAL, NULL, 0},
+   {NULL,       "m", (void*)&options.myitems,      OPTION_BOOL,    LOG_NORMAL, NULL, 0},
+   {NULL,       "i", (void*)&options.info,         OPTION_BOOL,    LOG_NORMAL, NULL, 0},
+   {"debug",    "d", (void*)&options.debug,        OPTION_BOOL,    LOG_NORMAL, CheckDebug, 0},
+   {"curldebug","C", (void*)&options.curldebug,    OPTION_BOOL,    LOG_NORMAL, NULL, 0},
+   {"batch",    "b", (void*)&options.batch,        OPTION_BOOL,    LOG_NORMAL, NULL, 0},
+   {"logdir",   "l", (void*)&options.logdir,       OPTION_STRING,  LOG_NORMAL, NULL, 0},
+   {"historyHost",NULL,(void*)&options.historyHost,OPTION_STRING,  LOG_NORMAL, NULL, 0},
+   {"prebidHost",NULL,(void*)&options.prebidHost,  OPTION_STRING,  LOG_NORMAL, NULL, 0},
+   {"bidHost", NULL, (void*)&options.bidHost,      OPTION_STRING,  LOG_NORMAL, NULL, 0},
+   {"loginHost",NULL,(void*)&options.loginHost,    OPTION_STRING,  LOG_NORMAL, NULL, 0},
+   {"myeBayHost",NULL,(void*)&options.myeBayHost,  OPTION_STRING,  LOG_NORMAL, NULL, 0},
+   {NULL,       "?", (void*)&options.usage,        OPTION_BOOL,    LOG_NORMAL, NULL, 0},
+   {NULL,       "h", (void*)&options.usage,        OPTION_STRING,  LOG_NORMAL,SetLongHelp, 0},
+   {NULL,       "H", (void*)&options.usage,        OPTION_STRING,  LOG_NORMAL,SetConfigHelp, 0},
+   {NULL, NULL, NULL, 0, 0, NULL, 0}
+};
+
+/* support functions */
+#if !defined(WIN32)
+static void sigAlarm(int sig);
+#endif
+static void sigTerm(int sig);
+static void cleanup(void);
+static int usage(int helptype);
+static void printRemain(int remain);
+static void printVersion(void);
+#define USAGE_SUMMARY	0x01
+#define USAGE_LONG	0x02
+#define USAGE_CONFIG	0x04
+int main(int argc, char *argv[]);
 
 /* called by CheckAuctionFile, CheckConfigFile */
 static int CheckFile(const void *valueptr, const optionTable_t *tableptr,
@@ -549,42 +589,6 @@ main(int argc, char *argv[])
 	auctionInfo **auctions = NULL;
 	int c, i, numAuctions = 0, numAuctionsOrig = 0;
 	int XFlag = 0;
-
-   /* this table describes options and config entries */
-   static optionTable_t optiontab[] = {
-   {"username", "u", (void*)&options.username,     OPTION_STRING,   &CheckUser},
-   {"password",NULL, (void*)&options.password,     OPTION_SPECIAL,  &CheckPass},
-   {"seconds",  "s", (void*)&options.bidtime,      OPTION_SPECIAL,  &CheckSecs},
-   {"quantity", "q", (void*)&options.quantity,     OPTION_INT,  &CheckQuantity},
-   {"proxy",    "p", (void*)&options.proxy,        OPTION_STRING,   NULL},
-   {NULL,       "P", (void*)&options.password,     OPTION_STRING,   &ReadPass},
-   {NULL,       "U", (void*)&options.username,     OPTION_STRING,   &ReadUser},
-   {NULL,       "c", (void*)&options.conffilename, OPTION_STRING,   &CheckConfigFile},
-   /*
-    * -f can't be entered from command line, it's just a convenient way
-    * to integrate auction filename processing with option processing.
-    */
-   {NULL,       "f", (void*)&options.auctfilename, OPTION_STRING,   &CheckAuctionFile},
-   {"reduce",  NULL, (void*)&options.reduce,       OPTION_BOOL,     NULL},
-   {NULL,       "r", (void*)&options.reduce,       OPTION_BOOL_NEG, NULL},
-   {"bid",     NULL, (void*)&options.bid,          OPTION_BOOL,     NULL},
-   {NULL,       "n", (void*)&options.bid,          OPTION_BOOL_NEG, NULL},
-   {NULL,       "m", (void*)&options.myitems,      OPTION_BOOL,     NULL},
-   {NULL,       "i", (void*)&options.info,         OPTION_BOOL,     NULL},
-   {"debug",    "d", (void*)&options.debug,        OPTION_BOOL,    &CheckDebug},
-   {"curldebug","C", (void*)&options.curldebug,    OPTION_BOOL,     NULL},
-   {"batch",    "b", (void*)&options.batch,        OPTION_BOOL,     NULL},
-   {"logdir",   "l", (void*)&options.logdir,       OPTION_STRING,   NULL},
-   {"historyHost",NULL,(void*)&options.historyHost,OPTION_STRING,   NULL},
-   {"prebidHost",NULL,(void*)&options.prebidHost,  OPTION_STRING,   NULL},
-   {"bidHost", NULL, (void*)&options.bidHost,      OPTION_STRING,   NULL},
-   {"loginHost",NULL,(void*)&options.loginHost,    OPTION_STRING,   NULL},
-   {"myeBayHost",NULL,(void*)&options.myeBayHost,  OPTION_STRING,   NULL},
-   {NULL,       "?", (void*)&options.usage,        OPTION_BOOL,     NULL},
-   {NULL,       "h", (void*)&options.usage,        OPTION_STRING,   &SetLongHelp},
-   {NULL,       "H", (void*)&options.usage,        OPTION_STRING,   &SetConfigHelp},
-   {NULL, NULL, NULL, 0, NULL}
-   };
 
 	/* all known options */
 	static const char optionstring[]="bc:dhHil:mnp:Pq:rs:u:UvX";

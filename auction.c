@@ -342,7 +342,7 @@ preBid(auctionInfo *aip)
 		ret = makeBidError(pageInfo, aip);
 		if (ret < 0) {
 			ret = auctionError(aip, ae_bidkey, NULL);
-			bugReport("preBid", __FILE__, __LINE__, aip, mp, "cannot find bid key, uiid or password, found = %d", found);
+			bugReport("preBid", __FILE__, __LINE__, aip, mp, optiontab, "cannot find bid key, uiid or password, found = %d", found);
 		}
 		freePageInfo(pageInfo);
 	}
@@ -440,12 +440,12 @@ ebayLogin(auctionInfo *aip, time_t interval)
 			ret = auctionError(aip, ae_captcha, NULL);
 		else {
 			ret = auctionError(aip, ae_login, NULL);
-			bugReport("ebayLogin", __FILE__, __LINE__, aip, mp, "unknown pageinfo");
+			bugReport("ebayLogin", __FILE__, __LINE__, aip, mp, optiontab, "unknown pageinfo");
 		}
 	} else {
 		log(("ebayLogin(): pageinfo is NULL\n"));
 		ret = auctionError(aip, ae_login, NULL);
-		bugReport("ebayLogin", __FILE__, __LINE__, aip, mp, "pageinfo is NULL");
+		bugReport("ebayLogin", __FILE__, __LINE__, aip, mp, optiontab, "pageinfo is NULL");
 	}
 	freeMembuf(mp);
 	freePageInfo(pp);
@@ -573,7 +573,7 @@ parseBid(memBuf_t *mp, auctionInfo *aip)
 	    (ret = makeBidError(pageInfo, aip)) >= 0) {
 		;
 	} else {
-		bugReport("parseBid", __FILE__, __LINE__, aip, mp, "unknown pagename");
+		bugReport("parseBid", __FILE__, __LINE__, aip, mp, optiontab, "unknown pagename");
 		printLog(stdout, "Cannot determine result of bid\n");
 		ret = 0;	/* prevent another bid */
 	}
