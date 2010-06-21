@@ -338,6 +338,12 @@ parseIntValue(const char *name, const char *value,
 	return 0;
 }
 
+/**
+ * Write all user-specified option values to a buffer.
+ * The buffer is dynamically allocated and must be freed by the caller.
+ *
+ * @param table pointer to the option table
+ */
 char * logOptionValues(const optionTable_t *table)
 {
 	char *res = myStrdup("\tspecified options or config values:\n");
