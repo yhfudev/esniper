@@ -343,6 +343,7 @@ parseIntValue(const char *name, const char *value,
  * The buffer is dynamically allocated and must be freed by the caller.
  *
  * @param table pointer to the option table
+ * @return pointer to text buffer
  */
 char * logOptionValues(const optionTable_t *table)
 {
