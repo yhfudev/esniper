@@ -35,11 +35,21 @@
 #include "esniper.h"
 
 static long getSeconds(char *timestr);
+static int checkPageType(auctionInfo *aip, int pageType, int auctionState, int auctionResult);
 
 static const char PRIVATE[] = "private auction - bidders' identities protected";
 
+/* pageType */
 #define VIEWBIDS 1
 #define VIEWTRANSACTIONS 2
+
+/* auctionState */
+#define STATE_ACTIVE 1
+#define STATE_CLOSED 2
+
+/* auctionResult */
+#define RESULT_HIGH_BIDDER 1
+#define RESULT_NONE 2
 
 #define NOTHING 0
 #define PRICE 1
@@ -62,8 +72,13 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, time_t start, time_t *timeToFirs
 	int ret = 0;		/* 0 = OK, 1 = failed */
 	int foundHeader = 0;	/* found bid history table header */
 	pageInfo_t *pp;
-	int pageType;
+	int pageType = 0;
+	int auctionState = 0;
+	int auctionResult = 0;
 	int got;
+	char *tmpPagename;
+	const char *delim = "_";
+	char *token;
 
 	resetAuctionError(aip);
 
@@ -75,6 +90,23 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, time_t start, time_t *timeToFirs
 			return auctionError(aip, ae_captcha, NULL);
 		if (pp->pageName && !strncmp(pp->pageName, "PageViewBids", 12)) {
 			pageType = VIEWBIDS;
+
+			tmpPagename = myStrdup(pp->pageName);
+			/* this must be PageViewBids */
+			token = strtok(tmpPagename, delim);
+			token = strtok(NULL, delim);
+			if(token != NULL)
+			{
+				if(!strcmp(token, "Active")) auctionState = STATE_ACTIVE;
+				else if(strcmp(token, "Closed")) auctionState = STATE_CLOSED;
+				token = strtok(NULL, delim);
+				if(token != NULL)
+				{
+					if(!strcmp(token, "None")) auctionResult = RESULT_NONE;
+					else if(!strcmp(token, "HighBidder")) auctionResult = RESULT_HIGH_BIDDER;
+				}
+			}
+
 			/* bid history or expired/bad auction number */
 			while ((line = getNonTag(mp))) {
 				if (!strcmp(line, "Bid History")) {
@@ -311,12 +343,14 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, time_t start, time_t *timeToFirs
 	 *		"Bidder"
 	 *		"Bid Amount"
 	 *		"Bid Time"
+	 *		"Action" (sometimes)
 	 *		""
 	 *	    For each bid:
 	 *			""
 	 *			<user>
 	 *			<amount>
 	 *			<date>
+	 *			[links for feedback and other actions] (sometimes)
 	 *			""
 	 *	    (plus multiple rows of 1 column between entries)
 	 *
@@ -436,14 +470,66 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, time_t start, time_t *timeToFirs
 			else
 				printf("High bidder: --\n");
 		} else {
-			bugReport("parseBidHistory", __FILE__, __LINE__, aip, mp, optiontab, "Unrecognized bid table line");
-			ret = auctionError(aip, ae_nohighbid, NULL);
+			if (checkPageType(aip, pageType, auctionState, auctionResult) != 0)
+			{
+				bugReport("parseBidHistory", __FILE__, __LINE__, aip, mp, optiontab, "Unrecognized bid table line");
+				ret = auctionError(aip, ae_nohighbid, NULL);
+			}
 		}
 		freeTableRow(row);
 		free(s);
 		break;
 	    }
 
+	case 6:	/* purchase or maybe single auction */
+		/* this case is before 5 because we will fall through if we know
+		 * this is a normal auction.
+		 */
+	    if(pageType != VIEWBIDS)
+	    {
+			char *currently = getNonTagFromString(row[2]);
+
+			aip->bids = 0;
+			aip->quantityBid = 0;
+			aip->won = 0;
+			aip->winning = 0;
+			/* find your purchase, count number of purchases */
+			/* blank, user, price, quantity, date, blank */
+			for (; row; row = getTableRow(mp)) {
+				if (numColumns(row) == 6) {
+					int quantity = getIntFromString(row[3]);
+					char *bidder;
+
+					++aip->bids;
+					aip->quantityBid += quantity;
+					bidder = getNonTagFromString(row[1]);
+					if (!strcasecmp(bidder, options.username))
+						aip->won = aip->winning = quantity;
+					free(bidder);
+				}
+				freeTableRow(row);
+			}
+			printf("# of bids: %d\n", aip->bids);
+			printf("Currently: %s  (your maximum bid: %s)\n",
+				currently, aip->bidPriceStr);
+			free(currently);
+			switch (aip->winning) {
+			case 0:
+				if (*options.username)
+					printLog(stdout, "High bidder: various purchasers (NOT %s)\n", options.username);
+				else
+					printLog(stdout, "High bidder: various purchasers\n");
+				break;
+			case 1:
+				printLog(stdout, "High bidder: %s!!!\n", options.username);
+				break;
+			default:
+				printLog(stdout, "High bidder: %s!!! (%d items)\n", options.username, aip->winning);
+				break;
+			}
+			break;
+	    }
+	    /* FALLTHROUGH */
 	case 5: /* single auction with bids */
 	    {
 		/* blank, user, price, date, blank */
@@ -460,6 +546,11 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, time_t start, time_t *timeToFirs
 		if (aip->price < 0.01) {
 			free(winner);
 			free(currently);
+			if (checkPageType(aip, pageType, auctionState, auctionResult) == 0)
+			{
+				freeTableRow(row);
+				break;
+			}
 			bugReport("parseBidHistory", __FILE__, __LINE__, aip, mp, optiontab, "bid price could not be converted");
 			return auctionError(aip, ae_convprice, currently);
 		}
@@ -518,50 +609,6 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, time_t start, time_t *timeToFirs
 		free(winner);
 		break;
 	    }
-	case 6:	/* purchase */
-	    {
-		char *currently = getNonTagFromString(row[2]);
-
-		aip->bids = 0;
-		aip->quantityBid = 0;
-		aip->won = 0;
-		aip->winning = 0;
-		/* find your purchase, count number of purchases */
-		/* blank, user, price, quantity, date, blank */
-		for (; row; row = getTableRow(mp)) {
-			if (numColumns(row) == 6) {
-				int quantity = getIntFromString(row[3]);
-				char *bidder;
-
-				++aip->bids;
-				aip->quantityBid += quantity;
-				bidder = getNonTagFromString(row[1]);
-				if (!strcasecmp(bidder, options.username))
-					aip->won = aip->winning = quantity;
-				free(bidder);
-			}
-			freeTableRow(row);
-		}
-		printf("# of bids: %d\n", aip->bids);
-		printf("Currently: %s  (your maximum bid: %s)\n",
-			currently, aip->bidPriceStr);
-		free(currently);
-		switch (aip->winning) {
-		case 0:
-			if (*options.username)
-				printLog(stdout, "High bidder: various purchasers (NOT %s)\n", options.username);
-			else
-				printLog(stdout, "High bidder: various purchasers\n");
-			break;
-		case 1:
-			printLog(stdout, "High bidder: %s!!!\n", options.username);
-			break;
-		default:
-			printLog(stdout, "High bidder: %s!!! (%d items)\n", options.username, aip->winning);
-			break;
-		}
-		break;
-	    }
 	case 7: /* dutch with bids */
 	    {
 		int wanted = 0;
@@ -614,8 +661,11 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, time_t start, time_t *timeToFirs
 		break;
 	    }
 	default:
-		bugReport("parseBidHistory", __FILE__, __LINE__, aip, mp, optiontab, "%d columns in bid table", numColumns(row));
-		ret = auctionError(aip, ae_nohighbid, NULL);
+		if (checkPageType(aip, pageType, auctionState, auctionResult) != 0)
+		{
+			bugReport("parseBidHistory", __FILE__, __LINE__, aip, mp, optiontab, "%d columns in bid table", numColumns(row));
+			ret = auctionError(aip, ae_nohighbid, NULL);
+		}
 		freeTableRow(row);
 	}
 
@@ -668,4 +718,80 @@ getSeconds(char *timestr)
 	}
 
 	return accum;
+}
+/* This function is called when we could not successfully parse the bids
+ * or purchases table.
+ *
+ * If we can find out the result based on the auction state and result codes
+ * the result will be written to the auctionInfo structure and the return
+ * code will be 0.
+ * If we cannot find out the result the return code will be != 0.
+ *
+ */
+static int checkPageType(auctionInfo *aip, int pageType, int auctionState, int auctionResult)
+{
+	if((pageType == 0) || (auctionState == 0) || (auctionResult == 0)) return -1;
+
+	switch(pageType)
+	{
+	case VIEWBIDS:
+		switch(auctionState)
+		{
+		case STATE_ACTIVE:
+			switch(auctionResult)
+			{
+			case RESULT_HIGH_BIDDER:
+				/* assume we have bid on one item */
+				aip->quantityBid = 1;
+				aip->winning = 1;
+				aip->won = 0;
+				aip->quantity = 0;
+				printLog(stdout, "High bidder: %s!!!\n", options.username);
+				break;
+			case RESULT_NONE:
+				aip->quantityBid = 0;
+				aip->winning = 0;
+				aip->won = 0;
+				aip->quantity = 0;
+				printLog(stdout, "High bidder: (unknown) (NOT %s)\n",
+						 options.username);
+			default:
+				return -1;
+			}
+		case STATE_CLOSED:
+			switch(auctionResult)
+			{
+			case RESULT_HIGH_BIDDER:
+				/* assume we have bid on one item */
+				aip->quantityBid = 1;
+				aip->winning = 1;
+				aip->won = 1;
+				aip->quantity = 1;
+				printLog(stdout, "High bidder: %s!!!\n", options.username);
+				break;
+			case RESULT_NONE:
+				aip->quantityBid = 0;
+				aip->winning = 0;
+				aip->won = 0;
+				aip->quantity = 0;
+				printLog(stdout, "High bidder: (unknown) (NOT %s)\n",
+						 options.username);
+				break;
+			default:
+				return -1;
+			}
+			break;
+		default:
+			/* unknown state */
+			return -1;
+		}
+		break;
+	case VIEWTRANSACTIONS:
+		/* currently we cannot handle this other than parsing the table */
+		return -1;
+		break;
+	default:
+		return -1;
+	}
+	return 0;
 }
