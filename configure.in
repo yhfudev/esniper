@@ -18,11 +18,11 @@ cURL is available from http://curl.haxx.se/)
 fi
 
 CURLCFLAGS="`$CURL_CONFIG --cflags`"
-CURLLDFLAGS=`$CURL_CONFIG --libs`
+CURLLIBS=`$CURL_CONFIG --libs`
 AC_SUBST(CURLCFLAGS)
-AC_SUBST(CURLLDFLAGS)
+AC_SUBST(CURLLIBS)
 CFLAGS="$CURLCFLAGS $CFLAGS"
-LDFLAGS="$CURLLDFLAGS $LDFLAGS"
+LIBS="$CURLLIBS $LIBS"
 
 dnl check version curl_easy were added in 7.1.1
 check_min=7.1.1

@@ -1,5 +1,5 @@
 AM_CFLAGS = @CURLCFLAGS@
-LDADD = @CURLLDFLAGS@
+LDADD = @CURLLIBS@
 
 bin_PROGRAMS = esniper
 esniper_SOURCES = auction.c auctionfile.c auctioninfo.c buffer.c esniper.c \
