@@ -1,6 +1,14 @@
-2010-05-15
-	* 2.23.0 released
-	* Fixed -m option (thanks, deadolus!)
+2010-08-15
+	* 2.24.0 released.
 
-2010-05-14
-	* Fixed bug 3001249: bid history parsing bug
+2010-07-30
+	* Fixed bug 3035541: -lcurl must be added to LIBS instead of LDFLAGS
+
+2010-07-15
+	* Fixed bug 2938576: Does not recognize a won auction
+
+2010-06-21
+	* Added more info in automated bug reports
+
+2010-06-02
+	* Added ~ support for log directory (thanks, deadolus!)
