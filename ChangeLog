@@ -1,3 +1,9 @@
+2010-08-22
+	* Fixed bug 3051220: segfault when using -h or -H command line option.
+
+2010-08-15
+	* 2.24.0 released.
+
 2010-07-30
 	* Fixed bug 3035541: -lcurl must be added to LIBS instead of LDFLAGS
 

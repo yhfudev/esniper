@@ -151,8 +151,8 @@ optionTable_t optiontab[] = {
    {"loginHost",NULL,(void*)&options.loginHost,    OPTION_STRING,  LOG_NORMAL, NULL, 0},
    {"myeBayHost",NULL,(void*)&options.myeBayHost,  OPTION_STRING,  LOG_NORMAL, NULL, 0},
    {NULL,       "?", (void*)&options.usage,        OPTION_BOOL,    LOG_NORMAL, NULL, 0},
-   {NULL,       "h", (void*)&options.usage,        OPTION_STRING,  LOG_NORMAL,SetLongHelp, 0},
-   {NULL,       "H", (void*)&options.usage,        OPTION_STRING,  LOG_NORMAL,SetConfigHelp, 0},
+   {NULL,       "h", (void*)&options.usage,        OPTION_BOOL,    LOG_NORMAL, SetLongHelp, 0},
+   {NULL,       "H", (void*)&options.usage,        OPTION_BOOL,    LOG_NORMAL, SetConfigHelp, 0},
    {NULL, NULL, NULL, 0, 0, NULL, 0}
 };
 
