@@ -1,3 +1,6 @@
+2010-09-05
+	* Fixed bug 3059872: recognize captcha request, print error message, exit.
+
 2010-08-22
 	* Fixed bug 3051220: segfault when using -h or -H command line option.
 

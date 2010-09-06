@@ -86,7 +86,8 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, time_t start, time_t *timeToFirs
 		*timeToFirstByte = getTimeToFirstByte(mp);
 
 	if ((pp = getPageInfo(mp))) {
-		if (pp->srcId && !strcmp(pp->srcId, "Captcha.xsl"))
+		if ((pp->srcId && !strcmp(pp->srcId, "Captcha.xsl")) ||
+			(pp->pageName && !strncmp(pp->pageName, "Security Measure", 16)))
 			return auctionError(aip, ae_captcha, NULL);
 		if (pp->pageName && !strncmp(pp->pageName, "PageViewBids", 12)) {
 			pageType = VIEWBIDS;
