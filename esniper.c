@@ -804,10 +804,7 @@ main(int argc, char *argv[])
 			}
 		}
 		if (!options.username) {
-			if (options.info) {
-				options.username = myStrdup("");
-				options.usernameEscape = myStrdup("");
-			} else if (options.batch) {
+			if (options.batch) {
 				printLog(stderr, "Error: no username specified.\n");
 				options.usage |= USAGE_SUMMARY;
 			} else if (!options.usage &&
@@ -816,8 +813,7 @@ main(int argc, char *argv[])
 			}
 		}
 		if (!options.password) {
-			if (options.info) {
-			} else if (options.batch) {
+			if (options.batch) {
 				printLog(stderr, "Error: no password specified.\n");
 				options.usage |= USAGE_SUMMARY;
 			} else if (!options.usage &&

@@ -1,3 +1,6 @@
+2010-09-17
+	* Fixed bug 3069696: Add bad password page name
+
 2010-09-05
 	* Fixed bug 3059872: recognize captcha request, print error message, exit.
 
