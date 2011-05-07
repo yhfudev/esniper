@@ -55,6 +55,7 @@ typedef struct {
 	char *loginHost;
 	char *myeBayHost;
 	int curldebug;
+	int delay;
 } option_t;
 
 extern option_t options;

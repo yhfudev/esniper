@@ -478,6 +478,9 @@ sortAuctions(auctionInfo **auctions, int numAuctions, int *quantity)
 		for (j = 0; j < 3; ++j) {
 			if (j > 0)
 				printLog(stderr, "Retrying...\n");
+			/* delay to avoid ebay's "security measure" */
+			if(options.delay > 0)
+				sleep(options.delay);
 			if (!getInfo(auctions[i]))
 				break;
 			printAuctionError(auctions[i], stderr);

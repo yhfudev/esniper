@@ -93,7 +93,8 @@ option_t options = {
 	NULL,		/* bidHost */
 	NULL,		/* loginHost */
 	NULL,		/* bidHost */
-	0		/* curldebug */
+	0,		/* curldebug */
+	2      /* delay */
 };
 
 /* used for option table */
@@ -150,6 +151,7 @@ optionTable_t optiontab[] = {
    {"bidHost", NULL, (void*)&options.bidHost,      OPTION_STRING,  LOG_NORMAL, NULL, 0},
    {"loginHost",NULL,(void*)&options.loginHost,    OPTION_STRING,  LOG_NORMAL, NULL, 0},
    {"myeBayHost",NULL,(void*)&options.myeBayHost,  OPTION_STRING,  LOG_NORMAL, NULL, 0},
+   {"delay",    "D", (void*)&options.delay,        OPTION_INT,     LOG_NORMAL, NULL, 0},
    {NULL,       "?", (void*)&options.usage,        OPTION_BOOL,    LOG_NORMAL, NULL, 0},
    {NULL,       "h", (void*)&options.usage,        OPTION_BOOL,    LOG_NORMAL, SetLongHelp, 0},
    {NULL,       "H", (void*)&options.usage,        OPTION_BOOL,    LOG_NORMAL, SetConfigHelp, 0},
@@ -495,7 +497,7 @@ printVersion(void)
 
 static const char usageSummary[] =
  "usage: %s [-bdhHnmPrUv] [-c conf_file] [-l logdir] [-p proxy] [-q quantity]\n"
- "       [-s secs|now] [-u user] (auction_file | [auction price ...])\n"
+ "       [-s secs|now] [-u user] [-D delay] (auction_file | [auction price ...])\n"
  "\n";
 
 /* split in two to prevent gcc portability warning.  maximum length is 509 */
@@ -509,6 +511,7 @@ static const char usageLong1[] =
 #endif
  "    file is specified, .esniper in auction file's directory)\n"
  "-d: write debug output to file\n"
+ "-D: delay in seconds when retrieving auction list (default 2 seconds)\n"
  "-h: command line options help\n"
  "-H: configuration and auction file help\n"
  "-i: get info on auctions and exit\n"
@@ -550,6 +553,7 @@ static const char usageConfig1[] =
  "    loginHost = %s\n"
  "    myeBayHost = %s\n"
  "  Numeric: (seconds may also be \"now\")\n"
+ "    delay = 2\n"
  "    quantity = 1\n"
  "    seconds = %d\n"
  "\n";
