@@ -299,7 +299,7 @@ preBid(auctionInfo *aip)
 		return httpError(aip);
 
 	/* pagename should be PageReviewBidBottomButton, but don't check it */
-	while (found < 7 && !match(mp, "<input type=\"hidden\" name=\"")) {
+	while (found < 3 && !match(mp, "<input type=\"hidden\" name=\"")) {
 		if (!strncmp(mp->readptr, "key\"", 4)) {
 			char *cp, *tmpkey;
 
@@ -328,15 +328,9 @@ preBid(auctionInfo *aip)
 			free(aip->biduiid);
 			aip->biduiid = myStrdup(getUntil(mp, '\"'));
 			log(("preBid(): biduiid is \"%s\"", aip->biduiid));
-		} else if (!strncmp(mp->readptr, "pass\"", 5)) {
-			found |= 0x04;
-			match(mp, "value=\"");
-			free(aip->bidpass);
-			aip->bidpass = myStrdup(getUntil(mp, '\"'));
-			log(("preBid(): bidpass is \"%s\"", aip->bidpass));
 		}
 	}
-	if (found < 7) {
+	if (found < 3) {
 		pageInfo_t *pageInfo = getPageInfo(mp);
 
 		ret = makeBidError(pageInfo, aip);
@@ -583,7 +577,7 @@ parseBid(memBuf_t *mp, auctionInfo *aip)
 	return ret;
 } /* parseBid() */
 
-static const char BID_URL[] = "http://%s/ws/eBayISAPI.dll?MfcISAPICommand=MakeBid&BIN_button=Confirm%%20Bid&item=%s&key=%s&maxbid=%s&quant=%s&user=%s&pass=%s&uiid=%s&javascriptenabled=0&mode=1";
+static const char BID_URL[] = "http://%s/ws/eBayISAPI.dll?MfcISAPICommand=MakeBid&BIN_button=Confirm%%20Bid&item=%s&key=%s&maxbid=%s&quant=%s&user=%s&uiid=%s&javascriptenabled=0&mode=1";
 
 /*
  * Place bid.
@@ -597,12 +591,12 @@ bid(auctionInfo *aip)
 {
 	memBuf_t *mp = NULL;
 	size_t urlLen;
-	char *url, *logUrl, *tmpUsername, *tmpPassword, *tmpUiid;
+	char *url, *logUrl, *tmpUsername, *tmpUiid;
 	int ret;
 	int quantity = getQuantity(options.quantity, aip->quantity);
 	char quantityStr[12];	/* must hold an int */
 
-	if (!aip->bidkey || !aip->bidpass || !aip->biduiid)
+	if (!aip->bidkey || !aip->biduiid)
 		return auctionError(aip, ae_bidkey, NULL);
 
 	if (ebayLogin(aip, 0))
@@ -610,17 +604,15 @@ bid(auctionInfo *aip)
 	sprintf(quantityStr, "%d", quantity);
 
 	/* create url */
-	urlLen = sizeof(BID_URL) + strlen(options.bidHost) + strlen(aip->auction) + strlen(aip->bidkey) + strlen(aip->bidPriceStr) + strlen(quantityStr) + strlen(options.usernameEscape) + strlen(aip->bidpass) + strlen(aip->biduiid) - (8*2);
+	urlLen = sizeof(BID_URL) + strlen(options.bidHost) + strlen(aip->auction) + strlen(aip->bidkey) + strlen(aip->bidPriceStr) + strlen(quantityStr) + strlen(options.usernameEscape) + strlen(aip->biduiid) - (8*2);
 	url = (char *)myMalloc(urlLen);
-	sprintf(url, BID_URL, options.bidHost, aip->auction, aip->bidkey, aip->bidPriceStr, quantityStr, options.usernameEscape, aip->bidpass, aip->biduiid);
+	sprintf(url, BID_URL, options.bidHost, aip->auction, aip->bidkey, aip->bidPriceStr, quantityStr, options.usernameEscape, aip->biduiid);
 
 	logUrl = (char *)myMalloc(urlLen);
 	tmpUsername = stars(strlen(options.usernameEscape));
-	tmpPassword = stars(strlen(aip->bidpass));
 	tmpUiid = stars(strlen(aip->biduiid));
-	sprintf(logUrl, BID_URL, options.bidHost, aip->auction, aip->bidkey, aip->bidPriceStr, quantityStr, tmpUsername, tmpPassword, tmpUiid);
+	sprintf(logUrl, BID_URL, options.bidHost, aip->auction, aip->bidkey, aip->bidPriceStr, quantityStr, tmpUsername, tmpUiid);
 	free(tmpUsername);
-	free(tmpPassword);
 	free(tmpUiid);
 
 	if (!options.bid) {
