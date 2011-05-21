@@ -60,6 +60,7 @@ static int makeBidError(const pageInfo_t *pageInfo, auctionInfo *aip);
 static int match(memBuf_t *mp, const char *str);
 static int parseBid(memBuf_t *mp, auctionInfo *aip);
 static int preBid(auctionInfo *aip);
+static int parsePreBid(memBuf_t *mp, auctionInfo *aip);
 static int printMyItemsRow(char **row, int printNewline);
 static int watch(auctionInfo *aip);
 
@@ -298,6 +299,17 @@ preBid(auctionInfo *aip)
 	if (!mp)
 		return httpError(aip);
 
+	ret = parsePreBid(mp, aip);
+	freeMembuf(mp);
+	return ret;
+}
+
+static int
+parsePreBid(memBuf_t *mp, auctionInfo *aip)
+{
+	int ret = 0;
+	int found = 0;
+
 	/* pagename should be PageReviewBidBottomButton, but don't check it */
 	while (found < 3 && !match(mp, "<input type=\"hidden\" name=\"")) {
 		if (!strncmp(mp->readptr, "key\"", 4)) {
@@ -340,7 +352,6 @@ preBid(auctionInfo *aip)
 		}
 		freePageInfo(pageInfo);
 	}
-	freeMembuf(mp);
 	return ret;
 }
 
@@ -604,7 +615,7 @@ bid(auctionInfo *aip)
 	sprintf(quantityStr, "%d", quantity);
 
 	/* create url */
-	urlLen = sizeof(BID_URL) + strlen(options.bidHost) + strlen(aip->auction) + strlen(aip->bidkey) + strlen(aip->bidPriceStr) + strlen(quantityStr) + strlen(options.usernameEscape) + strlen(aip->biduiid) - (8*2);
+	urlLen = sizeof(BID_URL) + strlen(options.bidHost) + strlen(aip->auction) + strlen(aip->bidkey) + strlen(aip->bidPriceStr) + strlen(quantityStr) + strlen(options.usernameEscape) + strlen(aip->biduiid) - (7*2);
 	url = (char *)myMalloc(urlLen);
 	sprintf(url, BID_URL, options.bidHost, aip->auction, aip->bidkey, aip->bidPriceStr, quantityStr, options.usernameEscape, aip->biduiid);
 
@@ -1081,5 +1092,15 @@ testParser(int flag)
 		}
 		break;
 	    }
+	case 5:
+		{
+		/* run through prebid parser */
+		auctionInfo *aip = newAuctionInfo("1", "2");
+		int ret = parsePreBid(mp, aip);
+
+		printf("ret = %d\n", ret);
+		printAuctionError(aip, stdout);
+		break;
+		}
 	}
 }
