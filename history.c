@@ -386,32 +386,6 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, time_t start, time_t *timeToFirs
 	 *	    If the auction is private, the user names are:
 	 *		"private auction - bidders' identities protected"
 	 *
-	 *	Dutch auction:
-	 *	    Header line:
-	 *		""
-	 *		"Bidder"
-	 *		"Bid Amount"
-	 *		"Qty Wanted"
-	 *		"Qty Winning"
-	 *		"Bid Time"
-	 *		""
-	 *
-	 *	    For each bid:
-	 *			""
-	 *			<user>
-	 *			<price>
-	 *			<quantity wanted>
-	 *			<quantity winning>
-	 *			<date>
-	 *			""
-	 *	    (plus multiple rows of 1 column between entries)
-	 *
-	 *	    If there are no bids:
-	 *			""
-	 *			"No bids have been placed."
-	 *
-	 *	    Dutch auctions cannot be private.
-	 *
 	 *	If there are no bids, the text "No bids have been placed."
 	 *	will be the first entry in the table.  If there are bids,
 	 *	the last bidder might be "Starting Price", which should
@@ -608,57 +582,6 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, time_t start, time_t *timeToFirs
 				aip->won = 1;
 		}
 		free(winner);
-		break;
-	    }
-	case 7: /* dutch with bids */
-	    {
-		int wanted = 0;
-		char *currently = NULL;
-
-		aip->bids = 0;
-		aip->quantityBid = 0;
-		aip->won = 0;
-		aip->winning = 0;
-		/* find your bid, count number of bids */
-		/* blank, user, price, wanted, winning, date, blank */
-		for (; row; row = getTableRow(mp)) {
-			if (numColumns(row) == 7) {
-				int bidderWinning = getIntFromString(row[4]);
-
-				++aip->bids;
-				if (bidderWinning > 0) {
-					char *bidder;
-
-					aip->quantityBid += bidderWinning;
-					free(currently);
-					bidder = getNonTagFromString(row[1]);
-					currently = getNonTagFromString(row[2]);
-					if (!strcasecmp(bidder, options.username)) {
-						wanted = getIntFromString(row[3]);
-						aip->winning = bidderWinning;
-					}
-					free(bidder);
-				}
-			}
-			freeTableRow(row);
-		}
-		if (!aip->remain)
-			aip->won = aip->winning;
-		printf("# of bids: %d\n", aip->bids);
-		printf("Currently: %s  (your maximum bid: %s)\n",
-			currently, aip->bidPriceStr);
-		free(currently);
-		if (aip->winning > 0) {
-			if (aip->winning == wanted)
-				printLog(stdout, "High bidder: %s!!!\n", options.username);
-			else
-				printLog(stdout, "High bidder: %s!!! (%d out of %d items)\n", options.username, aip->winning, wanted);
-		} else {
-			if (*options.username)
-				printLog(stdout, "High bidder: various dutch bidders (NOT %s)\n", options.username);
-			else
-				printLog(stdout, "High bidder: various dutch bidders\n");
-		}
 		break;
 	    }
 	default:
