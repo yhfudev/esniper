@@ -904,7 +904,7 @@ printMyItemsRow(char **row, int printNewline)
 	const char *myitems_description[MAX_TDS][MAX_TDS_LENGTH] = {
 		{0, 0, 0, 0, 0, 0},
 		{0, 0, 0, 0, 0, 0},
-		{"Description:\t%s\n", "Seller:\t\t%s", 0, "(%s)", 0,"/%s\n"},
+		{"Description:\t%s\n", 0, "Seller:\t\t%s", 0, 0," (%s)\n"},
 		{ "Bids:\t\t%s\n", 0, 0, 0, 0, 0},
 		{ "Price:\t\t%s\n", 0, 0, 0, 0, 0},
 		{ "Shipping:\t%s\n", 0, 0, 0, 0, 0},
