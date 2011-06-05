@@ -36,6 +36,7 @@
 
 static long getSeconds(char *timestr);
 static int checkPageType(auctionInfo *aip, int pageType, int auctionState, int auctionResult);
+static int parseBidHistoryInternal(pageInfo_t *pp, memBuf_t *mp, auctionInfo *aip, time_t start, int debugMode);
 
 static const char PRIVATE[] = "private auction - bidders' identities protected";
 
@@ -67,18 +68,8 @@ static const char PRIVATE[] = "private auction - bidders' identities protected";
 int
 parseBidHistory(memBuf_t *mp, auctionInfo *aip, time_t start, time_t *timeToFirstByte, int debugMode)
 {
-	char *line;
-	char **row = NULL;
-	int ret = 0;		/* 0 = OK, 1 = failed */
-	int foundHeader = 0;	/* found bid history table header */
 	pageInfo_t *pp;
-	int pageType = 0;
-	int auctionState = 0;
-	int auctionResult = 0;
-	int got;
-	char *tmpPagename;
-	const char *delim = "_";
-	char *token;
+	int ret = 0;
 
 	resetAuctionError(aip);
 
@@ -86,51 +77,72 @@ parseBidHistory(memBuf_t *mp, auctionInfo *aip, time_t start, time_t *timeToFirs
 		*timeToFirstByte = getTimeToFirstByte(mp);
 
 	if ((pp = getPageInfo(mp))) {
-		if ((pp->srcId && !strcmp(pp->srcId, "Captcha.xsl")) ||
-			(pp->pageName && !strncmp(pp->pageName, "Security Measure", 16)))
-			return auctionError(aip, ae_captcha, NULL);
-		if (pp->pageName && !strncmp(pp->pageName, "PageViewBids", 12)) {
-			pageType = VIEWBIDS;
-
-			tmpPagename = myStrdup(pp->pageName);
-			/* this must be PageViewBids */
-			token = strtok(tmpPagename, delim);
-			token = strtok(NULL, delim);
-			if(token != NULL)
-			{
-				if(!strcmp(token, "Active")) auctionState = STATE_ACTIVE;
-				else if(strcmp(token, "Closed")) auctionState = STATE_CLOSED;
-				token = strtok(NULL, delim);
-				if(token != NULL)
-				{
-					if(!strcmp(token, "None")) auctionResult = RESULT_NONE;
-					else if(!strcmp(token, "HighBidder")) auctionResult = RESULT_HIGH_BIDDER;
-				}
-			}
-
-			/* bid history or expired/bad auction number */
-			while ((line = getNonTag(mp))) {
-				if (!strcmp(line, "Bid History")) {
-					log(("parseBidHistory(): got \"Bid History\"\n"));
-					break;
-				}
-				if (!strcmp(line, "Unknown Item")) {
-					log(("parseBidHistory(): got \"Unknown Item\"\n"));
-					return auctionError(aip, ae_baditem, NULL);
-				}
-			}
-		} else if (pp->pageName && !strncmp(pp->pageName, "PageViewTransactions", 20)) {
-			/* transaction history -- buy it now only */
-			pageType = VIEWTRANSACTIONS;
-		} else if (pp->pageName && !strcmp(pp->pageName, "PageSignIn")) {
-			return auctionError(aip, ae_mustsignin, NULL);
-		} else {
-			bugReport("parseBidHistory", __FILE__, __LINE__, aip, mp, optiontab, "unknown pagename");
-			return auctionError(aip, ae_notitle, NULL);
-		}
+		ret = parseBidHistoryInternal(pp, mp, aip, start, debugMode);
+		freePageInfo(pp);
 	} else {
 		log(("parseBidHistory(): pageinfo is NULL\n"));
 		bugReport("parseBidHistory", __FILE__, __LINE__, aip, mp, optiontab, "pageInfo is NULL");
+		ret = auctionError(aip, ae_notitle, NULL);
+	}
+	return ret;
+}
+
+int
+parseBidHistoryInternal(pageInfo_t *pp, memBuf_t *mp, auctionInfo *aip, time_t start, int debugMode)
+{
+	char *line;
+	char **row = NULL;
+	int ret = 0;		/* 0 = OK, 1 = failed */
+	int foundHeader = 0;	/* found bid history table header */
+	int pageType = 0;
+	int auctionState = 0;
+	int auctionResult = 0;
+	int got;
+	const char *delim = "_";
+
+
+
+	if ((pp->srcId && !strcmp(pp->srcId, "Captcha.xsl")) ||
+		(pp->pageName && !strncmp(pp->pageName, "Security Measure", 16)))
+		return auctionError(aip, ae_captcha, NULL);
+	if (pp->pageName && !strncmp(pp->pageName, "PageViewBids", 12)) {
+		char *tmpPagename = myStrdup(pp->pageName);
+		char *token;
+
+		pageType = VIEWBIDS;
+
+		/* this must be PageViewBids */
+		token = strtok(tmpPagename, delim);
+		token = strtok(NULL, delim);
+		if (token != NULL) {
+			if(!strcmp(token, "Active")) auctionState = STATE_ACTIVE;
+			else if(strcmp(token, "Closed")) auctionState = STATE_CLOSED;
+			token = strtok(NULL, delim);
+			if (token != NULL) {
+				if(!strcmp(token, "None")) auctionResult = RESULT_NONE;
+				else if(!strcmp(token, "HighBidder")) auctionResult = RESULT_HIGH_BIDDER;
+			}
+		}
+		free(tmpPagename);
+
+		/* bid history or expired/bad auction number */
+		while ((line = getNonTag(mp))) {
+			if (!strcmp(line, "Bid History")) {
+				log(("parseBidHistory(): got \"Bid History\"\n"));
+				break;
+			}
+			if (!strcmp(line, "Unknown Item")) {
+				log(("parseBidHistory(): got \"Unknown Item\"\n"));
+				return auctionError(aip, ae_baditem, NULL);
+			}
+		}
+	} else if (pp->pageName && !strncmp(pp->pageName, "PageViewTransactions", 20)) {
+		/* transaction history -- buy it now only */
+		pageType = VIEWTRANSACTIONS;
+	} else if (pp->pageName && !strcmp(pp->pageName, "PageSignIn")) {
+		return auctionError(aip, ae_mustsignin, NULL);
+	} else {
+		bugReport("parseBidHistory", __FILE__, __LINE__, aip, mp, optiontab, "unknown pagename");
 		return auctionError(aip, ae_notitle, NULL);
 	}
 
