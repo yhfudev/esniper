@@ -1,14 +1,15 @@
-2010-08-15
-	* 2.24.0 released.
+2011-06-04
+	* Fixed memory leaks.
+	* 2.25.0 released.
 
-2010-07-30
-	* Fixed bug 3035541: -lcurl must be added to LIBS instead of LDFLAGS
+2011-05-19
+	* Fixed bug 3303419: bidpass not found
 
-2010-07-15
-	* Fixed bug 2938576: Does not recognize a won auction
+2010-09-17
+	* Fixed bug 3069696: Add bad password page name
 
-2010-06-21
-	* Added more info in automated bug reports
+2010-09-05
+	* Fixed bug 3059872: recognize captcha request, print error message, exit.
 
-2010-06-02
-	* Added ~ support for log directory (thanks, deadolus!)
+2010-08-22
+	* Fixed bug 3051220: segfault when using -h or -H command line option.
