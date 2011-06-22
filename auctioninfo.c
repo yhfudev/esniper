@@ -267,7 +267,6 @@ newAuctionInfo(const char *auction, const char *bidPriceStr)
 	aip->endTime = 0;
 	aip->latency = 0;
 	aip->query = NULL;
-	aip->bidkey = NULL;
 	aip->biduiid = NULL;
 	aip->quantity = 0;
 	aip->quantityBid = 0;
@@ -294,7 +293,6 @@ freeAuction(auctionInfo *aip)
 	free(aip->bidPriceStr);
 	free(aip->remainRaw);
 	free(aip->query);
-	free(aip->bidkey);
 	free(aip->biduiid);
 	free(aip->shipping);
 	free(aip->currency);

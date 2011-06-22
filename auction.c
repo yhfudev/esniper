@@ -310,45 +310,32 @@ parsePreBid(memBuf_t *mp, auctionInfo *aip)
 	int ret = 0;
 	int found = 0;
 
-	/* pagename should be PageReviewBidBottomButton, but don't check it */
-	while (found < 3 && !match(mp, "<input type=\"hidden\" name=\"")) {
-		if (!strncmp(mp->readptr, "key\"", 4)) {
-			char *cp, *tmpkey;
+	memReset(mp);
+	while (!match(mp, "name=\"uiid\"")) {
+		char *start, *value, *end;
 
-			found |= 0x01;
-			match(mp, "value=\"");
-			tmpkey = getUntil(mp, '\"');
-			log(("  reported key is: %s\n", tmpkey));
+		for (start = mp->readptr; start >= mp->memory && *start != '<'; --start)
+			;
+		value = strstr(start, "value=\"");
+		end = strchr(start, '>');
 
-			/* translate key for URL */
-			free(aip->bidkey);
-			aip->bidkey = (char *)myMalloc(strlen(tmpkey)*3 + 1);
-			for (cp = aip->bidkey; *tmpkey; ++tmpkey) {
-				if (*tmpkey == '$') {
-					*cp++ = '%';
-					*cp++ = '2';
-					*cp++ = '4';
-				} else
-					*cp++ = *tmpkey;
-			}
-			*cp = '\0';
-
-			log(("\n\ntranslated key is: %s\n\n", aip->bidkey));
-		} else if (!strncmp(mp->readptr, "uiid\"", 5)) {
-			found |= 0x02;
-			match(mp, "value=\"");
-			free(aip->biduiid);
-			aip->biduiid = myStrdup(getUntil(mp, '\"'));
-			log(("preBid(): biduiid is \"%s\"", aip->biduiid));
-		}
+		if (!value || !end || value > end)
+			continue;
+		free(aip->biduiid);
+		mp->readptr = value + 7;
+		aip->biduiid = myStrdup(getUntil(mp, '\"'));
+		log(("preBid(): biduiid is \"%s\"", aip->biduiid));
+		found = 1;
+		break;
 	}
-	if (found < 3) {
+
+	if (!found) {
 		pageInfo_t *pageInfo = getPageInfo(mp);
 
 		ret = makeBidError(pageInfo, aip);
 		if (ret < 0) {
-			ret = auctionError(aip, ae_bidkey, NULL);
-			bugReport("preBid", __FILE__, __LINE__, aip, mp, optiontab, "cannot find bid key, uiid or password, found = %d", found);
+			ret = auctionError(aip, ae_biduiid, NULL);
+			bugReport("preBid", __FILE__, __LINE__, aip, mp, optiontab, "cannot find bid uiid");
 		}
 		freePageInfo(pageInfo);
 	}
@@ -588,7 +575,7 @@ parseBid(memBuf_t *mp, auctionInfo *aip)
 	return ret;
 } /* parseBid() */
 
-static const char BID_URL[] = "http://%s/ws/eBayISAPI.dll?MfcISAPICommand=MakeBid&BIN_button=Confirm%%20Bid&item=%s&key=%s&maxbid=%s&quant=%s&user=%s&uiid=%s&javascriptenabled=0&mode=1";
+static const char BID_URL[] = "http://%s/ws/eBayISAPI.dll?MfcISAPICommand=MakeBid&maxbid=%s&quant=%s&mode=1&uiid=%s&co_partnerid=2&user=%s&fb=2&item=%s";
 
 /*
  * Place bid.
@@ -607,22 +594,22 @@ bid(auctionInfo *aip)
 	int quantity = getQuantity(options.quantity, aip->quantity);
 	char quantityStr[12];	/* must hold an int */
 
-	if (!aip->bidkey || !aip->biduiid)
-		return auctionError(aip, ae_bidkey, NULL);
+	if (!aip->biduiid)
+		return auctionError(aip, ae_biduiid, NULL);
 
 	if (ebayLogin(aip, 0))
 		return 1;
 	sprintf(quantityStr, "%d", quantity);
 
 	/* create url */
-	urlLen = sizeof(BID_URL) + strlen(options.bidHost) + strlen(aip->auction) + strlen(aip->bidkey) + strlen(aip->bidPriceStr) + strlen(quantityStr) + strlen(options.usernameEscape) + strlen(aip->biduiid) - (7*2);
+	urlLen = sizeof(BID_URL) + strlen(options.bidHost) + strlen(aip->bidPriceStr) + strlen(quantityStr) + strlen(aip->biduiid) + strlen(options.usernameEscape) + strlen(aip->auction) - (6*2);
 	url = (char *)myMalloc(urlLen);
-	sprintf(url, BID_URL, options.bidHost, aip->auction, aip->bidkey, aip->bidPriceStr, quantityStr, options.usernameEscape, aip->biduiid);
+	sprintf(url, BID_URL, options.bidHost, aip->bidPriceStr, quantityStr, aip->biduiid, options.usernameEscape, aip->auction);
 
 	logUrl = (char *)myMalloc(urlLen);
 	tmpUsername = stars(strlen(options.usernameEscape));
 	tmpUiid = stars(strlen(aip->biduiid));
-	sprintf(logUrl, BID_URL, options.bidHost, aip->auction, aip->bidkey, aip->bidPriceStr, quantityStr, tmpUsername, tmpUiid);
+	sprintf(logUrl, BID_URL, options.bidHost, aip->bidPriceStr, quantityStr, tmpUiid, tmpUsername, aip->auction);
 	free(tmpUsername);
 	free(tmpUiid);
 
@@ -727,17 +714,17 @@ watch(auctionInfo *aip)
 		/*
 		 * if we're less than two minutes away, get bid key
 		 */
-		if (remain <= 150 && !aip->bidkey && aip->auctionError == ae_none) {
+		if (remain <= 150 && !aip->biduiid && aip->auctionError == ae_none) {
 			int i;
 
 			printf("\n");
 			for (i = 0; i < 5; ++i) {
-				/* ae_bidkey is used when the page loaded
+				/* ae_biduiid is used when the page loaded
 				 * but failed for some unknown reason.
 				 * Do not try again in this situation.
 				 */
 				if (!preBid(aip) ||
-				    aip->auctionError == ae_bidkey)
+				    aip->auctionError == ae_biduiid)
 					break;
 				if (aip->auctionError == ae_mustsignin &&
 				    forceEbayLogin(aip))

@@ -45,7 +45,7 @@ enum auctionErrorCode {
 	ae_nohighbid,
 	ae_curlerror,
 	ae_bidprice,
-	ae_bidkey,
+	ae_biduiid,
 	ae_badpass,
 	ae_outbid,
 	ae_reservenotmet,
@@ -83,7 +83,6 @@ typedef struct {
 	time_t endTime;	/* end time as calculated from remaining seconds */
 	time_t latency; /* latency from HTTP request to first page data */
 	char *query;	/* bid history query */
-	char *bidkey;	/* bid key */
 	char *biduiid;	/* bid uiid */
 	int quantity;	/* number of items available */
 	int quantityBid;/* number of items currently bid on */
