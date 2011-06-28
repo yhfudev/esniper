@@ -24,6 +24,9 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/* for strcasestr  prototype in string.h */
+#define _GNU_SOURCE
+
 #include "auction.h"
 #include "buffer.h"
 #include "http.h"
@@ -316,7 +319,7 @@ parsePreBid(memBuf_t *mp, auctionInfo *aip)
 
 		for (start = mp->readptr; start >= mp->memory && *start != '<'; --start)
 			;
-		value = strstr(start, "value=\"");
+		value = strcasestr(start, "value=\"");
 		end = strchr(start, '>');
 
 		if (!value || !end || value > end)
