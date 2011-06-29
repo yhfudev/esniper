@@ -1089,6 +1089,7 @@ testParser(int flag)
 		int ret = parsePreBid(mp, aip);
 
 		printf("ret = %d\n", ret);
+		printf("uiid = %s\n", aip->biduiid);
 		printAuctionError(aip, stdout);
 		break;
 		}
