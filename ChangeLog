@@ -1,3 +1,16 @@
+2011-08-09
+	* 2.26.0 released.
+	* Note: This version will still create bug reports on unsuccessful
+	  bids because of major changes on eBay's bid result pages.
+	  We need to analyze all possible bid result pages to find a way to
+	  fix this remaining problem. Please report these expected bugs.
+
+2011-06-28
+	* Fix for another new variant of the pre-bid page
+
+2011-06-22
+	* Partial fix for 3314884: adaptation to changes on pre-bid page.
+
 2011-06-04
 	* Fixed memory leaks.
 	* 2.25.0 released.
