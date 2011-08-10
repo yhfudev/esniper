@@ -7,17 +7,24 @@ notes from previous releases.
 	cp ChangeLog ReleaseNote
 	vi ReleaseNote
 
-Next, run ReleaseBuild.sh.  You will need to give 3 arguemnts, which are
+Rename or copy ReleaseNote to README as sourceforge now wants to have
+a README file instead of ReleaseNote.
+
+Next, run ReleaseBuild.sh.  You will need to give 3 arguments, which are
 the major, minor and step versions of this release.  For example, if you want
 to create version 2.15.6:
 	ReleaseBuild.sh 2 15 6
 
-Depending on hwo you have your access to CVS setup, you might need to enter
+Depending on how you have your access to CVS setup, you might need to enter
 your password half a dozen times, as cvs is called a lot in this script.
 
-Next, go to sourceforge, project admin, file manager.  Add a directory (folder)
-for this release, then upload the tar file and ReleaseNote.  Edit the file
-details.  Make the tar file the default for all systems.  Make ReleaseNote a release note.  Edit the folder details and associate ReleaseNote with this folder.
+Next, go to sourceforge, login as a project admin, choose the files page.
+Use the "Add Folder" button to add a directory (folder) for this release,
+then upload the tar file.  Edit the file details.  Make the tar file the
+default for all systems. 
+
+Upload the README file to the top level directory. Its contents will be
+displayed in all child directories.
 
 Copy other files to sourceforge:
 
