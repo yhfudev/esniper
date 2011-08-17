@@ -462,10 +462,14 @@ acceptBid(const char *pagename, auctionInfo *aip)
 	static const char OUTBID[] = "Outbid";
 	static const char RESERVENOTMET[] = "ReserveNotMet";
 
+	if (!strcmp(pagename, "Bid confirmation"))
+		return aip->bidResult = 0;
+
 	if (!pagename ||
 	    strncmp(pagename, ACCEPTBID, sizeof(ACCEPTBID) - 1))
 		return -1;
 	pagename += sizeof(ACCEPTBID) - 1;
+
 	/*
 	 * valid pagenames include AcceptBid_HighBidder,
 	 * AcceptBid_HighBidder_rebid, possibly others.
@@ -507,6 +511,11 @@ makeBidError(const pageInfo_t *pageInfo, auctionInfo *aip)
 		else
 			return -1;
 	}
+	if (!strcasecmp(pagename, "Place bid"))
+		return aip->bidResult = auctionError(aip, ae_outbid, NULL);
+	if (!strcasecmp(pagename, "eBay Alerts"))
+		return aip->bidResult = auctionError(aip, ae_alert, NULL);
+
 	if (!strcasecmp(pagename, "PageSignIn"))
 		return aip->bidResult = auctionError(aip, ae_mustsignin, NULL);
 	if (!strncasecmp(pagename, "BidManager", 10) ||
