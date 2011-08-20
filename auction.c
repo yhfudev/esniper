@@ -920,8 +920,8 @@ printMyItemsRow(char **row, int printNewline)
 		memBuf_t buf;
 		char *value = NULL;
 
-		if (column == 2) {	/* item nr in 3rd (-1) column */
-			static const char search[] = "item=";
+		if (column == 0) { /* item nr on checkbox in 1st (-1) column */
+			static const char search[] = "value=";
 			char *tmp = strstr(row[column], search);
 
 			if (tmp) {
