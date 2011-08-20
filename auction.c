@@ -515,6 +515,8 @@ makeBidError(const pageInfo_t *pageInfo, auctionInfo *aip)
 		return aip->bidResult = auctionError(aip, ae_outbid, NULL);
 	if (!strcasecmp(pagename, "eBay Alerts"))
 		return aip->bidResult = auctionError(aip, ae_alert, NULL);
+	if (!strcasecmp(pagename, "Buyer Requirements"))
+		return aip->bidResult = auctionError(aip, ae_buyerrequirements, NULL);
 
 	if (!strcasecmp(pagename, "PageSignIn"))
 		return aip->bidResult = auctionError(aip, ae_mustsignin, NULL);
