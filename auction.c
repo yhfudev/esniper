@@ -1066,6 +1066,8 @@ testParser(int flag)
 		while ((cp = getNonTag(mp))) {
 			if (!strcmp(cp, "Time left:"))
 				break;
+			if (!strcmp(cp, "Time Ended:"))
+				break;
 		}
 		if (!cp) {
 			printf("time left not found!\n");

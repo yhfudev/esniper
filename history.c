@@ -51,6 +51,7 @@ static const char PRIVATE[] = "private auction - bidders' identities protected";
 /* auctionResult */
 #define RESULT_HIGH_BIDDER 1
 #define RESULT_NONE 2
+#define RESULT_OUTBID 3
 
 #define NOTHING 0
 #define PRICE 1
@@ -121,6 +122,7 @@ parseBidHistoryInternal(pageInfo_t *pp, memBuf_t *mp, auctionInfo *aip, time_t s
 			if (token != NULL) {
 				if(!strcmp(token, "None")) auctionResult = RESULT_NONE;
 				else if(!strcmp(token, "HighBidder")) auctionResult = RESULT_HIGH_BIDDER;
+				else if(!strcmp(token, "Outbid")) auctionResult = RESULT_OUTBID;
 			}
 		}
 		free(tmpPagename);
@@ -149,6 +151,7 @@ parseBidHistoryInternal(pageInfo_t *pp, memBuf_t *mp, auctionInfo *aip, time_t s
 	/* Auction number */
 	memReset(mp);
 	if (memStr(mp, "\"BHCtBidLabel\"") ||
+		memStr(mp, "\"vizItemNum\"") ||
 		memStr(mp, "\"BHitemNo\"")) { /* obsolete as of 2.22 */
 		memChr(mp, '>');
 		memSkip(mp, 1);
@@ -706,6 +709,7 @@ static int checkPageType(auctionInfo *aip, int pageType, int auctionState, int a
 				printLog(stdout, "High bidder: %s!!!\n", options.username);
 				break;
 			case RESULT_NONE:
+			case RESULT_OUTBID:
 				aip->quantityBid = 0;
 				aip->winning = 0;
 				aip->won = 0;
