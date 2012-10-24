@@ -40,7 +40,8 @@ echo Modifying version.txt and index.html, then checkin with CVS.
 
 echo $CURRENT >version.txt
 
-perl -i.bak -p -e 's/esniper-.*[.]tgz/'${CURRENT}'.tgz/' index.html
+# The perl command did not work. Replaced by download link to latest version.
+#perl -i.bak -p -e 's/esniper-.*[.]tgz/'${CURRENT}'.tgz/' index.html
 
 cvs ci -m $CURRENT version.txt ReleaseNote index.html
 
