@@ -2,7 +2,7 @@
 
 echo "If you have not updated ReleaseNote, please quit this script and do it now!"
 echo "Hit enter to continue."
-read
+read line
 
 if [ $# -ne 3 ]; then
 	echo ReleaseBuild.sh requires three arguments, which are major, minor and step
