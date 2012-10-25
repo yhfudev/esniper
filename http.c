@@ -41,7 +41,7 @@ enum requestType {GET, POST};
 
 static CURL *easyhandle = NULL;
 static CURLcode curlrc = CURLE_OK;
-static const char *lastURL = NULL;
+static char *lastURL = NULL;
 static int curlInitDone = 0;
 static char globalErrorbuf[CURL_ERROR_SIZE];
 
@@ -148,7 +148,8 @@ httpRequest(const char *url, const char *logUrl, const char *data, const char *l
 	mp->size = 0;
 	mp->timeToFirstByte = 0;
 
-	lastURL = url;
+	if(lastURL) free(lastURL);
+	lastURL = myStrdup(url);
 
 	if (!curlInitDone && initCurlStuff())
 		return NULL;
