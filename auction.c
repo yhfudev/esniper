@@ -467,7 +467,8 @@ ebayLogin(auctionInfo *aip, time_t interval)
 		if ((pp->srcId && !strcmp(pp->srcId, "SignInAlertSupressor"))||
 		    (pp->pageName &&
 			(!strncasecmp(pp->pageName, "MyeBay", 6) ||
-			 !strncasecmp(pp->pageName, "My eBay", 7))
+			 !strncasecmp(pp->pageName, "My eBay", 7) ||
+			 !strncasecmp(pp->pageName, "Watch list", 10))
 		    ))
 			loginTime = time(NULL);
 		else if (pp->pageName &&
