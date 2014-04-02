@@ -49,6 +49,12 @@
 
 #define newRemain(aip) (aip->endTime - time(NULL) - aip->latency - options.bidtime)
 
+#define TOKEN_FOUND_UIID (1 << 0)
+#define TOKEN_FOUND_STOK (1 << 1)
+#define TOKEN_FOUND_SRT (1 << 2)
+
+#define TOKEN_FOUND_ALL (TOKEN_FOUND_UIID | TOKEN_FOUND_STOK | TOKEN_FOUND_SRT)
+
 static time_t loginTime = 0;	/* Time of last login */
 static time_t defaultLoginInterval = 12 * 60 * 60;	/* ebay login interval */
 
@@ -288,7 +294,6 @@ preBid(auctionInfo *aip)
 	size_t urlLen;
 	char *url;
 	int ret = 0;
-	int found = 0;
 
 	if (ebayLogin(aip, 0))
 		return 1;
@@ -328,7 +333,7 @@ parsePreBid(memBuf_t *mp, auctionInfo *aip)
 		mp->readptr = value + 7;
 		aip->biduiid = myStrdup(getUntil(mp, '\"'));
 		log(("preBid(): biduiid is \"%s\"", aip->biduiid));
-		found |= 1;
+		found |= TOKEN_FOUND_UIID;
 		break;
 	}
 
@@ -347,7 +352,7 @@ parsePreBid(memBuf_t *mp, auctionInfo *aip)
 		mp->readptr = value + 7;
 		aip->bidstok = myStrdup(getUntil(mp, '\"'));
 		log(("preBid(): bidstok is \"%s\"", aip->bidstok));
-		found |= 2;
+		found |= TOKEN_FOUND_STOK;
 		break;
 	}
 
@@ -366,19 +371,17 @@ parsePreBid(memBuf_t *mp, auctionInfo *aip)
 		mp->readptr = value + 7;
 		aip->bidsrt = myStrdup(getUntil(mp, '\"'));
 		log(("preBid(): bidsrt is \"%s\"", aip->bidsrt));
-		found |= 4;
+		found |= TOKEN_FOUND_SRT;
 		break;
 	}
 
-	if ((found & 7) != 7) {
+	if ((found & TOKEN_FOUND_ALL) != TOKEN_FOUND_ALL) {
 		pageInfo_t *pageInfo = getPageInfo(mp);
 
 		ret = makeBidError(pageInfo, aip);
 		if (ret < 0) {
 			ret = auctionError(aip, ae_bidtokens, NULL);
-			if(!(found & 1)) bugReport("preBid", __FILE__, __LINE__, aip, mp, optiontab, "cannot find bid uiid");
-			if(!(found & 2)) bugReport("preBid", __FILE__, __LINE__, aip, mp, optiontab, "cannot find bid stok");
-			if(!(found & 4)) bugReport("preBid", __FILE__, __LINE__, aip, mp, optiontab, "cannot find bid srt");
+			bugReport("preBid", __FILE__, __LINE__, aip, mp, optiontab, "cannot find bid token (found=%d)", found);
 		}
 		freePageInfo(pageInfo);
 	}
