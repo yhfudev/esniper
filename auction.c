@@ -311,7 +311,7 @@ static int
 parsePreBid(memBuf_t *mp, auctionInfo *aip)
 {
 	int ret = 0;
-	int found = 0;
+	int found = 0; //Used as binary store - 1=uiid,10=stok,100=srt
 
 	memReset(mp);
 	while (!match(mp, "name=\"uiid\"")) {
@@ -328,17 +328,57 @@ parsePreBid(memBuf_t *mp, auctionInfo *aip)
 		mp->readptr = value + 7;
 		aip->biduiid = myStrdup(getUntil(mp, '\"'));
 		log(("preBid(): biduiid is \"%s\"", aip->biduiid));
-		found = 1;
+		found += 1;
 		break;
 	}
 
-	if (!found) {
+	memReset(mp);
+	while (!match(mp, "name=\"stok\"")) {
+		char *start, *value, *end;
+
+		for (start = mp->readptr; start >= mp->memory && *start != '<'; --start)
+			;
+		value = strcasestr(start, "value=\"");
+		end = strchr(start, '>');
+
+		if (!value || !end || value > end)
+			continue;
+		free(aip->bidstok);
+		mp->readptr = value + 7;
+		aip->bidstok = myStrdup(getUntil(mp, '\"'));
+		log(("preBid(): bidstok is \"%s\"", aip->bidstok));
+		found += 2;
+		break;
+	}
+
+	memReset(mp);
+	while (!match(mp, "name=\"srt\"")) {
+		char *start, *value, *end;
+
+		for (start = mp->readptr; start >= mp->memory && *start != '<'; --start)
+			;
+		value = strcasestr(start, "value=\"");
+		end = strchr(start, '>');
+
+		if (!value || !end || value > end)
+			continue;
+		free(aip->bidsrt);
+		mp->readptr = value + 7;
+		aip->bidsrt = myStrdup(getUntil(mp, '\"'));
+		log(("preBid(): bidsrt is \"%s\"", aip->bidsrt));
+		found += 4;
+		break;
+	}
+
+	if (!found || found < 7) {
 		pageInfo_t *pageInfo = getPageInfo(mp);
 
 		ret = makeBidError(pageInfo, aip);
 		if (ret < 0) {
-			ret = auctionError(aip, ae_biduiid, NULL);
-			bugReport("preBid", __FILE__, __LINE__, aip, mp, optiontab, "cannot find bid uiid");
+			ret = auctionError(aip, ae_bidtokens, NULL);
+			if(!(found & 0x00000001)) bugReport("preBid", __FILE__, __LINE__, aip, mp, optiontab, "cannot find bid uiid");
+			if(!(found & 0x00000010)) bugReport("preBid", __FILE__, __LINE__, aip, mp, optiontab, "cannot find bid stok");
+			if(!(found & 0x00000100)) bugReport("preBid", __FILE__, __LINE__, aip, mp, optiontab, "cannot find bid srt");
 		}
 		freePageInfo(pageInfo);
 	}
@@ -590,7 +630,7 @@ parseBid(memBuf_t *mp, auctionInfo *aip)
 	return ret;
 } /* parseBid() */
 
-static const char BID_URL[] = "http://%s/ws/eBayISAPI.dll?MfcISAPICommand=MakeBid&maxbid=%s&quant=%s&mode=1&uiid=%s&co_partnerid=2&user=%s&fb=2&item=%s";
+static const char BID_URL[] = "http://%s/ws/eBayISAPI.dll?MfcISAPICommand=MakeBid&maxbid=%s&quant=%s&mode=1&uiid=%s&co_partnerid=2&user=%s&fb=2&item=%s&stok=%s&srt=%s";
 
 /*
  * Place bid.
@@ -604,29 +644,33 @@ bid(auctionInfo *aip)
 {
 	memBuf_t *mp = NULL;
 	size_t urlLen;
-	char *url, *logUrl, *tmpUsername, *tmpUiid;
+	char *url, *logUrl, *tmpUsername, *tmpUiid, *tmpStok, *tmpSrt;
 	int ret;
 	int quantity = getQuantity(options.quantity, aip->quantity);
 	char quantityStr[12];	/* must hold an int */
 
-	if (!aip->biduiid)
-		return auctionError(aip, ae_biduiid, NULL);
+	if (!aip->biduiid || !aip->bidstok || !aip->bidsrt)
+		return auctionError(aip, ae_bidtokens, NULL);
 
 	if (ebayLogin(aip, 0))
 		return 1;
 	sprintf(quantityStr, "%d", quantity);
 
 	/* create url */
-	urlLen = sizeof(BID_URL) + strlen(options.bidHost) + strlen(aip->bidPriceStr) + strlen(quantityStr) + strlen(aip->biduiid) + strlen(options.usernameEscape) + strlen(aip->auction) - (6*2);
+	urlLen = sizeof(BID_URL) + strlen(options.bidHost) + strlen(aip->bidPriceStr) + strlen(quantityStr) + strlen(aip->biduiid) + strlen(options.usernameEscape) + strlen(aip->auction) + strlen(aip->bidstok) + strlen(aip->bidsrt) - (8*2);
 	url = (char *)myMalloc(urlLen);
-	sprintf(url, BID_URL, options.bidHost, aip->bidPriceStr, quantityStr, aip->biduiid, options.usernameEscape, aip->auction);
+	sprintf(url, BID_URL, options.bidHost, aip->bidPriceStr, quantityStr, aip->biduiid, options.usernameEscape, aip->auction, aip->bidstok, aip->bidsrt);
 
 	logUrl = (char *)myMalloc(urlLen);
 	tmpUsername = stars(strlen(options.usernameEscape));
 	tmpUiid = stars(strlen(aip->biduiid));
-	sprintf(logUrl, BID_URL, options.bidHost, aip->bidPriceStr, quantityStr, tmpUiid, tmpUsername, aip->auction);
+	tmpStok = stars(strlen(aip->bidstok));
+	tmpSrt = stars(strlen(aip->bidsrt));
+	sprintf(logUrl, BID_URL, options.bidHost, aip->bidPriceStr, quantityStr, tmpUiid, tmpUsername, aip->auction, tmpStok, tmpSrt);
 	free(tmpUsername);
 	free(tmpUiid);
+    free(tmpStok);
+    free(tmpSrt);
 
 	if (!options.bid) {
 		printLog(stdout, "Bidding disabled\n");
@@ -734,12 +778,12 @@ watch(auctionInfo *aip)
 
 			printf("\n");
 			for (i = 0; i < 5; ++i) {
-				/* ae_biduiid is used when the page loaded
+				/* ae_bidtokens is used when the page loaded
 				 * but failed for some unknown reason.
 				 * Do not try again in this situation.
 				 */
 				if (!preBid(aip) ||
-				    aip->auctionError == ae_biduiid)
+				    aip->auctionError == ae_bidtokens)
 					break;
 				if (aip->auctionError == ae_mustsignin &&
 				    forceEbayLogin(aip))

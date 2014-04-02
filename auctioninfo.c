@@ -270,6 +270,8 @@ newAuctionInfo(const char *auction, const char *bidPriceStr)
 	aip->latency = 0;
 	aip->query = NULL;
 	aip->biduiid = NULL;
+	aip->bidstok = NULL;
+	aip->bidsrt = NULL;
 	aip->quantity = 0;
 	aip->quantityBid = 0;
 	aip->bids = 0;
