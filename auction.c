@@ -328,7 +328,7 @@ parsePreBid(memBuf_t *mp, auctionInfo *aip)
 		mp->readptr = value + 7;
 		aip->biduiid = myStrdup(getUntil(mp, '\"'));
 		log(("preBid(): biduiid is \"%s\"", aip->biduiid));
-		found += 1;
+		found |= 1;
 		break;
 	}
 
@@ -347,7 +347,7 @@ parsePreBid(memBuf_t *mp, auctionInfo *aip)
 		mp->readptr = value + 7;
 		aip->bidstok = myStrdup(getUntil(mp, '\"'));
 		log(("preBid(): bidstok is \"%s\"", aip->bidstok));
-		found += 2;
+		found |= 2;
 		break;
 	}
 
@@ -366,19 +366,19 @@ parsePreBid(memBuf_t *mp, auctionInfo *aip)
 		mp->readptr = value + 7;
 		aip->bidsrt = myStrdup(getUntil(mp, '\"'));
 		log(("preBid(): bidsrt is \"%s\"", aip->bidsrt));
-		found += 4;
+		found |= 4;
 		break;
 	}
 
-	if (!found || found < 7) {
+	if ((found & 7) != 7) {
 		pageInfo_t *pageInfo = getPageInfo(mp);
 
 		ret = makeBidError(pageInfo, aip);
 		if (ret < 0) {
 			ret = auctionError(aip, ae_bidtokens, NULL);
-			if(!(found & 0x00000001)) bugReport("preBid", __FILE__, __LINE__, aip, mp, optiontab, "cannot find bid uiid");
-			if(!(found & 0x00000010)) bugReport("preBid", __FILE__, __LINE__, aip, mp, optiontab, "cannot find bid stok");
-			if(!(found & 0x00000100)) bugReport("preBid", __FILE__, __LINE__, aip, mp, optiontab, "cannot find bid srt");
+			if(!(found & 1)) bugReport("preBid", __FILE__, __LINE__, aip, mp, optiontab, "cannot find bid uiid");
+			if(!(found & 2)) bugReport("preBid", __FILE__, __LINE__, aip, mp, optiontab, "cannot find bid stok");
+			if(!(found & 4)) bugReport("preBid", __FILE__, __LINE__, aip, mp, optiontab, "cannot find bid srt");
 		}
 		freePageInfo(pageInfo);
 	}
