@@ -1,3 +1,12 @@
+2014-04-02
+	* 2.29.0 released.
+	* Fix for bugs #649 .. #656
+	  with error message 'Error encountered in function parseBid...
+	  pagename = "Review and confirm your bid"...'
+	* Fix for bugs #647, #648
+	  with error message 'Error encountered in function ebayLogin...
+	  pagename = "Watch list"'
+
 2012-10-24
 	* 2.28.0 released.
 

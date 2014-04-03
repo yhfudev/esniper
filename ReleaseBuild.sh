@@ -1,6 +1,7 @@
 #! /bin/sh
 
-echo "If you have not updated ReleaseNote, please quit this script and do it now!"
+echo "If you have not updated ChangeLog and ReleaseNote, please quit this script"
+echo "and do it now!"
 echo "Hit enter to continue."
 read line
 
@@ -43,7 +44,7 @@ echo $CURRENT >version.txt
 # The perl command did not work. Replaced by download link to latest version.
 #perl -i.bak -p -e 's/esniper-.*[.]tgz/'${CURRENT}'.tgz/' index.html
 
-cvs ci -m $CURRENT version.txt ReleaseNote index.html
+cvs ci -m $CURRENT version.txt ReleaseNote README index.html
 
 
 echo Tagging source.

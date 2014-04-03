@@ -2,8 +2,14 @@ How to build a release:
 
 From checked-out source directory...
 
+If you have not already done so, add information about recent changes to 
+ChangeLog and commit. (This file should contain the complete history.) 
+	vi ChangeLog
+	cvs commit
+
 First, copy ChangeLog to ReleaseNote, then edit ReleaseNote to remove all
-notes from previous releases.
+notes from previous releases. No need to commit this file, this will be 
+done in the script. (see below)
 	cp ChangeLog ReleaseNote
 	vi ReleaseNote
 
@@ -31,7 +37,8 @@ Copy other files to sourceforge:
 	scp sample* esniper.1 esniper_man.html version.txt index.html \
 		esniper,esniper@web.sf.net:htdocs
 
-Send email to esniper-announce@lists.sourceforge.net to announce the
-new version.
+Send email to esniper-announce@lists.sourceforge.net to announce the new 
+version. This list is moderated, so you might have to accept the message
+using the mailing list's administrator interface.
 
 And you're done!
