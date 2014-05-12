@@ -468,7 +468,8 @@ ebayLogin(auctionInfo *aip, time_t interval)
 		    (pp->pageName &&
 			(!strncasecmp(pp->pageName, "MyeBay", 6) ||
 			 !strncasecmp(pp->pageName, "My eBay", 7) ||
-			 !strncasecmp(pp->pageName, "Watch list", 10))
+			 !strncasecmp(pp->pageName, "Watch list", 10) ||
+			 !strncasecmp(pp->pageName, "Purchase History", 16))
 		    ))
 			loginTime = time(NULL);
 		else if (pp->pageName &&
