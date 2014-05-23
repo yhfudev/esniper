@@ -1,3 +1,7 @@
+2014-05-23
+	* 2.30.0 released.
+	* Fix for bugs #660 .. #665: handle new welcome pages after login.
+
 2014-04-02
 	* 2.29.0 released.
 	* Fix for bugs #649 .. #656
