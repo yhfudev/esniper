@@ -7,14 +7,10 @@ ChangeLog and commit. (This file should contain the complete history.)
 	vi ChangeLog
 	cvs commit
 
-First, copy ChangeLog to ReleaseNote, then edit ReleaseNote to remove all
-notes from previous releases. No need to commit this file, this will be 
-done in the script. (see below)
-	cp ChangeLog ReleaseNote
-	vi ReleaseNote
-
-Rename or copy ReleaseNote to README as sourceforge now wants to have
-a README file instead of ReleaseNote.
+ReleaseNote and README will be created automatically from ChangeLog by
+copying all text until the first empty line before the next 
+"* x.y.z released" line. That means the ChangeLog file must have the correct
+format.
 
 Next, run ReleaseBuild.sh.  You will need to give 3 arguments, which are
 the major, minor and step versions of this release.  For example, if you want

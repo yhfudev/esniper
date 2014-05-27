@@ -1,15 +1,15 @@
 #! /bin/sh
 
-echo "If you have not updated ChangeLog and ReleaseNote, please quit this script"
-echo "and do it now!"
-echo "Hit enter to continue."
-read line
-
 if [ $# -ne 3 ]; then
 	echo ReleaseBuild.sh requires three arguments, which are major, minor and step
 	echo versions. For example, to build version 2.15.6 you would give 2 15 6 as arguemnts.
 	exit 2
 fi
+
+echo "If you have not updated and committed ChangeLog, please quit this script"
+echo "by pressing CTRL+C and do it now!"
+echo "Press enter to continue."
+read line
 
 # setup environment variables:
 
@@ -23,6 +23,36 @@ CURRTAG=Version_${MAJOR}_${MINOR}_${STEP}
 CVS_RSH=ssh; export CVS_RSH
 CVSROOT=:ext:esniper@esniper.cvs.sourceforge.net:/cvsroot/esniper
 export CVSROOT
+
+echo Creating ReleaseNote and README file from ChangeLog.
+
+awk 'BEGIN {empty=0;stop=0;buffer="";}
+/^[     ]*$/ {
+  empty=1;
+  if(!stop && length(buffer)) printf "%s", buffer;
+  buffer = "";
+}
+{ if(!stop) {
+    if(!empty) print;
+    else {
+      buffer = buffer $0 "\n";
+      if(match($0, /\* [0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]* released/)) stop=1;
+    }
+  }
+}' ChangeLog > ReleaseNote
+cp ReleaseNote README
+
+echo Please check the contents of the ReleaseNote file. It should contain
+echo all changes for the current version but not the history as in ChangeLog.
+echo "--- start ---"
+cat ReleaseNote
+echo "---  end  ---"
+echo "If the ReleaseNote file is not OK or if you are not sure, press CTRL+C"
+echo "to stop this script now and fix ChangeLog or this script."
+echo "Press enter to continue."
+read line
+
+exit
 
 echo Rebuilding automake files with current version number.  CVS will be called four
 echo times. You will see some "lost" errors, in the last CVS command.  That is OK.
