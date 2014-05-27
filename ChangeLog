@@ -1,3 +1,7 @@
+2014-05-27
+	* 2.31.0 released.
+	* Fix for bugs #666 and #667: handle "Reset your password" page
+
 2014-05-23
 	* 2.30.0 released.
 	* Fix for bugs #660 .. #665: handle new welcome pages after login.
