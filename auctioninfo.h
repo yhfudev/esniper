@@ -68,6 +68,7 @@ enum auctionErrorCode {
 	ae_bidgreaterthanbin_binblock,
 	ae_alert,
 	ae_buyerrequirements,
+	ae_manualaction,
 	/* ae_unknown must be last error */
 	ae_unknown
 };

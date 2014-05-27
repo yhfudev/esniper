@@ -251,6 +251,7 @@ static const char *auctionErrorString[] = {
 	"Auction %s: Your maximum bid is above or equal to the Buy It Now price. Your bid must be lower.\n",
 	"Auction %s: An alert message was displayed. Your bid was not accepted.\n",
 	"Auction %s: Seller has set some requirements. You cannot bid on this article.\n",
+	"Auction %s: Login failed. eBay requires some manual action on login.\n",
 	/* ae_unknown must be last error */
 	"Auction %s: Unknown error code %d\n",
 };

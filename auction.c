@@ -480,6 +480,8 @@ ebayLogin(auctionInfo *aip, time_t interval)
 			ret = auctionError(aip, ae_badpass, NULL);
 		else if (pp->pageName && !strcmp(pp->pageName, "PageSignIn"))
 			ret = auctionError(aip, ae_login, NULL);
+		else if (pp->pageName && !strcmp(pp->pageName, "Reset your password"))
+			ret = auctionError(aip, ae_manualaction, NULL);
 		else if (pp->srcId && !strcmp(pp->srcId, "Captcha.xsl"))
 			ret = auctionError(aip, ae_captcha, NULL);
 		else {
