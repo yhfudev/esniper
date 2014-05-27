@@ -6,11 +6,6 @@ if [ $# -ne 3 ]; then
 	exit 2
 fi
 
-echo "If you have not updated and committed ChangeLog, please quit this script"
-echo "by pressing CTRL+C and do it now!"
-echo "Press enter to continue."
-read line
-
 # setup environment variables:
 
 MAJOR="$1"
@@ -23,6 +18,12 @@ CURRTAG=Version_${MAJOR}_${MINOR}_${STEP}
 CVS_RSH=ssh; export CVS_RSH
 CVSROOT=:ext:esniper@esniper.cvs.sourceforge.net:/cvsroot/esniper
 export CVSROOT
+
+echo "If you have not updated and committed ChangeLog, please quit this script"
+echo "by pressing CTRL+C and do it now!"
+echo "Preparing release $CURRENT, previous release was `cat version.txt`"
+echo "Press enter to continue."
+read line
 
 echo Creating ReleaseNote and README file from ChangeLog.
 
@@ -51,8 +52,6 @@ echo "If the ReleaseNote file is not OK or if you are not sure, press CTRL+C"
 echo "to stop this script now and fix ChangeLog or this script."
 echo "Press enter to continue."
 read line
-
-exit
 
 echo Rebuilding automake files with current version number.  CVS will be called four
 echo times. You will see some "lost" errors, in the last CVS command.  That is OK.
