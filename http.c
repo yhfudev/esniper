@@ -228,6 +228,12 @@ initCurlStuff(void)
 		 (curlrc = curl_easy_setopt(easyhandle, CURLOPT_PROXY, options.proxy)))
 		return initCurlStuffFailed();
 
+#if 1
+	/* enforce usage of SSLv3 to avoid GnuTLS errors */
+	if ((curlrc = curl_easy_setopt(easyhandle, CURLOPT_SSLVERSION, CURL_SSLVERSION_SSLv3)))
+		return initCurlStuffFailed();
+#endif
+
 	/* send all data to this function */
 	if ((curlrc = curl_easy_setopt(easyhandle, CURLOPT_WRITEFUNCTION, WriteMemoryCallback)))
 		return initCurlStuffFailed();
