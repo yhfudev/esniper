@@ -377,9 +377,12 @@ parsePreBid(memBuf_t *mp, auctionInfo *aip)
 
 	if ((found & TOKEN_FOUND_ALL) != TOKEN_FOUND_ALL) {
 		pageInfo_t *pageInfo = getPageInfo(mp);
-
-		ret = makeBidError(pageInfo, aip);
-		if (ret < 0) {
+		if(pageInfo != NULL) {
+			ret = makeBidError(pageInfo, aip);
+		} else {
+			log(("parsePreBid(): pageinfo is NULL\n"));
+		}
+		if ((pageInfo == NULL) || (ret < 0)) {
 			ret = auctionError(aip, ae_bidtokens, NULL);
 			bugReport("preBid", __FILE__, __LINE__, aip, mp, optiontab, "cannot find bid token (found=%d)", found);
 		}
@@ -625,9 +628,11 @@ parseBid(memBuf_t *mp, auctionInfo *aip)
 	int ret;
 
 	aip->bidResult = -1;
-	log(("parseBid(): pagename = %s\n", pageInfo->pageName));
-	if ((ret = acceptBid(pageInfo->pageName, aip)) >= 0 ||
-	    (ret = makeBidError(pageInfo, aip)) >= 0) {
+	log(("parseBid(): pagename = %s\n",
+		pageInfo ? pageInfo->pageName : "(null)"));
+	if ((pageInfo != NULL) &&
+	    ((ret = acceptBid(pageInfo->pageName, aip)) >= 0 ||
+	     (ret = makeBidError(pageInfo, aip)) >= 0)) {
 		;
 	} else {
 		bugReport("parseBid", __FILE__, __LINE__, aip, mp, optiontab, "unknown pagename");
