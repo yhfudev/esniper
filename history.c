@@ -267,7 +267,7 @@ parseBidHistoryInternal(pageInfo_t *pp, memBuf_t *mp, auctionInfo *aip, time_t s
 
 	/* Time Left */
 	memReset(mp);
-	if (aip->quantity == 0 || memStr(mp, "Time Ended:")) {
+	if (aip->quantity == 0 || memCaseStr(mp, "Time Ended:")) {
 		free(aip->remainRaw);
 		aip->remainRaw = myStrdup("--");
 		aip->remain = 0;

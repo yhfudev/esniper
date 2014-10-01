@@ -339,6 +339,16 @@ memStr(memBuf_t *mp, const char *s)
 }
 
 char *
+memCaseStr(memBuf_t *mp, const char *s)
+{
+	char *ret = strcasestr(mp->readptr, s);
+
+	if (ret)
+		mp->readptr = ret;
+	return ret;
+}
+
+char *
 memChr(memBuf_t *mp, char c)
 {
 	char *ret = strchr(mp->readptr, c);
