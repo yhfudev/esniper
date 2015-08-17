@@ -251,6 +251,7 @@ CheckSecs(const void *valueptr, const optionTable_t *tableptr,
 			printLog(stderr, "Configuration option \"%s\" in file %s needs an integer value or \"now\"\n", line, filename);
 		else
 			printLog(stderr, "Option -%s needs an integer value or \"now\"\n", line);
+		return 1;
 	}
 	/* specific string value "now" */
 	if (!strcmp((const char *)valueptr, "now")) {
