@@ -1,7 +1,13 @@
-AC_INIT(esniper.c)
-AM_INIT_AUTOMAKE(esniper,2.33.0)
+
+AC_INIT(esniper, 2.33.0, who@gmail.com)
+AM_INIT_AUTOMAKE(-Wall subdir-objects)
+
 AC_PROG_CC
 AC_PROG_MAKE_SET
+
+#magic for conditional check in Makefile:
+MK=''; AC_SUBST(MK)
+SED=sed
 
 AC_ARG_WITH(curl-config, [  --with-curl-config=PATH Location of libcurl curl-config []], curl_config="$withval", curl_config="curl-config")
 
@@ -44,5 +50,32 @@ cURL is available from http://curl.haxx.se/])
 else
   AC_MSG_RESULT(yes)
 fi
+
+
+
+# debug
+AC_ARG_ENABLE([debug],
+	AS_HELP_STRING([--enable-debug],[Compile the debug version (default: disabled)]),
+	[enable_debug=$enableval],
+	[enable_debug=no])
+AM_CONDITIONAL([DEBUG], [test $enable_debug = "yes"])
+if test "x$enable_debug" = "xyes"; then
+  changequote({,})
+  CFLAGS=`echo "$CFLAGS" | $SED -e 's/-O[0-9s]*//g'`
+  CXXFLAGS=`echo "$CXXFLAGS" | $SED -e 's/-O[0-9s]*//g'`
+  changequote([,])
+  dnl add -O0 only if GCC or ICC is used
+  if test "$GCC" = "yes" || test "$ICC" = "yes"; then
+    CFLAGS="$CFLAGS -g -O0 -Wall"
+    CXXFLAGS="$CXXFLAGS -g -O0 -Wall"
+  fi
+else
+  changequote({,})
+  CFLAGS=`echo "$CFLAGS" | $SED -e 's/-g//g'`
+  CXXFLAGS=`echo "$CXXFLAGS" | $SED -e 's/-g//g'`
+  changequote([,])
+fi
+
+
 
 AC_OUTPUT(Makefile)
