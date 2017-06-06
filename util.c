@@ -615,7 +615,7 @@ priceFixup(char *price, auctionInfo *aip)
 	size_t len, i, j, start = 0, end, count = 0;
 
 	if (!price)
-		return price;
+		return "";
 	len = strlen(price);
 	if (aip && !aip->currency) {
 		char tmp;

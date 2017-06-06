@@ -14,6 +14,8 @@
 
 # Sample auction file for laser printer cartridges
 
+# the use the same currency as the ebay page
+
 # I'd like 10 of them, and my target price is $50
 quantity = 10
 

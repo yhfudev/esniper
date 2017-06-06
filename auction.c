@@ -119,7 +119,9 @@ match(memBuf_t *mp, const char *str)
 }
 
 static const char PAGEID[] = "Page id: ";
+static const char PAGEID2[] = "pageId:";
 static const char SRCID[] = "srcId: ";
+static const char SRCID2[] = "id:\"";
 
 /*
  * Get page info, including pagename variable, page id and srcid comments.
@@ -145,8 +147,40 @@ getPageInfo(memBuf_t *mp)
 		    if (line) title = myStrdup(line);
 		    continue;
 		}
-		if (strncmp(line, "!--", 3))
+        if (0 == strncmp(line, "script", 6)) {
+            char *line2 = getNonTag(mp);
+            char *end;
+            if (needPageId && (tmp = strstr(line2, PAGEID2))) {
+                p.pageId = myStrdup(tmp + strlen(PAGEID2));
+                end = strchr(p.pageId, ',');
+                if (*end) {
+                    *end = '\0';
+                }
+                --needMore;
+                --needPageId;
+            }
+            if (needSrcId && (tmp = strstr(line2, SRCID2))) {
+                p.srcId = myStrdup(tmp + strlen(SRCID2));
+                end = strchr(p.srcId, '"');
+                if (*end) {
+                    *end = '\0';
+                }
+                --needMore;
+                --needSrcId;
+            }
+            continue;
+
+        } else if (0 == strcmp(line, "h1 class=\"page-title__main\"")) {
+            char *line2 = getNonTag(mp);
+            --needMore;
+            --needPageName;
+            p.pageName = myStrdup(line2);
+            continue;
+
+		} else if (strncmp(line, "!--", 3)) {
 			continue;
+        }
+
 		if (needPageName && (tmp = strstr(line, PAGENAME))) {
 			if ((tmp = getPageNameInternal(tmp))) {
 				--needMore;

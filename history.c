@@ -107,11 +107,11 @@ parseBidHistoryInternal(pageInfo_t *pp, memBuf_t *mp, auctionInfo *aip, time_t s
 		(pp->pageName && !strncmp(pp->pageName, "Security Measure", 16)))
 		return auctionError(aip, ae_captcha, NULL);
 	if (pp->pageName && ( !strncmp(pp->pageName, "PageViewBids", 12) ||
-			      !strncmp(pp->pageName, "eBay Item Bid History", 21) )) {	
+			      !strncasecmp(pp->pageName, "Bid History", 11) )) {
 		char *tmpPagename = myStrdup(pp->pageName);
 		char *token;
 
-		if (!strncmp(pp->pageName, "eBay Item Bid History", 21))
+		if (!strncasecmp(pp->pageName, "Bid History", 11))
 			pagetype = ph201702;
 		else
 			pagetype = phclassic;
@@ -135,7 +135,7 @@ parseBidHistoryInternal(pageInfo_t *pp, memBuf_t *mp, auctionInfo *aip, time_t s
 
 		/* bid history or expired/bad auction number */
 		while ((line = getNonTag(mp))) {
-			if (!strcmp(line, "Bid History")) {
+			if (!strncasecmp(line, "Bid History", 11)) {
 				log(("parseBidHistory(): got \"Bid History\"\n"));
 				break;
 			}
@@ -231,6 +231,7 @@ parseBidHistoryInternal(pageInfo_t *pp, memBuf_t *mp, auctionInfo *aip, time_t s
 	free(aip->title);
 	aip->title = myStrdup(line);
 	printLog(stdout, "Auction %s: %s\n", aip->auction, aip->title);
+	printLog(stdout, "Auction URL: http://www.ebay.com/itm/%s\n", aip->auction);
 
 	/* price, shipping, quantity */
 	memReset(mp);
@@ -609,6 +610,7 @@ parseBidHistoryInternal(pageInfo_t *pp, memBuf_t *mp, auctionInfo *aip, time_t s
 		/* current price */
 		aip->price = atof(priceFixup(currently, aip));
 		if (aip->price < 0.01) {
+#if 0
 			free(winner);
 			free(currently);
 			if (checkPageType(aip, pageType, auctionState, auctionResult) == 0)
@@ -618,7 +620,11 @@ parseBidHistoryInternal(pageInfo_t *pp, memBuf_t *mp, auctionInfo *aip, time_t s
 			}
 			bugReport("parseBidHistory", __FILE__, __LINE__, aip, mp, optiontab, "bid price could not be converted");
 			return auctionError(aip, ae_convprice, currently);
+#else // 0
+            aip->price = 0.01;
+#endif // 0
 		}
+
 		printLog(stdout, "Currently: %s  (your maximum bid: %s)\n",
 			 currently, aip->bidPriceStr);
 		free(currently);
