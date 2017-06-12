@@ -534,5 +534,19 @@ sortAuctions(auctionInfo **auctions, int numAuctions, int *quantity)
 		}
 		numAuctions -= sawError;
 	}
+
+    printLog(stderr, "timeLeft, timeEnd, #, currentPrice, bidPrice, title\n");
+    for (i = 0; i < numAuctions; ++i) {
+        if (auctions[i]) {
+            printLog(stderr, "% 6u, % 6u, %s, % 2.02f, % 2.02f, %s\n"
+                     , auctions[i]->remain
+                     , auctions[i]->endTime // format to string?
+                     , auctions[i]->auction
+                     , auctions[i]->price
+                     , auctions[i]->bidPrice
+                     , auctions[i]->title
+                    );
+        }
+    }
 	return numAuctions;
 } /* sortAuctions() */
