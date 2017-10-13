@@ -1,3 +1,8 @@
+2017-03-13
+	* 2.33.0 released
+	* Fix for bugs #715, #716: handle new bid history page
+	* Fix for bug #718: handle modified signin mechanism (missing runId2)
+
 2016-10-30
 	* 2.32.0 released.
 	* Fix for bugs #705 .. #710: integrate changes provided by Michael S.
