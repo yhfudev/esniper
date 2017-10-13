@@ -27,6 +27,7 @@
 /* for strcasestr  prototype in string.h */
 #define _GNU_SOURCE
 
+#include "util.h"
 #include "auction.h"
 #include "buffer.h"
 #include "http.h"
@@ -55,22 +56,35 @@
 
 #define TOKEN_FOUND_ALL (TOKEN_FOUND_UIID | TOKEN_FOUND_STOK | TOKEN_FOUND_SRT)
 
+typedef struct _headerattr
+{
+  char* name;
+  int   occurence;
+  int   direction;
+  char* value;
+} headerAttr_t, headerVal_t;
+
+typedef enum searchType { st_attribute, st_value } searchType_t;
+
 static time_t loginTime = 0;	/* Time of last login */
 static time_t defaultLoginInterval = 12 * 60 * 60;	/* ebay login interval */
 
 static int acceptBid(const char *pagename, auctionInfo *aip);
 static int bid(auctionInfo *aip);
 static int ebayLogin(auctionInfo *aip, time_t interval);
+static int findAttr(char* src, size_t srcLen, headerAttr_t* attr);
 static int forceEbayLogin(auctionInfo *aip);
 static char *getIdInternal(char *s, size_t len);
 static int getInfoTiming(auctionInfo *aip, time_t *timeToFirstByte);
 static int getQuantity(int want, int available);
+static int getVals(char* src, size_t srcLen, headerVal_t* vals);
 static int makeBidError(const pageInfo_t *pageInfo, auctionInfo *aip);
 static int match(memBuf_t *mp, const char *str);
 static int parseBid(memBuf_t *mp, auctionInfo *aip);
 static int preBid(auctionInfo *aip);
 static int parsePreBid(memBuf_t *mp, auctionInfo *aip);
 static int printMyItemsRow(char **row, int printNewline);
+static int signinFormSearch(char* src, size_t srcLen, headerAttr_t* searchdef, searchType_t searchfor);
 static int watch(auctionInfo *aip);
 
 /*
@@ -377,12 +391,9 @@ parsePreBid(memBuf_t *mp, auctionInfo *aip)
 
 	if ((found & TOKEN_FOUND_ALL) != TOKEN_FOUND_ALL) {
 		pageInfo_t *pageInfo = getPageInfo(mp);
-		if(pageInfo != NULL) {
-			ret = makeBidError(pageInfo, aip);
-		} else {
-			log(("parsePreBid(): pageinfo is NULL\n"));
-		}
-		if ((pageInfo == NULL) || (ret < 0)) {
+
+		ret = makeBidError(pageInfo, aip);
+		if (ret < 0) {
 			ret = auctionError(aip, ae_bidtokens, NULL);
 			bugReport("preBid", __FILE__, __LINE__, aip, mp, optiontab, "cannot find bid token (found=%d)", found);
 		}
@@ -391,9 +402,89 @@ parsePreBid(memBuf_t *mp, auctionInfo *aip)
 	return ret;
 }
 
+// MSP Oct. 2016
 static const char LOGIN_1_URL[] = "https://%s/ws/eBayISAPI.dll?SignIn";
-static const char LOGIN_2_URL[] = "https://%s/ws/eBayISAPI.dll?SignInWelcome&userid=%s&pass=%s&keepMeSignInOption=1";
+static const char LOGIN_2_URL[] = "https://%s/ws/eBayISAPI.dll?co_partnerId=2&siteid=0&UsingSSL=1";
+static const char LOGIN_DATA[] = "refId=&regUrl=%s&MfcISAPICommand=SignInWelcome&bhid=DEF_CI&UsingSSL=1&inputversion=2&lse=false&lsv=&mid=%s&kgver=1&kgupg=1&kgstate=&omid=&hmid=&rhr=f&srt=%s&siteid=0&co_partnerId=2&ru=&pp=&pa1=&pa2=&pa3=&i1=-1&pageType=-1&rtmData=&usid=%s&afbpmName=sess1&kgct=&userid_otp=&sgnBt=Continue&otp=&keepMeSignInOption3=1&userid=%s&%s=%s&runId2=%s&%s=%s&pass=%s&keepMeSignInOption2=1&keepMeSignInOption=1";
 
+// MSP Oct. 2016
+static const char* id="id=\"";
+static const char* id2="value=\"";
+
+static const int USER_NUM=0;
+static const int PASS_NUM=1;
+
+static const int REGURL=0;
+static const int MID=1;
+static const int SRT=2;
+static const int USID=3;
+static const int RUNID2=4;
+
+static headerAttr_t headerAttrs[] = {"<label for=\"userid\">", 1, 1, NULL,
+                            "\"password\"", 1, -1, NULL};
+
+static headerVal_t headerVals[] = {"regUrl", 1, 1, NULL,
+                           "mid", 1, 1, NULL,
+                           "srt", 1, 1, NULL,
+                           "usid", 1, 1, NULL,
+                           "runId2", 1, 1, NULL};
+
+static int
+signinFormSearch(char* src, size_t srcLen, headerAttr_t* searchdef, searchType_t searchfor)
+{
+	char* start = src;
+	char* end = src + srcLen;
+	char* search = NULL;
+	char pattern[128];
+	char res[4096];
+	int  i;
+
+	if(searchfor == st_attribute)
+		strcpy(pattern, searchdef->name);
+	else
+		sprintf(pattern, "name=\"%s\"", searchdef->name);
+
+	for(i = 0; i < searchdef->occurence; i++) {
+		search = strstr(start, pattern);
+		if( search == NULL )
+			return 1;
+		start = search;
+		start += strlen(pattern);
+	}
+
+	while(src != search && end != search ) {
+                search += (searchdef->direction);
+
+		if(!strncmp(search, (searchfor == st_attribute ? id : id2), 
+                                       (searchfor == st_attribute ? strlen(id) : strlen(id2))) ) {
+			search += (searchfor == st_attribute ? strlen(id) : strlen(id2));
+			memset(res, '\0', sizeof(res));
+			for(i = 0;
+				((searchfor == st_value) || isdigit(*search)) && (*search) != '"' && i < sizeof(res);
+				res[i++] = *search++);
+			searchdef->value = (char *)myMalloc(strlen(res) + 1);
+			strncpy(searchdef->value, (char*) &res, strlen(res) + 1);
+			if (options.debug)
+				dlog("%s(): %s=%s", (searchfor == st_attribute ? "findAttr" : "searchvalue"), 
+					searchdef->name, searchdef->value);
+			return 0;
+		}
+	}
+
+	return 1;
+}
+
+static int
+findAttr(char* src, size_t srcLen, headerAttr_t* attr)
+{
+	return signinFormSearch(src, srcLen, attr, st_attribute);
+}
+
+static int
+getVals(char* src, size_t srcLen, headerVal_t* vals)
+{
+	return signinFormSearch(src, srcLen, vals, st_value);
+}
 
 /*
  * Force an ebay login.
@@ -417,10 +508,11 @@ ebayLogin(auctionInfo *aip, time_t interval)
 {
 	memBuf_t *mp = NULL;
 	size_t urlLen;
-	char *url, *logUrl;
+	char *url, *data, *logdata;
 	pageInfo_t *pp;
 	int ret = 0;
 	char *password;
+	int i;	
 
 	/* negative value forces login */
 	if (loginTime > 0) {
@@ -441,21 +533,85 @@ ebayLogin(auctionInfo *aip, time_t interval)
 	free(url);
 	if (!mp)
 		return httpError(aip);
+
+	// Get all atrributes and values needed (MSP Oct. 2016)
+	for(i = 0; i < sizeof(headerAttrs)/sizeof(headerAttr_t); i++)
+		if(findAttr(mp->memory, mp->size, &headerAttrs[i]))
+			bugReport("ebayLogin", __FILE__, __LINE__, aip, mp, optiontab,
+				"findAttr cannot find %s", headerAttrs[i].name);
+	for(i = 0; i < sizeof(headerVals)/sizeof(headerVal_t); i++)
+		if(getVals(mp->memory, mp->size, &headerVals[i]))
+			bugReport("ebayLogin", __FILE__, __LINE__, aip, mp, optiontab,
+				"getVals cannot find %s", headerVals[i].name);
+
 	freeMembuf(mp);
 	mp = NULL;
 
-	urlLen = sizeof(LOGIN_2_URL) + strlen(options.loginHost) + strlen(options.usernameEscape) - (3*2);
+	// MSP Oct. 2016
+	urlLen = sizeof(LOGIN_2_URL) + strlen(options.loginHost) - (1*2);
 	password = getPassword();
-	url = (char *)myMalloc(urlLen + strlen(password));
-	logUrl = (char *)myMalloc(urlLen + 5);
-
-	sprintf(url, LOGIN_2_URL, options.loginHost, options.usernameEscape, password);
+	url = (char *)myMalloc(urlLen);
+	sprintf(url, LOGIN_2_URL, options.loginHost);
+	data = (char *)myMalloc(	sizeof(LOGIN_DATA)
+                                      + strlen(headerAttrs[USER_NUM].value)
+                                      + strlen(headerAttrs[PASS_NUM].value)
+                                      + strlen(options.usernameEscape) * 2
+                                      + strlen(password) * 2
+                                      + strlen(headerVals[REGURL].value)
+                                      + strlen(headerVals[MID].value)
+                                      + strlen(headerVals[SRT].value)
+                                      + strlen(headerVals[USID].value)
+                                      + strlen(headerVals[RUNID2].value)
+				      - (11*2)
+                                      );
+	logdata = (char *)myMalloc(	sizeof(LOGIN_DATA)
+                                      + strlen(headerAttrs[USER_NUM].value)
+                                      + strlen(headerAttrs[PASS_NUM].value) 
+                                      + strlen(options.usernameEscape) * 2
+                                      + 5 * 2
+                                      + strlen(headerVals[REGURL].value)
+                                      + strlen(headerVals[MID].value)
+                                      + strlen(headerVals[SRT].value)
+                                      + strlen(headerVals[USID].value)
+                                      + strlen(headerVals[RUNID2].value)
+				      - (11*2)
+                                      );
+	sprintf(data, LOGIN_DATA,	headerVals[REGURL].value,
+					headerVals[MID].value,
+					headerVals[SRT].value,
+					headerVals[USID].value,
+					options.usernameEscape,
+					headerAttrs[USER_NUM].value,
+					options.usernameEscape,
+					headerVals[RUNID2].value,
+                                        headerAttrs[PASS_NUM].value,
+					password,
+					password
+					);
 	freePassword(password);
-	sprintf(logUrl, LOGIN_2_URL, options.loginHost, options.usernameEscape, "*****");
+	sprintf(logdata, LOGIN_DATA,	headerVals[REGURL].value,
+					headerVals[MID].value,
+					headerVals[SRT].value,
+					headerVals[USID].value,
+					options.usernameEscape,
+					headerAttrs[USER_NUM].value,
+					options.usernameEscape,
+					headerVals[RUNID2].value,
+                                        headerAttrs[PASS_NUM].value,
+					"*****",
+					"*****"
+					);
 
-	mp = httpGet(url, logUrl);
+	// MSP Oct. 2016 - Using POST method instead of GET
+	mp = httpPost(url, data, logdata);
+
+	// Free memory (MSP Oct. 2016)
+	for(i=0; i < sizeof(headerAttrs)/sizeof(headerAttr_t); free(headerAttrs[i++].value));
+	for(i=0; i < sizeof(headerVals)/sizeof(headerVal_t); free(headerVals[i++].value));
 	free(url);
-	free(logUrl);
+	free(data);
+	free(logdata);
+
 	if (!mp)
 		return httpError(aip);
 
@@ -473,6 +629,8 @@ ebayLogin(auctionInfo *aip, time_t interval)
 			 !strncasecmp(pp->pageName, "My eBay", 7) ||
 			 !strncasecmp(pp->pageName, "Watch list", 10) ||
 			 !strncasecmp(pp->pageName, "Purchase History", 16) ||
+			 !strncasecmp(pp->pageName, " Black Friday", 13) ||
+			 !strncasecmp(pp->pageName, "Black Friday", 12) ||
 			 !strncasecmp(pp->pageName, "Electronics", 11))
 		    ))
 			loginTime = time(NULL);
@@ -628,11 +786,9 @@ parseBid(memBuf_t *mp, auctionInfo *aip)
 	int ret;
 
 	aip->bidResult = -1;
-	log(("parseBid(): pagename = %s\n",
-		pageInfo ? pageInfo->pageName : "(null)"));
-	if ((pageInfo != NULL) &&
-	    ((ret = acceptBid(pageInfo->pageName, aip)) >= 0 ||
-	     (ret = makeBidError(pageInfo, aip)) >= 0)) {
+	log(("parseBid(): pagename = %s\n", pageInfo->pageName));
+	if ((ret = acceptBid(pageInfo->pageName, aip)) >= 0 ||
+	    (ret = makeBidError(pageInfo, aip)) >= 0) {
 		;
 	} else {
 		bugReport("parseBid", __FILE__, __LINE__, aip, mp, optiontab, "unknown pagename");

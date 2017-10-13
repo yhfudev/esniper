@@ -1,3 +1,8 @@
+2016-10-30
+	* 2.32.0 released.
+	* Fix for bugs #705 .. #710: integrate changes provided by Michael S.
+	  and others to handle ebay's new signin mechanism
+
 2014-05-27
 	* 2.31.0 released.
 	* Fix for bugs #666 and #667: handle "Reset your password" page
