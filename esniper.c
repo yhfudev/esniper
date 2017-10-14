@@ -486,7 +486,7 @@ printVersion(void)
 {
 	const char *newVersion;
 
-	fprintf(stderr, "%s version %s\n", getProgname(), getVersion());
+	fprintf(stderr, "%s version %s\nBuild time: " __DATE__ " " __TIME__ "\n", getProgname(), getVersion());
 	if ((newVersion = checkVersion()))
 		fprintf(stderr,
 			"\n"

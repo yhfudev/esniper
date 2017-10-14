@@ -241,12 +241,12 @@ vlog(const char *fmt, va_list arglist)
 #if defined(WIN32)
 	ftime(&tb);
 	t = (time_t)(tb.time);
-	strftime(timebuf, sizeof(timebuf), "\n\n*** %Y-%m-%d %H:%M:%S", localtime(&t));
+	strftime(timebuf, sizeof(timebuf), "\n*** %Y-%m-%d %H:%M:%S", localtime(&t));
 	fprintf(logfile, "%s.%03d ", timebuf, tb.millitm);
 #else
 	gettimeofday(&tv, NULL);
 	t = (time_t)(tv.tv_sec);
-	strftime(timebuf, sizeof(timebuf), "\n\n*** %Y-%m-%d %H:%M:%S", localtime(&t));
+	strftime(timebuf, sizeof(timebuf), "\n*** %Y-%m-%d %H:%M:%S", localtime(&t));
 	fprintf(logfile, "%s.%06ld ", timebuf, (long)tv.tv_usec);
 #endif
 	vfprintf(logfile, fmt, arglist);

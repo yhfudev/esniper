@@ -142,7 +142,8 @@ getPageInfo(memBuf_t *mp)
 	while (needMore && (line = getTag(mp))) {
 		char *tmp;
 
-		if (!strcasecmp(line, "title")) {
+		if (!strcasecmp(line, "title") ||
+                    !strcasecmp(line, "h1 class=\"page-title__main\"")) {
 		    line = getNonTag(mp);
 		    if (line) title = myStrdup(line);
 		    continue;
@@ -211,8 +212,9 @@ getPageInfo(memBuf_t *mp)
 	if (title) free(title);
 	log(("getPageInfo(): pageName = %s, pageId = %s, srcId = %s\n", nullStr(p.pageName), nullStr(p.pageId), nullStr(p.srcId)));
 	memReset(mp);
-	if (needMore == 3)
+	if (needMore == 3) {
 		return NULL;
+	}
 	pp = (pageInfo_t *)myMalloc(sizeof(pageInfo_t));
 	pp->pageName = p.pageName;
 	pp->pageId = p.pageId;
@@ -645,6 +647,7 @@ ebayLogin(auctionInfo *aip, time_t interval)
 					);
 
 	// Using POST method instead of GET
+	log(("HTTP POST login: %s", url));
 	mp = httpPost(url, data, logdata);
 
 	// Free memory

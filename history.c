@@ -168,7 +168,7 @@ parseBidHistoryInternal(pageInfo_t *pp, memBuf_t *mp, auctionInfo *aip, time_t s
 			bugReport("parseBidHistory", __FILE__, __LINE__, aip, mp, optiontab, "no item number");
 			return auctionError(aip, ae_baditem, NULL);
 		}
-	} else if (memStr(mp, "<span>Item number:</span>")) { 
+	} else if (memStr(mp, ">Item number:<")) {
                 line = getNonTag(mp);   /* Item number: */
                 line = getNonTag(mp);   /* number */
 		if (!line) {
@@ -207,7 +207,7 @@ parseBidHistoryInternal(pageInfo_t *pp, memBuf_t *mp, auctionInfo *aip, time_t s
 			return auctionError(aip, ae_baditem, NULL);
 		}
 	/* Active auction */
-        } else if (memStr(mp, "<span>Item info</span>")) {
+        } else if (memStr(mp, ">Item info<")) {
                 line = getNonTag(mp);   /* Item title: */
                 line = getNonTag(mp);   /* title */
                 if (!line) {
@@ -250,6 +250,7 @@ parseBidHistoryInternal(pageInfo_t *pp, memBuf_t *mp, auctionInfo *aip, time_t s
 		    !strcasecmp(line, "Your maximum bid:") ||
 		    !strcasecmp(line, "price:")) {
 			char *saveptr;
+			const char *priceStr;
 
 			line = getNonTag(mp);
 			if (!line) {
@@ -257,7 +258,8 @@ parseBidHistoryInternal(pageInfo_t *pp, memBuf_t *mp, auctionInfo *aip, time_t s
 				return auctionError(aip, ae_noprice, NULL);
 			}
 			log(("Currently: %s\n", line));
-			aip->price = atof(priceFixup(line, aip));
+			priceStr = priceFixup(line, aip);
+			aip->price = priceStr ? atof(priceStr) : -1.0;
 			if (aip->price < 0.01) {
 				bugReport("parseBidHistory", __FILE__, __LINE__, aip, mp, optiontab, "item price could not be converted");
 				return auctionError(aip, ae_convprice, line);
@@ -303,12 +305,13 @@ parseBidHistoryInternal(pageInfo_t *pp, memBuf_t *mp, auctionInfo *aip, time_t s
 		free(aip->remainRaw);
 		aip->remainRaw = myStrdup("--");
 		aip->remain = 0;
-	} else if (memStr(mp, "<span>Time left:</span>")) {
+	} else if (memStr(mp, ">Time left:<")) {
 		char* days = myMalloc(12);
 		char* hours = myMalloc(12);
 		char* minutes = myMalloc(12);
 		char* seconds = myMalloc(12);	
 		char tmpTimeLeft[255];
+		memset(days, '\0', sizeof(days));
 		memset(hours, '\0', sizeof(hours));
 		memset(minutes, '\0', sizeof(minutes));
 		memset(seconds, '\0', sizeof(seconds));
@@ -403,8 +406,13 @@ parseBidHistoryInternal(pageInfo_t *pp, memBuf_t *mp, auctionInfo *aip, time_t s
 	/* bid history */
 	memReset(mp);
 	aip->bids = -1;
-	if (memStr(mp, "Total Bids:")) {
-		line = getNonTag(mp);	/* Total Bids: */
+	if (memStr(mp, "ViewBids:")) {	/* Skip over 'ViewBids' */
+		line = 	getNonTag(mp);
+	} else {
+		memReset(mp);
+	}
+	if (memStr(mp, "Bids:")) {
+		line = getNonTag(mp);	/* Bids: */
 		line = getNonTag(mp);	/* number */
 		log(("bids: %d", line));
 		if (line) {
@@ -604,6 +612,7 @@ parseBidHistoryInternal(pageInfo_t *pp, memBuf_t *mp, auctionInfo *aip, time_t s
 	    {
 		/* blank, user, price, date, blank */
 		char *winner = NULL;
+		const char *priceStr;
 		if (pagetype == phclassic)
 			winner = getNonTagFromString(row[1]);
 		else
@@ -616,7 +625,8 @@ parseBidHistoryInternal(pageInfo_t *pp, memBuf_t *mp, auctionInfo *aip, time_t s
 		aip->quantityBid = 1;
 
 		/* current price */
-		aip->price = atof(priceFixup(currently, aip));
+		priceStr = priceFixup(currently, aip);
+		aip->price = priceStr ? atof(priceStr) : -1.0;
 		if (aip->price < 0.01) {
 #if 0
 			free(winner);
@@ -673,7 +683,7 @@ parseBidHistoryInternal(pageInfo_t *pp, memBuf_t *mp, auctionInfo *aip, time_t s
 		{
 			int bids2 = aip->bids;
 			memReset(mp);
-		        if (memStr(mp, "<span>Bids:</span>")) {
+		        if (memStr(mp, ">Bids:<")) {
                         	line = getNonTag(mp); /* Bids: */
                         	line = getNonTag(mp); /* Num. of bids */
 				aip->bids = (int)strtol(line, NULL, 10);
