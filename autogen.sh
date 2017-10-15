@@ -36,11 +36,11 @@ autoreconf -f -i -Wall,no-obsolete
 ./configure --enable-debug
 
 #make clean
-make ChangeLog
+#make ChangeLog
 
 #make
 #make check
 #make -C doc/latex/
-make dist-gzip
+#make dist-gzip
 
 fi
