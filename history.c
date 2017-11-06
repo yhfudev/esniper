@@ -397,7 +397,7 @@ parseBidHistoryInternal(pageInfo_t *pp, memBuf_t *mp, auctionInfo *aip, time_t s
 		aip->endTime = start + aip->remain;
 		/* formated time/date output */
 		tmPtr = localtime(&(aip->endTime));
-		strftime(timestr , 20, "%d/%m/%Y %H:%M:%S", tmPtr);
+		strftime(timestr , 20, "%Y-%m-%d %H:%M:%S", tmPtr);
 		if (!debugMode)
 			printLog(stdout, "End time: %s\n", timestr);
 	} else
