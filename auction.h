@@ -33,6 +33,7 @@
 
 extern int getInfo(auctionInfo *aip);
 extern int snipeAuction(auctionInfo *aip);
+extern int checkWonAuction(auctionInfo *aip);
 extern int printMyItems(void);
 
 typedef struct {

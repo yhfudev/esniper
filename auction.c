@@ -1062,7 +1062,6 @@ watch(auctionInfo *aip)
 int
 snipeAuction(auctionInfo *aip)
 {
-	int won = 0;
 	char *tmpUsername;
 
 	if (!aip)
@@ -1111,7 +1110,19 @@ snipeAuction(auctionInfo *aip)
 			break;
 		}
 	}
+    return 0;
+}
 
+/*
+ * parameters:
+ * aip	auction to bid on
+ *
+ * return number of items won
+ */
+int
+checkWonAuction(auctionInfo *aip)
+{
+	int won = 0;
 	/* view auction after bid.
 	 * Stick it in a loop in case our timing is a bit off (due
 	 * to wild swings in latency, for instance).

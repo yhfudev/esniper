@@ -881,10 +881,24 @@ main(int argc, char *argv[])
 		exit(0);
 	}
 
-	for (i = 0; i < numAuctions && options.quantity > 0; ++i) {
+    int idx_unprocessed = 0;
+    int j = 0;
+	for (i = 0; i < numAuctions && options.quantity > 0; i ++) {
 		if (numAuctionsOrig > 1)
 			printRemain(numAuctions - i);
-		won += snipeAuction(auctions[i]);
+		snipeAuction(auctions[i]);
+        /* check the current time and postpone the won checking if there's no enough time to bid others! */
+        /* There's around 4 seconds to finish bid for an item. */
+        for (j = idx_unprocessed;
+              (j <= i)
+              && ((options.quantity < 1)
+                  || (i + 1 >= numAuctions)
+                  || ((i + 1 < numAuctions)
+                      && (auctions[i+1]->endTime - options.bidtime > time(NULL) + 20 )));
+            j ++) {
+            won += checkWonAuction(auctions[j]);
+            idx_unprocessed ++;
+        }
 	}
 	for (i = 0; i < numAuctions && options.quantity > 0; ++i)
 		freeAuction(auctions[i]);
