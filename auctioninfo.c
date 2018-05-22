@@ -319,12 +319,6 @@ compareAuctionInfo(const void *p1, const void *p2)
 	a1 = *((const auctionInfo * const *)p1);
 	a2 = *((const auctionInfo * const *)p2);
 
-	/* auctions are the same? */
-	if (!strcmp(a1->auction, a2->auction))
-		return 0;
-	/* Currently winning bids go first */
-	if (a1->winning != a2->winning)
-		return a1->winning > a2->winning ? -1 : 1;
 	/* if end time is the same we compare the current price
 	 * and use the lower price first
 	 */
@@ -333,7 +327,10 @@ compareAuctionInfo(const void *p1, const void *p2)
 		 * convert the price to cent or whatever it's called
 		 */
 		return (int)((a1->price * 100.0) - (a2->price * 100.0));
-	return (int)(a1->endTime - a2->endTime);
+    if (a1->endTime < a2->endTime) {
+        return -1;
+    }
+	return 1;
 }
 
 /*
@@ -376,6 +373,7 @@ auctionError(auctionInfo *aip, enum auctionErrorCode pe, const char *details)
 	aip->auctionError = pe;
 	if (details)
 		aip->auctionErrorDetail = myStrdup(details);
+    printAuctionError(aip, stderr);
 	return 1;
 }
 
